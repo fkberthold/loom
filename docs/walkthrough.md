@@ -126,16 +126,19 @@ yes, 80v
 
 **You:**
 ```
-/working-a-bead 80v
+/bugfix-a-bead 80v
 ```
 
 *The slash command fires. Because it has `disable-model-invocation:
 true`, it only runs on explicit invocation — the model can't
-auto-trigger it. The command body says "Invoke the working-a-bead
-skill and follow it exactly as presented."*
+auto-trigger it. The command body says "Invoke the bugfix-a-bead
+skill and follow it exactly as presented." (Once the
+`/working-a-bead` router lands, you'll be able to type that and let
+it pick the matching activity recipe by `bead.type`.)*
 
-**Claude:** *(loads `~/.claude/skills/working-a-bead/SKILL.md` and
-walks step 1)*
+**Claude:** *(loads `~/.claude/skills/bugfix-a-bead/SKILL.md` —
+which defers to `bead-lifecycle-shell` for phases A/B/C/D and walks
+phase A1 first)*
 
 > Step 1 — searching MemPalace for the `80v` bug family. Dispatching
 > `bug-family-researcher` subagent with bead title + symptom.
@@ -698,11 +701,12 @@ the visibility (status line, state file).
 
 ### **[v1.5]** If your project has `mode: off`
 
-The session-startup skill skips itself. The working-a-bead skill
-refuses with: *"workflow mode is off; the recipe skill is disabled
-for this project. Bypass via `CLAUDE_WORKFLOW_OFF=0` env or edit
-`<project>/.claude/workflow.json`. To work the bead anyway, drive it
-manually."* All three hooks are silent. Status line is empty.
+The session-startup skill skips itself. Every activity recipe
+defers to `bead-lifecycle-shell`, which refuses with: *"workflow
+mode is off; the recipe skill is disabled for this project. Bypass
+via `CLAUDE_WORKFLOW_OFF=0` env or edit
+`<project>/.claude/workflow.json`. To work the bead anyway, drive
+it manually."* All three hooks are silent. Status line is empty.
 
 Use case: a project where the workflow doesn't fit (a one-off script,
 an exploratory spike, a non-engineering project). The bd CLI still
@@ -723,9 +727,11 @@ becomes "test for the feature AND for the negative cases."
 
 ### If you had 3 unrelated bugs to fix
 
-After session-startup picks the first one, instead of `/working-a-bead
-<id>`, invoke `superpowers:dispatching-parallel-agents`. That spawns
-one subagent per bug — each runs the recipe in its own worktree,
+After session-startup picks the first one, instead of
+`/bugfix-a-bead <id>` (or `/working-a-bead <id>` once the router
+lands), invoke `superpowers:dispatching-parallel-agents`. That
+spawns one subagent per bug — each runs the recipe in its own
+worktree,
 fully isolated. After all complete, you batch-merge sequentially and
 fix any cross-branch collateral in a single follow-up commit (this
 session's t92/0qw/bi2 work hit one such collateral fix; it's normal).
@@ -780,9 +786,10 @@ existence) but not yet at the live-session level. Specifically:
 - **Hot-reload of `settings.json`** for the new hooks needs verification.
   If hooks don't fire on the first try, `/clear` and retry.
 - **Slash commands dispatching subagents** is the most novel pattern.
-  If `/working-a-bead` doesn't auto-dispatch the bug-family-researcher
-  at step 1, dispatch manually with the Agent tool and update the
-  command to be more explicit.
+  If `/bugfix-a-bead` (or `/working-a-bead` once the router lands)
+  doesn't auto-dispatch the bug-family-researcher at phase A1,
+  dispatch manually with the Agent tool and update the command to be
+  more explicit.
 - **The blocking close-capture hook** is the most likely friction
   point. If it fires too aggressively, consider tightening the
   matcher (e.g., only block if the bead's ID was recently in
@@ -805,9 +812,10 @@ behavior:
 
 | Friction | Edit |
 |---|---|
-| The recipe is wrong / missing a step | `~/.claude/skills/working-a-bead/SKILL.md` |
+| The bug-shaped variable middle is wrong | `~/.claude/skills/bugfix-a-bead/SKILL.md` |
+| Cross-activity lifecycle phase wrong | `~/.claude/skills/bead-lifecycle-shell/SKILL.md` |
 | Cold-start ritual missing something | `~/.claude/skills/session-startup/SKILL.md` |
-| `/working-a-bead` should do X | `~/.claude/commands/working-a-bead.md` |
+| `/bugfix-a-bead` should do X | `~/.claude/commands/bugfix-a-bead.md` |
 | Subagent prompt unclear | `~/.claude/agents/<name>.md` |
 | Hook fires wrong / too aggressively | `~/.claude/hooks/<name>.sh` |
 | Permission keeps prompting | `~/.claude/settings.json` `permissions.allow` |

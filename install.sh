@@ -32,7 +32,7 @@ do_or_print() {
 }
 
 # Sanity check: are we in the loom repo?
-for required in skills/working-a-bead/SKILL.md hooks/bd-claim-research.sh settings.snippet.json; do
+for required in skills/bugfix-a-bead/SKILL.md hooks/bd-claim-research.sh settings.snippet.json; do
   if [ ! -f "$LOOM_ROOT/$required" ]; then
     echo "[loom-install] ERROR: not in loom repo root (missing $required)" >&2
     exit 1
@@ -84,7 +84,7 @@ install_link() {
 }
 
 log "Linking skills..."
-install_link skills/working-a-bead/SKILL.md skills/working-a-bead/SKILL.md
+install_link skills/bugfix-a-bead/SKILL.md skills/bugfix-a-bead/SKILL.md
 install_link skills/bead-lifecycle-shell/SKILL.md skills/bead-lifecycle-shell/SKILL.md
 install_link skills/session-startup/SKILL.md skills/session-startup/SKILL.md
 

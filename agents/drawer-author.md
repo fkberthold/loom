@@ -1,7 +1,7 @@
 ---
 name: drawer-author
 description: |
-  Use after a bead is closed (or about to be closed) to draft the MemPalace decision drawer that captures what was decided, why, and how it was verified. Returns a complete drawer body the main agent can review and file via mempalace_add_drawer. Triggered by the /wrap-up slash command and recommended at the end of `working-a-bead` step 14.
+  Use after a bead is closed (or about to be closed) to draft the MemPalace decision drawer that captures what was decided, why, and how it was verified. Returns a complete drawer body the main agent can review and file via mempalace_add_drawer. Triggered by the /wrap-up slash command and recommended at the end of every activity recipe's phase D3 (delegated to `bead-lifecycle-shell`).
 
   Examples:
   <example>
@@ -97,4 +97,4 @@ OPEN: <anything left undone, follow-up beads, deferred polish>.
 
 ## Why this exists
 
-The most-skipped step in `working-a-bead` step 14 is the decision drawer. Drafting from scratch at session-end is high-friction; reviewing a drafted body and editing for accuracy is low-friction. This agent flips the drawer-write task from "create from blank" to "review + adjust".
+The most-skipped step across the activity recipes is phase D3 — the decision drawer (owned by `bead-lifecycle-shell`). Drafting from scratch at session-end is high-friction; reviewing a drafted body and editing for accuracy is low-friction. This agent flips the drawer-write task from "create from blank" to "review + adjust".

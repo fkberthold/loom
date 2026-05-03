@@ -19,4 +19,5 @@ preview it, and only then write to disk.
 
 This is strictly a manual workflow. The audit-project skill is
 `disable-model-invocation: true` and is never auto-suggested by
-session-startup, working-a-bead, or any hook. The user has to ask.
+session-startup, the activity recipes, or any hook. The user has to
+ask.

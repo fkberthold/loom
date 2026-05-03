@@ -28,13 +28,17 @@ The four-axis memory model:
 | Per-agent introspective continuity | MemPalace diary | `diary_read` |
 
 loom layers onto these:
-- **Recipes** (skills like `working-a-bead`) — the canonical 14-step
-  bead-execution sequence
+- **Recipes** — activity-shaped skills (`bugfix-a-bead` today;
+  `feature-a-bead`, `refactor-a-bead`, `research-a-bead`,
+  `cleanup-a-bead`, `docs-a-bead` in flight) that own each activity's
+  variable middle, plus the cross-activity `bead-lifecycle-shell` that
+  owns claim/isolate/verify/close/capture
 - **Subagents** (`bug-family-researcher`, `drawer-author`,
   `kg-relationship-extractor`, `project-onboarder`) — isolated workers
   that handle search/synthesis without bloating main context
-- **Slash commands** (`/working-a-bead`, `/lineage`, `/wrap-up`,
-  `/audit-project`) — user-triggered rituals
+- **Slash commands** (`/bugfix-a-bead`, `/working-a-bead` router
+  (in flight), `/lineage`, `/wrap-up`, `/audit-project`) —
+  user-triggered rituals
 - **Hooks** (PreToolUse on `bd update --claim`, `bd close`, `git push`;
   SessionStart for mode onboarding) — automation that fires without
   agent intervention
@@ -79,17 +83,17 @@ Removes the symlinks and restores any `.pre-loom.bak` backups.
 
 ```
 loom/
-├── skills/                    # 14-step recipe + cold-start ritual + shared lifecycle shell
-│   ├── working-a-bead/SKILL.md
-│   ├── bead-lifecycle-shell/SKILL.md
-│   └── session-startup/SKILL.md
+├── skills/                    # Activity recipes + cold-start ritual + shared lifecycle shell
+│   ├── bugfix-a-bead/SKILL.md      # variable middle for bug-shaped beads
+│   ├── bead-lifecycle-shell/SKILL.md  # cross-activity scaffolding
+│   └── session-startup/SKILL.md    # cold-start ritual
 ├── agents/                    # Subagents
 │   ├── bug-family-researcher.md
 │   ├── drawer-author.md
 │   ├── kg-relationship-extractor.md
 │   └── project-onboarder.md
 ├── commands/                  # Slash commands
-│   ├── working-a-bead.md
+│   ├── bugfix-a-bead.md
 │   ├── lineage.md
 │   ├── wrap-up.md
 │   └── audit-project.md

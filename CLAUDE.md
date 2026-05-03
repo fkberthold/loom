@@ -21,8 +21,11 @@ definitions, slash commands) + bash (hooks, helpers, scripts) + JSON
 
 ### Recipe applies — but lighter
 
-The `working-a-bead` recipe applies to loom work too, with these
-adjustments:
+The activity recipes (today: `bugfix-a-bead`; in flight:
+`feature-a-bead`, `refactor-a-bead`, `research-a-bead`,
+`cleanup-a-bead`, `docs-a-bead`) apply to loom work too — pick the
+recipe matching the bead's shape, or invoke `/working-a-bead <id>`
+once the router lands. With these adjustments:
 
 - **TDD scales differently for bash.** Use `bats` or shell-fixture
   tests under `lib/tests/`. The `light` workflow mode is appropriate

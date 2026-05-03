@@ -61,7 +61,7 @@ it before running the rest of this skill.
 
 8. **Confirm intent.** Tell the user the bead, the process skill, and the immediate next action (1-2 sentences). Wait for `yes` / redirect before claiming or coding.
 
-9. **Hand off to the bead-execution recipe.** Once the user confirms the bead, invoke the `working-a-bead` skill (or have the user trigger `/working-a-bead <id>`) to follow the canonical 14-step ladder from claim to merged. The lookup table in step 7 is the *index* into that recipe; `working-a-bead` is the recipe itself.
+9. **Hand off to the bead-execution recipe.** Once the user confirms the bead, invoke the activity recipe matching the bead's shape (today: `bugfix-a-bead`; coming: `feature-a-bead`, `refactor-a-bead`, `research-a-bead`, `cleanup-a-bead`, `docs-a-bead`) — or have the user trigger `/working-a-bead <id>` once the router lands. The recipe defers to `bead-lifecycle-shell` for phases A (search + claim), B (verification), C (commit + finish-branch), and D (close + capture); the recipe itself only owns the activity-specific variable middle. The lookup table in step 7 is the *index* into the right recipe.
 
 ## Example
 
@@ -88,4 +88,4 @@ You: bd ready leads with 13p.4.2 (P0, MemPalace drawer rewrites). The latest
 - **Process skill before action.** Per superpowers:using-superpowers / beadpowers:using-beadpowers — the relevant skill must be invoked before coding or filing. This step is where it happens.
 - **Confirm before claiming.** `bd update <id> --claim` is reversible but noisy. Don't claim until the user signs off on the bead choice.
 - **Don't run this skill mid-task.** Designed for cold starts. Mid-session use wastes context.
-- **Search MemPalace at the design moment, not just at session start.** The cold-start search recovers context; the bead-claim search recovers patterns. Both matter. The `working-a-bead` skill enforces the second search at step 1; this cold-start skill only covers the first.
+- **Search MemPalace at the design moment, not just at session start.** The cold-start search recovers context; the bead-claim search recovers patterns. Both matter. The `bead-lifecycle-shell` skill enforces the second search at phase A1 (called by every activity recipe); this cold-start skill only covers the first.

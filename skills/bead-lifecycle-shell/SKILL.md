@@ -352,23 +352,23 @@ shell + their own variable middle.
 This shell is the v2 successor to the v1 `working-a-bead` skill
 (which is bug-shaped). Full design + decisions live in the MemPalace
 drawer "RECIPE SHAPES — ACTIVITY MATRIX" (hundred_acre_woods/decisions
-room, 2026-05-02). Build queue tracked under beads epic
-`hundred-acre-woods-bng`.
+room, 2026-05-02). Build queue tracked under loom epic `loom-0y6`
+(continuation of HAW epic `hundred-acre-woods-bng`).
 
 Companion skills (each one fills the variable middle for one
 activity shape):
 
-- `bugfix-a-bead` (renames v1 `working-a-bead`) — bead `ipj`
-- `feature-a-bead` — bead `305`
-- `refactor-a-bead` — bead `2q2`
-- `research-a-bead` — bead `3ck`
-- `cleanup-a-bead` (deferred) — bead `94t`
-- `docs-a-bead` (deferred) — bead `ott`
+- `bugfix-a-bead` (renames v1 `working-a-bead`) — bead `loom-lzi`
+- `feature-a-bead` — bead `loom-5rf`
+- `refactor-a-bead` — bead `loom-uca`
+- `research-a-bead` — bead `loom-0q0`
+- `cleanup-a-bead` — bead `loom-62x`
+- `docs-a-bead` — bead `loom-s0n`
 
 Slash commands and subagents that integrate with the shell:
 
 - `/working-a-bead <id>` — router that picks the right activity
-  recipe (bead `8t4`).
+  recipe (bead `loom-1ab`).
 - `/wrap-up` — bundles phase D3 captures.
 - `bug-family-researcher` — phase A1 helper.
 - `drawer-author` — phase D3 helper.

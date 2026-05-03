@@ -172,14 +172,15 @@ context7-plugin@context7-marketplace     # docs lookup for libraries
 │   ├── workflow-state            # CLI wrapper for skills/agents
 │   └── statusline.sh             # Claude Code statusLine target
 ├── skills/
-│   ├── session-startup/SKILL.md  # cold-start ritual (extended)
-│   └── working-a-bead/SKILL.md   # 14-step recipe
+│   ├── session-startup/SKILL.md       # cold-start ritual
+│   ├── bead-lifecycle-shell/SKILL.md  # cross-activity scaffolding (claim/verify/close/capture)
+│   └── bugfix-a-bead/SKILL.md         # bug-shaped variable middle (was working-a-bead pre-2026-05-03)
 ├── agents/
 │   ├── bug-family-researcher.md
 │   ├── drawer-author.md
 │   └── kg-relationship-extractor.md
 ├── commands/
-│   ├── working-a-bead.md         # /working-a-bead [bead-id]
+│   ├── bugfix-a-bead.md          # /bugfix-a-bead [bead-id]
 │   ├── lineage.md                # /lineage <topic>
 │   └── wrap-up.md                # /wrap-up
 └── hooks/
@@ -247,13 +248,19 @@ we left off"). The skill walks 9 steps:
 6. Pick a bead
 7. Surface the right process skill for the bead shape
 8. Confirm intent with you before claiming
-9. Hand off to `working-a-bead` skill
+9. Hand off to the activity recipe matching the bead's shape (today: `bugfix-a-bead`; sibling recipes for feature/refactor/research/cleanup/docs in flight, plus `/working-a-bead` router)
 
 ### When you start work on a bead
 
-Run `/working-a-bead <bead-id>` (or invoke the skill manually if the
-slash command hasn't reloaded). The skill walks the 14 steps in
-section 4.
+Run `/bugfix-a-bead <bead-id>` (for bug beads — today the only
+shipped activity recipe). The recipe defers to `bead-lifecycle-shell`
+for the cross-activity phases (claim → verify → commit → close →
+capture) and supplies its own variable middle (debug → RED → GREEN →
+bug-class → enshrined-sweep). Section 4 walks the full sequence.
+
+Once the `/working-a-bead` router lands (loom-1ab), it will pick the
+matching activity recipe automatically by `bead.type` + description
+heuristics.
 
 The `bd update --claim` PreToolUse hook fires automatically and
 reminds you to dispatch the `bug-family-researcher` subagent.
@@ -286,11 +293,22 @@ you accomplished that wasn't captured during a `/wrap-up`.
 
 ---
 
-## 4. The 14-step bead recipe
+## 4. The bead recipe (bugfix shape, with shared lifecycle shell)
 
-> Source: `~/.claude/skills/working-a-bead/SKILL.md`
+> Sources: `~/.claude/skills/bead-lifecycle-shell/SKILL.md`
+> (cross-activity phases A/B/C/D) +
+> `~/.claude/skills/bugfix-a-bead/SKILL.md` (bug-specific variable
+> middle M1–M5).
 >
-> Trigger: `/working-a-bead <bead-id>`
+> Trigger: `/bugfix-a-bead <bead-id>` today, or `/working-a-bead <id>`
+> once the router lands (loom-1ab).
+
+The 14 steps below are the union of the shell's phases (A1, A2, B1,
+C1–C3, D1–D3 = 8 steps) and the bugfix recipe's variable middle (M1–M5
+plus an optional multi-task subagent step = 6 steps). They appear
+together here because the bugfix shape is the only one shipped today.
+Sibling activity recipes (feature/refactor/research/cleanup/docs) will
+substitute their own variable middle but reuse phases A/B/C/D verbatim.
 
 1. **Search MemPalace for the bug family** (`mempalace_search` +
    `mempalace_kg_query` + `bd memories <keyword>`). Restate the
@@ -342,17 +360,31 @@ you accomplished that wasn't captured during a `/wrap-up`.
 
 ## 5. Reference: skills
 
-### `~/.claude/skills/working-a-bead/SKILL.md`
+### `~/.claude/skills/bead-lifecycle-shell/SKILL.md`
 
-The 14-step recipe (above). Frontmatter has
-`disable-model-invocation: true` so it only fires on explicit
-invocation, not auto-firing in normal conversation.
+The cross-activity scaffolding. Owns phases A (search + claim), B
+(verification), C (commit + finish-branch), and D (close + capture).
+Every activity recipe cites the shell by phase letter and trusts it to
+remain the source of truth for the surrounding lifecycle.
+`disable-model-invocation: true` — invoked indirectly via an activity
+recipe, never directly by the user.
+
+### `~/.claude/skills/bugfix-a-bead/SKILL.md`
+
+The bug-shaped variable middle (steps M1–M5: debug → RED → GREEN →
+bug-class → enshrined-sweep). Renamed from `working-a-bead` on
+2026-05-03 (bead `loom-lzi`) when the cross-activity scaffolding
+moved into `bead-lifecycle-shell` and sibling activity recipes were
+filed (epic `loom-0y6`). Frontmatter has `disable-model-invocation:
+true` so it only fires on explicit invocation
+(`/bugfix-a-bead <bead-id>` or via the `/working-a-bead` router once
+that lands).
 
 ### `~/.claude/skills/session-startup/SKILL.md`
 
 Cold-start ritual. 9 steps (extended this session to include
-`mempalace_diary_read` + `bd stale` + `bd memories` + handoff to
-`working-a-bead`).
+`mempalace_diary_read` + `bd stale` + `bd memories` + handoff to the
+matching activity recipe).
 
 ### `~/.claude/skills/audit-project/SKILL.md` (NEW v1.5, added 2026-05-03)
 
@@ -362,7 +394,8 @@ MemPalace wing, CLAUDE.md ≤200 lines, `.claude/rules/` for detected
 directories, optional `.claude/agents/`+`commands/`, `bd memories`)
 and offers template-generated fixes per gap. Frontmatter has
 `disable-model-invocation: true`; never auto-suggested by
-session-startup, working-a-bead, or any hook. Triggered exclusively
+session-startup, the activity recipes, or any hook. Triggered
+exclusively
 by `/audit-project`. The skill dispatches the `project-onboarder`
 subagent for read-only scanning, then drives interactive fix
 application from the main conversation.
@@ -399,13 +432,19 @@ application from the main conversation.
 All three have `disable-model-invocation: true` — only Frank
 explicitly triggers them.
 
-### `/working-a-bead [bead-id]`
+### `/bugfix-a-bead [bead-id]`
 
-Source: `~/.claude/commands/working-a-bead.md`
+Source: `~/.claude/commands/bugfix-a-bead.md`
 
-Loads the `working-a-bead` skill and runs the 14-step recipe
-on the named bead. If no bead-id given, runs `bd ready` and
+Loads the `bugfix-a-bead` skill and runs the recipe on the named
+bug-shaped bead. The skill defers to `bead-lifecycle-shell` for the
+cross-activity phases. If no bead-id given, runs `bd ready` and
 confirms with you which bead to work first.
+
+The `/working-a-bead` router (loom-1ab) will replace direct
+`/bugfix-a-bead` invocation as the canonical entry point once it
+lands; until then call the activity recipe matching the bead shape
+directly.
 
 ### `/lineage <topic>`
 
@@ -892,7 +931,8 @@ superseded or a fact stops being true, manually call
 
 1. `/session-startup` if you haven't already.
 2. `bd show <bead-id>` to read the symptom + hypothesis.
-3. `/working-a-bead <bead-id>` to start the recipe. The
+3. `/bugfix-a-bead <bead-id>` to start the recipe (or
+   `/working-a-bead <bead-id>` once the router lands). The
    bug-family-researcher subagent fires automatically (via
    the hook) at the claim step.
 4. Follow the recipe. Most bugs go from claim to merged in 1-3
@@ -918,7 +958,8 @@ The recipe doesn't apply. Steps:
    the output will be beads).
 2. Iterate on the design through dialogue.
 3. When a concrete bead emerges: `beadpowers:create-beads` to file,
-   then `/working-a-bead <new-id>` to engage the recipe.
+   then `/bugfix-a-bead <new-id>` (or `/working-a-bead <new-id>`
+   once the router lands) to engage the recipe.
 
 ### "I think I've seen this bug before — where?"
 
@@ -1000,7 +1041,12 @@ Keep each rule file ≤30 lines. Cite source lineage when applicable
 - **KG** — MemPalace knowledge graph. SQLite-backed S→P→O triples
   with valid_from/ended timestamps.
 - **MCP** — Model Context Protocol. MemPalace exposes 29 MCP tools.
-- **Recipe** — the 14-step working-a-bead workflow.
+- **Recipe** — an activity-shaped workflow (today: `bugfix-a-bead`;
+  in flight: `feature-a-bead`, `refactor-a-bead`, `research-a-bead`,
+  `cleanup-a-bead`, `docs-a-bead`) that supplies its own variable
+  middle and defers to `bead-lifecycle-shell` for the surrounding
+  phases. Pre-2026-05-03 this was a single 14-step `working-a-bead`
+  skill; the rename + extraction happened in bead `loom-lzi`.
 - **Room** — topic/aspect within a wing (e.g., `decisions`, `diary`).
 - **Subagent** — isolated worker with own context, returns summary.
 - **Tunnel** — explicit cross-wing link in MemPalace.
@@ -1013,7 +1059,8 @@ Keep each rule file ≤30 lines. Cite source lineage when applicable
 
 | You want to update | Edit this |
 |---|---|
-| The 14-step recipe | `~/.claude/skills/working-a-bead/SKILL.md` |
+| The bug-shaped variable middle | `~/.claude/skills/bugfix-a-bead/SKILL.md` |
+| Cross-activity lifecycle phases (A/B/C/D) | `~/.claude/skills/bead-lifecycle-shell/SKILL.md` |
 | Cold-start ritual | `~/.claude/skills/session-startup/SKILL.md` |
 | Slash command behavior | `~/.claude/commands/<name>.md` |
 | Subagent prompt | `~/.claude/agents/<name>.md` |

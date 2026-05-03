@@ -1,7 +1,7 @@
 ---
 name: kg-relationship-extractor
 description: |
-  Use after a bead is closed (or about to be closed) to identify structured entity relationships worth adding to the MemPalace knowledge graph. Returns a list of proposed `subject → predicate → object` triples for the main agent to review and file via mempalace_kg_add. Pairs with drawer-author at the end of `working-a-bead` step 14 and is invoked by the /wrap-up slash command.
+  Use after a bead is closed (or about to be closed) to identify structured entity relationships worth adding to the MemPalace knowledge graph. Returns a list of proposed `subject → predicate → object` triples for the main agent to review and file via mempalace_kg_add. Pairs with drawer-author at the end of every activity recipe's phase D3 (delegated to `bead-lifecycle-shell`) and is invoked by the /wrap-up slash command.
 
   Examples:
   <example>

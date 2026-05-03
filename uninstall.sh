@@ -57,9 +57,11 @@ log "uninstall from: $CLAUDE_HOME"
 echo ""
 
 log "Removing skill links..."
-uninstall_link skills/working-a-bead/SKILL.md
+uninstall_link skills/bugfix-a-bead/SKILL.md
 uninstall_link skills/bead-lifecycle-shell/SKILL.md
 uninstall_link skills/session-startup/SKILL.md
+# v1 working-a-bead skill (renamed to bugfix-a-bead 2026-05-03 by loom-lzi); remove any stale link
+uninstall_link skills/working-a-bead/SKILL.md
 
 log "Removing agent links..."
 for f in "$LOOM_ROOT"/agents/*.md; do
