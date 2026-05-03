@@ -85,6 +85,7 @@ install_link() {
 
 log "Linking skills..."
 install_link skills/bugfix-a-bead/SKILL.md skills/bugfix-a-bead/SKILL.md
+install_link skills/research-a-bead/SKILL.md skills/research-a-bead/SKILL.md
 install_link skills/bead-lifecycle-shell/SKILL.md skills/bead-lifecycle-shell/SKILL.md
 install_link skills/session-startup/SKILL.md skills/session-startup/SKILL.md
 
