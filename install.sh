@@ -66,6 +66,13 @@ install_link() {
     return 0
   fi
 
+  # Ensure parent dir exists (per-skill subdirs aren't pre-created above).
+  local dst_parent
+  dst_parent="$(dirname "$dst")"
+  if [ ! -d "$dst_parent" ]; then
+    do_or_print "mkdir -p '$dst_parent'"
+  fi
+
   if [ -L "$dst" ]; then
     # Already a symlink. Reset it.
     do_or_print "rm '$dst'"
@@ -86,6 +93,10 @@ install_link() {
 log "Linking skills..."
 install_link skills/bugfix-a-bead/SKILL.md skills/bugfix-a-bead/SKILL.md
 install_link skills/research-a-bead/SKILL.md skills/research-a-bead/SKILL.md
+install_link skills/feature-a-bead/SKILL.md skills/feature-a-bead/SKILL.md
+install_link skills/refactor-a-bead/SKILL.md skills/refactor-a-bead/SKILL.md
+install_link skills/cleanup-a-bead/SKILL.md skills/cleanup-a-bead/SKILL.md
+install_link skills/docs-a-bead/SKILL.md skills/docs-a-bead/SKILL.md
 install_link skills/bead-lifecycle-shell/SKILL.md skills/bead-lifecycle-shell/SKILL.md
 install_link skills/session-startup/SKILL.md skills/session-startup/SKILL.md
 
