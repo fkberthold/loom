@@ -606,8 +606,15 @@ turn off the block entirely.
 
 **Trigger**: Bash command matching `git push` (excludes `--dry-run`).
 
-**Mode behavior**:
-- `full`  — warns if `.beads/` has uncommitted modifications.
+**Push-target detection** (added by `loom-u9v`): if the command chains
+`cd <dir> && git push` (or `;`), the hook treats `<dir>` as the push
+target rather than `$PWD`. Multiple chained `cd`s pick the last one.
+This avoids a false-positive when pushing repo A from a cwd inside
+repo B with dirty `.beads/`. The hook is silent unless the *push
+target* itself has dirty `.beads/`.
+
+**Mode behavior** (resolved against the push target's project):
+- `full`  — warns if target's `.beads/` has uncommitted modifications.
 - `light` — warns (same as full; informational only).
 - `off`   — silent.
 

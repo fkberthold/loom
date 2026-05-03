@@ -30,17 +30,32 @@ fi
 echo "$CMD" | grep -qE '(^|[;&|]|\n)[[:space:]]*git[[:space:]]+push([[:space:]]|$)' || exit 0
 echo "$CMD" | grep -qE '\-\-dry-run' && exit 0
 
-# Only inside a beads workspace.
-[ -d ".beads" ] || exit 0
+# Determine the directory `git push` will actually run in. If the command
+# chains `cd <dir>` (with `&&` or `;`) before `git push`, that <dir> is the
+# real push target — not $PWD. Otherwise default to $PWD.
+TARGET_DIR="$PWD"
+if echo "$CMD" | grep -qE '(^|[;&|]|\n)[[:space:]]*cd[[:space:]]+[^[:space:];&|]+[[:space:]]*(&&|;)[[:space:]]*git[[:space:]]+push'; then
+  CD_DIR=$(echo "$CMD" \
+    | grep -oE '(^|[;&|]|\n)[[:space:]]*cd[[:space:]]+[^[:space:];&|]+' \
+    | tail -1 \
+    | sed -E 's/^.*cd[[:space:]]+//')
+  case "$CD_DIR" in
+    /*) TARGET_DIR="$CD_DIR" ;;
+    *)  TARGET_DIR="$PWD/$CD_DIR" ;;
+  esac
+fi
 
-# Mode check: silent in off.
+# Only when the push target is inside a beads workspace.
+[ -d "$TARGET_DIR/.beads" ] || exit 0
+
+# Mode check: silent in off (resolved against the push target's project).
 # shellcheck source=../lib/workflow-state.sh
 . "$HOME/.claude/lib/workflow-state.sh"
-MODE=$(workflow_resolve_mode "$PWD")
+MODE=$(workflow_resolve_mode "$TARGET_DIR")
 [ "$MODE" = "off" ] && exit 0
 
-# Check whether .beads/ has uncommitted modifications.
-if git status --porcelain .beads/ 2>/dev/null | grep -q '.'; then
+# Check whether the push target's .beads/ has uncommitted modifications.
+if (cd "$TARGET_DIR" && git status --porcelain .beads/ 2>/dev/null | grep -q '.'); then
   cat <<EOF
 {
   "hookSpecificOutput": {
