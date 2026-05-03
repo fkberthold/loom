@@ -1,0 +1,25 @@
+# Per-installation symlinks created by install.sh (none of loom's files;
+# the symlinks live in ~/.claude/, not here).
+
+# bd state intentionally COMMITTED (issues.jsonl is the cross-session source of truth).
+# But interactions.jsonl is a per-session log.
+.beads/interactions.jsonl
+
+# Per-session ephemera if loom itself is being worked on
+.claude/workflow-state.json
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Worktrees (per CLAUDE.md convention)
+.worktrees/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

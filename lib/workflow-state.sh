@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# workflow-state.sh — read/write the per-project workflow state file at
+# <project>/.claude/workflow-state.json.
+#
+# Schema (v1):
+#   {
+#     "v": 1,
+#     "mode":     "full" | "light" | "off",
+#     "activity": "bug" | "feature" | "refactor" | "research" |
+#                 "cleanup" | "docs" | "task" | "epic" | "idle",
+#     "bead":     "<id>" | null,
+#     "stage":    "idle" | "claim" | "research" | "tdd-red" |
+#                 "tdd-green" | "verify" | "review" | "commit" |
+#                 "wrap-up" | "close",
+#     "updated":  "ISO-8601 UTC"
+#   }
+#
+# This file is per-session ephemera; gitignore it in your project.
+#
+# Sourceable library. Provides:
+#   workflow_state_path [start_dir]                 echoes JSON file path
+#   workflow_state_init [start_dir]                 writes idle state if absent
+#   workflow_state_get  <field> [start_dir]         echoes one field's value
+#   workflow_state_set  [--start-dir=...] k=v ...   atomically merges fields
+
+# Source the mode resolver (project root + initial mode).
+__WFS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=workflow-mode.sh
+. "$__WFS_LIB_DIR/workflow-mode.sh"
+
+workflow_state_path() {
+  local root
+  root=$(workflow_project_root "${1:-$PWD}")
+  printf '%s/.claude/workflow-state.json\n' "$root"
+}
+
+# Initialize an idle state file if it doesn't exist. Idempotent.
+workflow_state_init() {
+  local start="${1:-$PWD}"
+  local path
+  path=$(workflow_state_path "$start")
+  local dir
+  dir=$(dirname "$path")
+
+  [ -f "$path" ] && return 0
+
+  mkdir -p "$dir"
+  local mode now
+  mode=$(workflow_resolve_mode "$start")
+  now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  printf '{"v":1,"mode":"%s","activity":"idle","bead":null,"stage":"idle","updated":"%s"}\n' \
+    "$mode" "$now" > "$path.tmp.$$"
+  mv "$path.tmp.$$" "$path"
+}
+
+# Read one field. Echoes empty string if missing or file absent.
+workflow_state_get() {
+  local field="$1"
+  local start="${2:-$PWD}"
+  local path
+  path=$(workflow_state_path "$start")
+
+  [ -f "$path" ] || return 0
+
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg f "$field" '.[$f] // "" | tostring' "$path" 2>/dev/null \
+      | sed 's/^null$//'
+  else
+    grep -oE "\"$field\"[[:space:]]*:[[:space:]]*(\"[^\"]*\"|null|[0-9]+)" "$path" 2>/dev/null \
+      | head -1 \
+      | sed -E "s/.*:[[:space:]]*\"?([^\"]*)\"?$/\1/" \
+      | sed 's/^null$//'
+  fi
+}
+
+# Atomic merge-update. Args: optional --start-dir=PATH, then key=value pairs.
+# Always refreshes the 'updated' timestamp. Unknown keys are ignored.
+# Special: bead= (empty) or bead=null sets bead to JSON null.
+workflow_state_set() {
+  local start_dir=""
+  local pairs=()
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --start-dir=*) start_dir="${arg#--start-dir=}" ;;
+      *) pairs+=("$arg") ;;
+    esac
+  done
+  start_dir="${start_dir:-$PWD}"
+
+  workflow_state_init "$start_dir"
+
+  local path
+  path=$(workflow_state_path "$start_dir")
+  local now
+  now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Always refresh state.mode from live resolution unless caller overrides.
+  local override_mode=""
+  local kv0
+  for kv0 in "${pairs[@]}"; do
+    if [ "${kv0%%=*}" = "mode" ]; then
+      override_mode=set
+      break
+    fi
+  done
+  if [ -z "$override_mode" ]; then
+    local resolved_mode
+    resolved_mode=$(workflow_resolve_mode "$start_dir")
+    pairs+=("mode=$resolved_mode")
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    local jq_filter='.updated = $now'
+    local -a jq_args=(--arg now "$now")
+    local kv k v
+    for kv in "${pairs[@]}"; do
+      k="${kv%%=*}"
+      v="${kv#*=}"
+      case "$k" in
+        v|mode|activity|stage)
+          jq_filter="$jq_filter | .$k = \$$k"
+          jq_args+=(--arg "$k" "$v")
+          ;;
+        bead)
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            jq_filter="$jq_filter | .bead = null"
+          else
+            jq_filter="$jq_filter | .bead = \$bead"
+            jq_args+=(--arg bead "$v")
+          fi
+          ;;
+        *) ;;
+      esac
+    done
+    jq "${jq_args[@]}" "$jq_filter" "$path" > "$path.tmp.$$" \
+      && mv "$path.tmp.$$" "$path"
+  else
+    # No jq fallback: read current values, apply overrides, rewrite.
+    local cur_v cur_mode cur_activity cur_bead cur_stage
+    cur_v=$(workflow_state_get v "$start_dir")
+    cur_mode=$(workflow_state_get mode "$start_dir")
+    cur_activity=$(workflow_state_get activity "$start_dir")
+    cur_bead=$(workflow_state_get bead "$start_dir")
+    cur_stage=$(workflow_state_get stage "$start_dir")
+    [ -z "$cur_v" ] && cur_v=1
+    [ -z "$cur_mode" ] && cur_mode=full
+    [ -z "$cur_activity" ] && cur_activity=idle
+    [ -z "$cur_stage" ] && cur_stage=idle
+
+    local kv k v
+    for kv in "${pairs[@]}"; do
+      k="${kv%%=*}"
+      v="${kv#*=}"
+      case "$k" in
+        v) cur_v="$v" ;;
+        mode) cur_mode="$v" ;;
+        activity) cur_activity="$v" ;;
+        bead) cur_bead="$v" ;;
+        stage) cur_stage="$v" ;;
+      esac
+    done
+
+    local bead_json
+    if [ -z "$cur_bead" ] || [ "$cur_bead" = "null" ]; then
+      bead_json=null
+    else
+      bead_json="\"$cur_bead\""
+    fi
+
+    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","updated":"%s"}\n' \
+      "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$now" \
+      > "$path.tmp.$$"
+    mv "$path.tmp.$$" "$path"
+  fi
+}

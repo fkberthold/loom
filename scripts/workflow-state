@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# workflow-state — CLI wrapper for ~/.claude/lib/workflow-state.sh
+#
+# Usage:
+#   workflow-state get <field>            # read one field
+#   workflow-state set k=v [k=v ...]      # atomic merge update
+#   workflow-state init                   # ensure file exists (idle)
+#   workflow-state path                   # echo state-file path
+#   workflow-state mode                   # echo resolved workflow mode
+#   workflow-state show                   # pretty-print full state JSON
+#
+# All commands accept an optional trailing PATH argument (or
+# --start-dir=PATH for `set`) to target a project other than cwd.
+
+set -euo pipefail
+
+# shellcheck source=../lib/workflow-state.sh
+. "$HOME/.claude/lib/workflow-state.sh"
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  get)
+    [ $# -ge 1 ] || { echo "usage: workflow-state get <field> [path]" >&2; exit 2; }
+    workflow_state_get "$@"
+    ;;
+  set)
+    workflow_state_set "$@"
+    ;;
+  init)
+    workflow_state_init "$@"
+    ;;
+  path)
+    workflow_state_path "$@"
+    ;;
+  mode)
+    workflow_resolve_mode "$@"
+    ;;
+  show)
+    p=$(workflow_state_path "${1:-$PWD}")
+    if [ -f "$p" ] && command -v jq >/dev/null 2>&1; then
+      jq . "$p"
+    elif [ -f "$p" ]; then
+      cat "$p"
+    else
+      echo "(no state file at $p)" >&2
+      exit 1
+    fi
+    ;;
+  ""|-h|--help)
+    sed -n '2,16p' "$0"
+    ;;
+  *)
+    echo "workflow-state: unknown subcommand '$cmd'" >&2
+    echo "try: workflow-state --help" >&2
+    exit 2
+    ;;
+esac
