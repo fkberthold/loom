@@ -56,6 +56,52 @@ If the closing surfaced anything worth follow-up (deferred polish,
 related beads to file), surface that to the user before exiting. Don't
 file beads automatically — let the user decide.
 
+## 6. (loom only) Re-deploy via install.sh
+
+Loom is the workflow-infrastructure repo — its primitives only take
+effect once symlinked into `~/.claude/`. Any /wrap-up that landed a
+new, renamed, or moved skill / command / agent / hook / lib / script
+needs install.sh to run before the changes are actually live.
+
+**Detect loom checkout** (all conditions must hold):
+- `pwd` repo root contains `install.sh` AND `settings.snippet.json`
+- `install.sh` first line matches `#!/usr/bin/env bash` AND contains
+  the literal `loom install.sh` in its header comment
+
+If detected, run the deploy sequence below and report the output to
+the user. Skip silently in any other project (this step is a no-op).
+
+```bash
+# (a) mkdir parent dirs for any new skill subdirs (works around
+#     install.sh gap 1; see drawer "install.sh — TWO RENAME-DEPLOY
+#     GAPS FOUND", loom/decisions, 2026-05-03).
+for d in skills/*/; do
+  mkdir -p "$HOME/.claude/$d"
+done
+
+# (b) sweep dangling symlinks owned by loom (works around gap 2).
+#     Only deletes symlinks whose target path lives under this loom
+#     checkout AND no longer exists on disk. Preserves *.pre-loom.bak.
+LOOM_ROOT="$(pwd)"
+for dir in skills agents commands hooks lib scripts; do
+  find "$HOME/.claude/$dir" -maxdepth 3 -type l 2>/dev/null | while read -r link; do
+    target=$(readlink "$link")
+    case "$target" in
+      "$LOOM_ROOT"/*)
+        [ ! -e "$target" ] && rm "$link" && echo "  pruned dangling: $link"
+        ;;
+    esac
+  done
+done
+
+# (c) run the installer to (re-)create symlinks for current files.
+./install.sh
+```
+
+When install.sh + its gaps land a permanent fix (separate bead),
+this step collapses to just `./install.sh`. Until then, the (a)+(b)
+prelude is what makes a rename-deploy actually deploy.
+
 ## What to skip
 
 - If the bead was a trivial fix (≤ 1 line), the drawer + KG triples
