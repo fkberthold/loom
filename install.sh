@@ -90,6 +90,27 @@ install_link() {
   log "  linked $dst_rel → loom/$src_rel"
 }
 
+# Prune dangling loom-owned symlinks (orphans from renamed/deleted
+# loom files). Walks ~/.claude/{skills,agents,commands,hooks,lib,scripts}/
+# symlinks; removes those whose target points into $LOOM_ROOT/ but
+# the source file no longer exists. Preserves .pre-loom.bak files
+# (regular files; the -type l filter excludes them).
+log "Pruning dangling loom-owned symlinks..."
+for dir in skills agents commands hooks lib scripts; do
+  [ -d "$CLAUDE_HOME/$dir" ] || continue
+  find "$CLAUDE_HOME/$dir" -maxdepth 3 -type l 2>/dev/null | while read -r link; do
+    target=$(readlink "$link")
+    case "$target" in
+      "$LOOM_ROOT"/*)
+        if [ ! -e "$target" ]; then
+          do_or_print "rm '$link'"
+          log "  pruned dangling: $link"
+        fi
+        ;;
+    esac
+  done
+done
+
 log "Linking skills..."
 for f in "$LOOM_ROOT"/skills/*/SKILL.md; do
   rel="${f#$LOOM_ROOT/}"
