@@ -162,11 +162,13 @@ bd close <id>         # Complete work
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
-   git pull --rebase
+   git pull --rebase=merges  # preserves --no-ff bead-merge bubbles (loom-6z3)
    bd dolt push
    git push
    git status  # MUST show "up to date with origin"
    ```
+   Repo-local `pull.rebase=merges` is set so plain `git pull` would
+   also do the right thing; the explicit flag matches the convention.
 5. **Clean up** - Clear stashes, prune remote branches
 6. **Verify** - All changes committed AND pushed
 7. **Hand off** - Provide context for next session
