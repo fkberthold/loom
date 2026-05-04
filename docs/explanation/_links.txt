@@ -1,0 +1,8 @@
+how-to/index.md
+reference/hooks/index.md
+reference/index.md
+reference/installed-files.md
+reference/skills/index.md
+tutorials/bug-walkthrough.md
+tutorials/feature-walkthrough.md
+tutorials/index.md

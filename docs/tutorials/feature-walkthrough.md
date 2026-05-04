@@ -1,7 +1,7 @@
 # Claude Workflow Walkthrough — Feature Shape
 
 > A narrative session walkthrough showing what the feature-a-bead
-> recipe looks like end-to-end. Companion to `walkthrough.md` (the
+> recipe looks like end-to-end. Companion to `bug-walkthrough.md` (the
 > bug-shaped walkthrough) — this file shows the *feature* recipe in
 > motion using a real bead from the loom project (`loom-1ab`: turn
 > `/working-a-bead` into a router that dispatches to the matching

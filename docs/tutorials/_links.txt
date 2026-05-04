@@ -1,0 +1,5 @@
+explanation/index.md
+explanation/workflow-modes.md
+how-to/index.md
+how-to/install.md
+reference/skills/index.md

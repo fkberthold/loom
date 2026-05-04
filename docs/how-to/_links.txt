@@ -1,0 +1,12 @@
+explanation/index.md
+explanation/mental-model.md
+explanation/workflow-modes.md
+reference/architecture.md
+reference/bd-cli.md
+reference/commands/index.md
+reference/hooks/index.md
+reference/index.md
+reference/path-scoped-rules.md
+reference/skills/index.md
+reference/subagents/index.md
+tutorials/index.md

@@ -1,0 +1,5 @@
+explanation/index.md
+explanation/mental-model.md
+how-to/add-path-scoped-rule.md
+how-to/index.md
+how-to/switch-workflow-modes.md
