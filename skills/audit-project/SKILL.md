@@ -69,6 +69,19 @@ audit. This is a deliberately user-pulled workflow.
   cardinality count corrections (the loom-469 class) and dead
   bead-ID replacement using the supersedes-chain. Larger fixes
   still require per-item user approval.
+- `--root <path>` — project root to audit (default: current working
+  directory's git root, or cwd if not in a git repo). All filesystem
+  globs, `bd` lookups, and `git` commands resolve against this root.
+  Lets the skill run against any loom-managed project, not just loom
+  itself.
+- `--wing <name>` — MemPalace wing to use for drawer-slug resolution
+  in Check 5 (and any other palace-citation checks). Default: the
+  basename of `--root` (lowercased, `_`→`-`). Fallback: `loom` only
+  if the auto-detect basename is itself `loom` (preserves the
+  pre-portability behavior for loom's own audit). The wing-name flag
+  exists for projects whose directory basename doesn't match their
+  MemPalace wing slug (e.g., a checkout named `liza_live` whose wing
+  is `liza`).
 
 If no flag is given, the default is `--check=all` for projects
 that look loom-managed (heuristic: `.beads/` exists AND `docs/`
@@ -78,24 +91,65 @@ the default is `--check=onboarding` to preserve v1 behavior.
 
 ## The Sequence
 
-### Step 1 — resolve project root + flags
+### Step 1 — resolve project root + flags + wing
 
-Read the project root from the user's invocation (default: current
-working directory's git root). Parse flags. Decide whether the docs
-check runs (loom-managed heuristic above, or explicit
-`--check=docs|all`).
+Resolve the project root in this precedence order:
+
+1. Explicit `--root <path>` flag (absolute or relative; resolved to
+   absolute).
+2. Current working directory's git root (`git -C $PWD rev-parse
+   --show-toplevel`).
+3. Current working directory itself (fallback when not in a git repo).
+
+Parse the rest of the flags. Decide whether the docs check runs
+(loom-managed heuristic below, or explicit `--check=docs|all`).
+
+Resolve the project's MemPalace wing in this precedence order:
+
+1. Explicit `--wing <name>` flag.
+2. Basename of the resolved root, lowercased, `_`→`-` (e.g., a root
+   at `/home/frank/repos/loom` → wing `loom`; a root at
+   `/home/frank/repos/hundred_acre_woods` → wing
+   `hundred-acre-woods`).
+3. The literal `loom` only when step 2 already produces `loom` —
+   this is the no-flag, loom-itself path and preserves v1 behavior.
+
+Detect the project's primitive directories from the filesystem
+(used by Checks 3 and 4). Probe each of these under the resolved
+root; record which exist:
+
+- `skills/` (each `skills/*/SKILL.md` is a primitive)
+- `commands/` (each `commands/*.md` is a primitive)
+- `agents/` (each `agents/*.md` is a primitive)
+- `hooks/` (each `hooks/*.sh` is a primitive)
+
+Do NOT hardcode the loom set. Projects that follow loom's primitive
+shape will have all four; projects that adopted only a subset (or
+that use additional primitive types) drive what the checks compare
+against. Checks 3 and 4 silently skip a primitive class whose
+directory doesn't exist.
 
 Detect "loom-managed" by checking the project root for: `.beads/`
 present AND `docs/` containing at least one of `tutorials/`,
 `how-to/`, `reference/`, `explanation/`. If both conditions hold,
 the docs check defaults on; otherwise it defaults off.
 
+Detect the Diataxis opt-out: if `<root>/docs/.no-diataxis` exists,
+record `opt_out_diataxis = true`. Check 4 (inclusion-glob coverage,
+which assumes Diataxis-shaped `docs/reference/<thing>/` catalog
+pages) is skipped under opt-out. Checks 1, 2, 3, and 5 still run
+if `<root>/docs/` exists at all — those checks are about
+docs-vs-reality drift in whatever shape the docs take, not about
+Diataxis layout.
+
 ### Step 2 — dispatch project-onboarder (unless `--check=docs`)
 
 Call the `project-onboarder` subagent with the absolute project
-root and (if known) the project's short name. Wait for its
-structured `PASS`/`WARN`/`MISS` checklist. Display the report
-verbatim before moving to step 3.
+root (the resolved `--root` value) and the project's short name
+(the resolved `--wing` value, which doubles as the bd-memories
+search keyword and the wing slug the subagent reports against).
+Wait for its structured `PASS`/`WARN`/`MISS` checklist. Display
+the report verbatim before moving to step 3.
 
 ### Step 3 — docs drift detection (unless `--check=onboarding`)
 
@@ -109,24 +163,43 @@ report lines tagged `[DOC FIX]`, with three fields:
 Lines accumulate into one report section labeled `## Docs drift
 detection`. Empty section = clean.
 
+All filesystem globs and paths in the sub-checks below are relative
+to the resolved `--root`. All `bd show` calls run in the project's
+`.beads/` workspace by `cd`-ing to `<root>` first (or by setting
+`bd`'s `--workspace` flag if available — `cd` is the portable
+default). All `mempalace_search` calls filter by the resolved
+`--wing` value.
+
+If `<root>/docs/` is absent entirely, emit `## Docs drift detection`
+with a single line `no docs/ directory at <root> — skipping docs
+drift detection` and proceed to Step 4. If `<root>/docs/.no-diataxis`
+is present, emit a `[DOC FIX][INFO] diataxis-opt-out` note explaining
+that Check 4 is skipped, then run Checks 1, 2, 3, and 5 normally.
+
 #### Check 1 — Cardinality
 
-Find numeric claims in `docs/` that count primitives. For v1 the
-patterns are naive grep:
+Find numeric claims in `<root>/docs/` that count primitives. For
+v1 the patterns are naive grep:
 
 - `All (one|two|three|four|five|six|seven|eight|nine|ten|N+) <noun>`
 - `<digit>+ (skills|commands|subagents|hooks|recipes|drawers|wings)`
 - `(only|just|exactly) <digit>+ <noun>`
 
-For each match, identify the noun and source-of-truth glob:
+For each match, identify the noun and source-of-truth glob (all
+paths relative to the resolved `--root`; wing-scoped MCP calls use
+the resolved `--wing` value):
 
 | Noun | Source-of-truth |
 |---|---|
-| `skills` / `recipes` | `skills/*/SKILL.md` |
-| `commands` / `slash commands` | `commands/*.md` |
-| `subagents` / `agents` | `agents/*.md` |
-| `hooks` | `hooks/*.sh` |
-| `wings` / `rooms` | `mempalace_list_wings` / `mempalace_list_rooms` |
+| `skills` / `recipes` | `<root>/skills/*/SKILL.md` |
+| `commands` / `slash commands` | `<root>/commands/*.md` |
+| `subagents` / `agents` | `<root>/agents/*.md` |
+| `hooks` | `<root>/hooks/*.sh` |
+| `wings` / `rooms` | `mempalace_list_wings` / `mempalace_list_rooms` (filtered to `--wing` for room counts) |
+
+If a primitive directory doesn't exist under `<root>` (e.g., a
+project that has no `agents/`), skip cardinality claims about that
+noun rather than reporting "0 found".
 
 Compare the doc's count to the actual count. Mismatch → emit:
 
@@ -143,30 +216,39 @@ automatically and add a `[DOC FIX][AUTO-APPLIED]` line.
 
 #### Check 2 — Citation resolution
 
-Every citation in `docs/` must resolve. Scan for:
+Every citation in `<root>/docs/` must resolve. Scan for:
 
 - **Bead IDs** — pattern `<prefix>-[a-z0-9]{3,}` where `<prefix>`
-  matches the project's bd prefix (loom: `loom-`; HAW: `haw-` or
-  `hundred-acre-woods-`; etc.). For each match, run
-  `bd show <id> 2>&1`. Failure → emit `[DOC FIX] dead-bead-id`.
+  matches the project's bd prefix. Detect the prefix from the
+  project's own beads workspace: read `<root>/.beads/config.json`
+  if it pins a prefix, else inspect a few `bd list` rows from
+  `cd <root> && bd list --limit 1 --json` and extract the prefix.
+  For each match, run `cd <root> && bd show <id> 2>&1` so the
+  lookup hits the project's `.beads/` workspace, not loom's.
+  Failure → emit `[DOC FIX] dead-bead-id`.
 - **Commit SHAs** — pattern `\b[0-9a-f]{7,40}\b` adjacent to
   "commit" / "sha" / git context. For each match, run
-  `git cat-file -e <sha> 2>&1`. Failure → emit `[DOC FIX]
+  `git -C <root> cat-file -e <sha> 2>&1`. Failure → emit `[DOC FIX]
   dead-commit`.
 - **File paths** — pattern that looks like a path inside the repo
-  (starts with `skills/`, `commands/`, `agents/`, `hooks/`,
-  `docs/`, `lib/`, `scripts/`, etc., and ends in a known
-  extension or directory marker). For each match, check
-  filesystem. Missing → emit `[DOC FIX] missing-path`.
+  (starts with one of the project's detected primitive directories
+  — `skills/`, `commands/`, `agents/`, `hooks/` if present — or
+  with `docs/`, `lib/`, `scripts/`, etc., and ends in a known
+  extension or directory marker). For each match, check the
+  filesystem under `<root>`. Missing → emit `[DOC FIX] missing-path`.
 - **Drawer slugs** — any reference to a MemPalace drawer by slug
   or title. Pattern: text inside backticks adjacent to "drawer" /
   "MemPalace" / "wing/" / "decisions" — admittedly fuzzy in v1.
-  For each candidate, call `mempalace_search "<slug-or-title>"`
-  and emit `[DOC FIX] missing-drawer` if nothing returns a strong
-  match.
+  For each candidate, call `mempalace_search` with `wing=<--wing>`
+  to scope the lookup to the project's own wing, plus an unfiltered
+  fallback search if nothing hits (the doc may legitimately cite a
+  cross-wing drawer reachable via tunnel). Emit `[DOC FIX]
+  missing-drawer` only if both searches return no strong match.
 - **Slash command names** — pattern `/[a-z0-9-]+\b`. For each
-  match, check `commands/<name>.md` exists. Missing → emit
-  `[DOC FIX] missing-slash-command`.
+  match, check `<root>/commands/<name>.md` exists. Missing → emit
+  `[DOC FIX] missing-slash-command`. Skip this check if the project
+  has no `commands/` directory at all (the slash-command convention
+  doesn't apply).
 
 Output line shape (per failed citation):
 
@@ -197,12 +279,14 @@ naive: scan for sentences of shape:
 
 For tokens that name a primitive (`/foo` → command,
 `<name>-a-bead` → skill, `<name>-researcher` → subagent,
-`<name>.sh` → hook), check the corresponding source file:
+`<name>.sh` → hook), check the corresponding source file under
+`<root>` (and skip the class entirely if the project doesn't
+have that primitive directory):
 
-- `/<name>` → `commands/<name>.md`
-- `<name>-a-bead` (without slash) → `skills/<name>-a-bead/SKILL.md`
-- bare hook name `<x>.sh` → `hooks/<x>.sh`
-- bare subagent name (matches an `agents/*.md` basename) → that
+- `/<name>` → `<root>/commands/<name>.md`
+- `<name>-a-bead` (without slash) → `<root>/skills/<name>-a-bead/SKILL.md`
+- bare hook name `<x>.sh` → `<root>/hooks/<x>.sh`
+- bare subagent name (matches an `<root>/agents/*.md` basename) → that
   file
 
 Missing source file → emit:
@@ -226,14 +310,26 @@ This catches the loom-qj3 lying-doc class for the
 
 #### Check 4 — Inclusion-glob coverage (symmetric)
 
-For each catalog page in `docs/reference/`:
+**Skipped entirely under `docs/.no-diataxis` opt-out** — this
+check assumes the Diataxis-shaped `docs/reference/<thing>/` catalog
+layout, which the opt-out marker disclaims. The other four checks
+still run.
+
+For each catalog page in `<root>/docs/reference/` whose source
+primitive directory exists under `<root>`:
 
 | Catalog page | Source glob |
 |---|---|
-| `docs/reference/skills/index.md` | `skills/*/SKILL.md` |
-| `docs/reference/slash-commands/index.md` | `commands/*.md` |
-| `docs/reference/subagents/index.md` | `agents/*.md` |
-| `docs/reference/hooks/index.md` | `hooks/*.sh` |
+| `<root>/docs/reference/skills/index.md` | `<root>/skills/*/SKILL.md` |
+| `<root>/docs/reference/slash-commands/index.md` | `<root>/commands/*.md` |
+| `<root>/docs/reference/subagents/index.md` | `<root>/agents/*.md` |
+| `<root>/docs/reference/hooks/index.md` | `<root>/hooks/*.sh` |
+
+Pairs are skipped when either side is absent: a project with no
+`agents/` directory has nothing to glob; a project that hasn't
+shipped `docs/reference/hooks/index.md` has no catalog to check.
+The check fires only on (catalog-page-exists AND source-dir-exists)
+pairs.
 
 Two checks per pair:
 
@@ -261,15 +357,17 @@ inventory` drift. Names that appear in `index.md` but not in
 
 #### Check 5 — Explanation-doc consistency
 
-Every page under `docs/explanation/` cites at least one MemPalace
-drawer (the design-source-of-truth claim from
+Every page under `<root>/docs/explanation/` cites at least one
+MemPalace drawer (the design-source-of-truth claim from
 `docs/explanation/provenance.md` and the recipe-family doc).
 For each citation:
 
 - Exact slug → `mempalace_get_drawer(slug)`. Hit → PASS.
-- Title-shaped citation → `mempalace_search(title)`. Top result
-  with high similarity → PASS. No strong match → emit `[DOC FIX]
-  missing-drawer-citation`.
+- Title-shaped citation → `mempalace_search(title, wing=<--wing>)`.
+  Scope the search to the project's own wing first; on no strong
+  hit, retry without wing filter (cross-wing tunnel case). Top
+  result with high similarity → PASS. No strong match either way
+  → emit `[DOC FIX] missing-drawer-citation`.
 
 This is a v1 best-effort check — drawer citation in prose is
 unstructured, so the patterns are fuzzy. If the project uses a
@@ -392,12 +490,18 @@ trivial cases.
 ## Related infrastructure
 
 - Slash command: `commands/audit-project.md` — manual-only entry
-  point with `disable-model-invocation: true`.
+  point with `disable-model-invocation: true`. The slash command
+  forwards `--root`, `--wing`, `--check`, and `--apply-trivial`
+  to this skill.
 - Subagent: `agents/project-onboarder.md` — read-only scanner the
-  skill dispatches in step 2.
+  skill dispatches in step 2. The subagent already takes the
+  project root + short name as inputs, so portability flows
+  through unchanged.
 - Companion how-to: `docs/how-to/where-to-update-what.md` — when a
   human is the one fixing a drift item, this is the page that
   tells them which surface to update.
-- Locked design lives in MemPalace: `loom/decisions` wing, drawer
-  for the loom-9z1 epic (Diataxis docs restructure + drift
-  defenses).
+- Locked design lives in MemPalace: `loom/decisions` wing —
+  drawer for the loom-9z1 epic (Diataxis docs restructure + drift
+  defenses) plus drawer `drawer_loom_decisions_63aadc6e849779a509678d90`
+  (loom-9z1.10 D1 plan §A.4 — the portability spec implemented
+  by loom-km8.4).

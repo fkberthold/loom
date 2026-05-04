@@ -5,9 +5,22 @@ disable-model-invocation: true
 
 Invoke the `audit-project` skill and follow it exactly as presented.
 
+Forward any flags the user passed to the slash command — the skill
+parses them. Recognized flags:
+
+- `--check=onboarding|docs|all` — pick which phase runs.
+- `--apply-trivial` — auto-apply trivial doc fixes (count
+  corrections + dead-bead-ID supersedes-chain replacement).
+- `--root <path>` — project root to audit (default: cwd's git
+  root, then cwd). Lets the slash command run against any
+  loom-managed project, not just loom itself.
+- `--wing <name>` — MemPalace wing for drawer-citation resolution
+  (default: basename of `--root`, lowercased, `_`→`-`).
+
 Step 1: dispatch the `project-onboarder` subagent with the absolute
-path to the current project root and (if known) the project's short
-name. Wait for its structured checklist report.
+path to the resolved project root and the resolved project short
+name (the `--wing` value, used as both wing slug and bd-memories
+keyword). Wait for its structured checklist report.
 
 Step 2: present the report to the user. For each `MISS` or `WARN`
 item, offer the template-based fix from the skill. Do NOT auto-apply
