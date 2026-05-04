@@ -248,22 +248,24 @@ we left off"). The skill walks 9 steps:
 6. Pick a bead
 7. Surface the right process skill for the bead shape
 8. Confirm intent with you before claiming
-9. Hand off to the activity recipe matching the bead's shape (today: `bugfix-a-bead`; sibling recipes for feature/refactor/research/cleanup/docs in flight, plus `/working-a-bead` router)
+9. Hand off to the activity recipe matching the bead's shape — `/working-a-bead <id>` routes to one of the six recipes (bugfix, feature, refactor, research, cleanup, docs) by `bead.type` + description heuristics
 
 ### When you start work on a bead
 
-Run `/bugfix-a-bead <bead-id>` (for bug beads — today the only
-shipped activity recipe). The recipe defers to `bead-lifecycle-shell`
-for the cross-activity phases (claim → verify → commit → close →
-capture) and supplies its own variable middle (debug → RED → GREEN →
-bug-class → enshrined-sweep). Section 4 walks the full sequence.
-
-Once the `/working-a-bead` router lands (loom-1ab), it will pick the
-matching activity recipe automatically by `bead.type` + description
-heuristics.
+Run `/working-a-bead <bead-id>`. The router inspects the bead and
+dispatches to the matching activity recipe (one of bugfix, feature,
+refactor, research, cleanup, docs) by `bead.type` + description
+heuristics. Direct slash commands exist for `/bugfix-a-bead` and
+`/research-a-bead`; the other four shapes are reached via the router
+or via Skill-tool auto-discovery on a description match. Pass
+`--recipe=<name>` to the router to override its pick. Each recipe
+defers to `bead-lifecycle-shell` for the shared phases (claim →
+verify → commit → close → capture) and supplies its own variable
+middle. Section 4 walks each shape.
 
 The `bd update --claim` PreToolUse hook fires automatically and
-reminds you to dispatch the `bug-family-researcher` subagent.
+reminds you to dispatch the `bug-family-researcher` subagent (or its
+shape-appropriate equivalent — the recipe's phase A1 search step).
 
 ### When you finish a bead
 
@@ -293,68 +295,194 @@ you accomplished that wasn't captured during a `/wrap-up`.
 
 ---
 
-## 4. The bead recipe (bugfix shape, with shared lifecycle shell)
+## 4. The recipes
 
-> Sources: `~/.claude/skills/bead-lifecycle-shell/SKILL.md`
-> (cross-activity phases A/B/C/D) +
-> `~/.claude/skills/bugfix-a-bead/SKILL.md` (bug-specific variable
-> middle M1–M5).
+> Sources: `~/.claude/skills/bead-lifecycle-shell/SKILL.md` (shared
+> phases A/B/C/D) + the six per-shape recipes under
+> `~/.claude/skills/{bugfix,feature,refactor,research,cleanup,docs}-a-bead/SKILL.md`.
 >
-> Trigger: `/bugfix-a-bead <bead-id>` today, or `/working-a-bead <id>`
-> once the router lands (loom-1ab).
+> Trigger: `/working-a-bead <bead-id>` is the router and works for all
+> six. Direct slash commands ship for `bugfix-a-bead` and
+> `research-a-bead` only; the other four shapes
+> (`feature/refactor/cleanup/docs-a-bead`) are reached via the router
+> or via Skill-tool auto-discovery on description match (since
+> loom-7z1 dropped `disable-model-invocation: true` from the recipe
+> SKILL.mds).
 
-The 14 steps below are the union of the shell's phases (A1, A2, B1,
-C1–C3, D1–D3 = 8 steps) and the bugfix recipe's variable middle (M1–M5
-plus an optional multi-task subagent step = 6 steps). They appear
-together here because the bugfix shape is the only one shipped today.
-Sibling activity recipes (feature/refactor/research/cleanup/docs) will
-substitute their own variable middle but reuse phases A/B/C/D verbatim.
+Six activity recipes ship today: **bugfix**, **feature**, **refactor**,
+**research**, **cleanup**, **docs**. They all defer to
+`bead-lifecycle-shell` for the cross-activity phases (A: search +
+claim, B: verification, C: commit + finish-branch, D: close + capture)
+and supply their own *variable middle* (M-steps) tailored to the
+shape. The shared phases never change between recipes; the middle is
+what differs. Use the router to dispatch by bead shape, or invoke a
+recipe explicitly via its slash command (where one exists) or its
+trigger phrases (where it doesn't).
 
-1. **Search MemPalace for the bug family** (`mempalace_search` +
-   `mempalace_kg_query` + `bd memories <keyword>`). Restate the
-   design in terms of any sibling lineage found.
-2. **Claim and isolate**: `bd update <id> --claim` + create worktree
-   `.worktrees/<bead>` on branch `frank/<bead>`.
-3. **Phase 1 root cause** (`superpowers:systematic-debugging`):
-   read actual code paths the bead names; verify the bead's
-   hypothesis.
-4. **TDD RED first** (`superpowers:test-driven-development`): write
-   failing test (verbatim symptom from transcript where possible),
-   watch it fail, paste the failure to user output.
-5. **GREEN minimal fix**: smallest change to make the test pass.
-6. **Bug-class coverage**: second test exercising the bug class
-   (parameterized over the affected set, or unit test on the
-   contract). Frank's deploy-day rule: "test for the bug AND for
-   the bug class."
-7. **Full pytest sweep**: failures here are usually tests that
-   enshrined the buggy contract; update them, don't work around
-   them. (0qw surfaced 14 such tests.)
-8. **(Multi-task)** `superpowers:subagent-driven-development`:
-   fresh subagent per task, automatic two-stage review.
-9. **(Per task)** `superpowers:requesting-code-review`: catch
-   issues task-by-task before they compound.
-10. **Verification** (`superpowers:verification-before-completion`):
-    re-run from clean shell, confirm exact counts, check
-    `git diff --stat` matches intended scope.
-11. **Commit** on branch with subject + body naming symptom, root
-    cause, fix, test counts, bug-family lineage if applicable.
-12. **Finish branch** (`superpowers:finishing-a-development-branch`):
-    four-option choice (merge / push & PR / keep / discard).
-13. **Preflight + close + push**: `bd preflight` →
-    `bd close --reason="..."` → `bd dolt push` → `git push` →
-    confirm "up to date with origin."
-14. **Capture decision in MemPalace**: drawer + KG triples + diary.
-    `bd remember "<one-liner>"` for tribal facts (boundary:
-    `bd remember` for one-liners, drawers for multi-paragraph
-    decisions).
+### Shared shell — phases A/B/C/D
 
-### Skip when
+The 8 shared steps every recipe runs:
 
-- Trivial fix (≤ 1 line, well-understood). Skip steps 2 + 12; the
-  rest scale down.
+1. **A1. Search MemPalace for the family** (`mempalace_search` +
+   `mempalace_kg_query` + `bd memories <keyword>`). Restate the work
+   in terms of any sibling lineage found.
+2. **A2. Claim and (optionally) isolate**: `bd update <id> --claim` +
+   create worktree `.worktrees/<bead>` on branch `frank/<bead>` for
+   non-trivial work. Skip the worktree only for ≤1-line tweaks.
+3. **B1. Verification** (`superpowers:verification-before-completion`):
+   re-run the full suite from a clean shell, confirm exact counts,
+   check `git diff --stat` matches intended scope.
+4. **C1. Code review** (per task,
+   `superpowers:requesting-code-review`): catch issues task-by-task
+   before they compound.
+5. **C2. Commit** on branch with subject + body naming the work, the
+   approach taken, the verification evidence, and any sibling lineage.
+6. **C3. Finish branch**
+   (`superpowers:finishing-a-development-branch`): four-option choice
+   (merge / push & PR / keep / discard).
+7. **D1+D2. Preflight + close + push**: `bd preflight` →
+   `bd close --reason="..."` → `bd dolt push` → `git push` → confirm
+   "up to date with origin."
+8. **D3. Capture decision in MemPalace**: drawer + KG triples + diary.
+   `bd remember "<one-liner>"` for tribal facts (boundary: `bd
+   remember` for one-liners, drawers for multi-paragraph decisions).
+
+### bugfix-a-bead — bug-shaped middle
+
+> When: `bead.type=bug`, or symptom-style task ("X returns wrong
+> value"). Skill: `~/.claude/skills/bugfix-a-bead/SKILL.md`.
+
+Variable middle (M1–M5):
+
+- **M1.** Phase 1 systematic-debugging
+  (`superpowers:systematic-debugging`): read the actual code paths
+  the bead names; verify the bead's hypothesis.
+- **M2.** TDD RED first (`superpowers:test-driven-development`):
+  write a failing test that captures the symptom verbatim from the
+  transcript when possible; watch it fail.
+- **M3.** GREEN minimal fix: smallest change to make the test pass.
+- **M4.** Bug-class coverage: second test parameterized over the
+  affected set or unit-tested on the contract. Frank's deploy-day
+  rule: "test for the bug AND for the bug class."
+- **M5.** Enshrined-test sweep: full suite often surfaces tests that
+  enshrined the buggy contract; update them, don't work around.
+
+End-to-end narrative example: `docs/walkthrough.md` walks a real
+bugfix-a-bead session against HAW bead `80v`.
+
+### feature-a-bead — feature-shaped middle
+
+> When: `bead.type=feature`, or "build X" / "add Y" / "implement Z".
+> Skill: `~/.claude/skills/feature-a-bead/SKILL.md`.
+
+Variable middle (M1–M5):
+
+- **M1.** Brainstorm the design (`superpowers:brainstorming` or
+  `beadpowers:brainstorming`) until the contract is concrete.
+- **M2.** Plan if multi-task (`superpowers:writing-plans` + child
+  beads). Skip for single-task features.
+- **M3.** RED test that pins the desired *contract*, not a symptom.
+  Load-bearing inversion vs. bugfix: there is no symptom to
+  reproduce, so you write the contract first and let the absent
+  feature make it red.
+- **M4.** Minimal GREEN implementation that satisfies the contract.
+- **M5.** Negative cases + integration coverage: edge cases, invalid
+  inputs, partial-failure paths. Plays the role bug-class coverage
+  plays in bugfix.
+
+End-to-end narrative example: `docs/feature-walkthrough.md` walks a
+real feature-a-bead session against loom bead `loom-1ab`.
+
+### refactor-a-bead — refactor-shaped middle
+
+> When: extract / rename / consolidate / restructure / split /
+> decompose without changing behavior.
+> Skill: `~/.claude/skills/refactor-a-bead/SKILL.md`.
+
+Variable middle (M1–M4):
+
+- **M1.** Identify scope.
+- **M2.** Write characterization tests if missing (they pin *current*
+  behavior; they're GREEN at write time).
+- **M3.** Restructure.
+- **M4.** Verify behavior preserved (suite stays GREEN throughout).
+
+The central inversion: there is **no RED state**. Tests must keep
+passing throughout. A test that goes red during a refactor means
+either the refactor changed behavior (bug just introduced) or the
+test pinned an implementation detail (investigate). Test edits during
+a refactor are a smell.
+
+### research-a-bead — research-shaped middle
+
+> When: "research X" / "investigate Y" / "what do we know about Z".
+> Skill: `~/.claude/skills/research-a-bead/SKILL.md`.
+
+Variable middle (M1–M5):
+
+- **M1.** Define the question concretely.
+- **M2.** Search prior art locally: `mempalace_search` +
+  `mempalace_kg_query` + `mempalace_diary_read` + `bd memories`.
+- **M3.** Fetch authoritative external docs only after local search
+  is exhausted.
+- **M4.** Synthesize.
+- **M5.** File findings as a decision drawer + KG triples + optional
+  follow-up beads.
+
+The closeout *is* the deliverable for a research bead — the drawer
+captures the decision, the KG captures the relationships. Skipping
+phase D3 is equivalent to not doing the work. No code, no worktree
+(usually).
+
+### cleanup-a-bead — cleanup-shaped middle
+
+> When: remove / delete / drop / rip out / retire / deprecate.
+> Skill: `~/.claude/skills/cleanup-a-bead/SKILL.md`.
+
+Variable middle (M1–M4):
+
+- **M1.** Identify scope (every site that holds a reference to the
+  thing being removed).
+- **M2.** Hunt orphan references — the load-bearing step. Grep
+  *everything*: source, tests, docs, configs, symlinks, hooks,
+  settings.json, CLAUDE.md. Lint and tests miss broken doc links and
+  stale config keys.
+- **M3.** Remove.
+- **M4.** Verify nothing broke (full suite + targeted smoke on the
+  removed thing's former call sites).
+
+Cleanup is removal, not restructure. The diff goes negative.
+
+### docs-a-bead — docs-shaped middle
+
+> When: document / docs / guide / README / walkthrough / manual.
+> Skill: `~/.claude/skills/docs-a-bead/SKILL.md`.
+
+Variable middle (M1–M5):
+
+- **M1.** Identify the gap operationally (one falsifiable sentence).
+- **M2.** Sample 2–3 sibling-doc voices in the same area before
+  drafting (compress to 1 in `mode: light`).
+- **M3.** Draft. New doc → structure first, prose second. Drift
+  repair → minimal surgery.
+- **M4.** Review against code for accuracy. Run every command
+  example. Verify every cross-reference resolves. Confirm flag
+  names, config keys, and API signatures match current source.
+  **Non-negotiable, even in light mode.**
+- **M5.** Optional decision-drawer capture (only when the doc encodes
+  a project-level decision).
+
+The deliverable is a tracked file. Lying docs (snippets that don't
+run, links that rot, signatures that drifted) are the failure mode.
+
+### Skip when (any recipe)
+
+- Trivial change (≤ 1 line, well-understood). Skip A2 (worktree) and
+  C3 (finishing-a-development-branch); the rest scale down.
 - Pure spike. Use `superpowers:brainstorming` until a concrete bead
   emerges.
-- Mid-task interruption. Recipe is for new bead starts.
+- Mid-task interruption. Recipes are for new bead starts, not
+  context recovery within an in-flight bead.
 
 ---
 
@@ -937,10 +1065,10 @@ superseded or a fact stops being true, manually call
 
 1. `/session-startup` if you haven't already.
 2. `bd show <bead-id>` to read the symptom + hypothesis.
-3. `/bugfix-a-bead <bead-id>` to start the recipe (or
-   `/working-a-bead <bead-id>` once the router lands). The
-   bug-family-researcher subagent fires automatically (via
-   the hook) at the claim step.
+3. `/working-a-bead <bead-id>` (the router routes a bug bead to
+   `bugfix-a-bead`) or `/bugfix-a-bead <bead-id>` directly. The
+   bug-family-researcher subagent fires automatically (via the
+   hook) at the claim step.
 4. Follow the recipe. Most bugs go from claim to merged in 1-3
    hours; some take a multi-session arc.
 
@@ -964,8 +1092,7 @@ The recipe doesn't apply. Steps:
    the output will be beads).
 2. Iterate on the design through dialogue.
 3. When a concrete bead emerges: `beadpowers:create-beads` to file,
-   then `/bugfix-a-bead <new-id>` (or `/working-a-bead <new-id>`
-   once the router lands) to engage the recipe.
+   then `/working-a-bead <new-id>` to engage the matching recipe.
 
 ### "I think I've seen this bug before — where?"
 
@@ -1047,12 +1174,14 @@ Keep each rule file ≤30 lines. Cite source lineage when applicable
 - **KG** — MemPalace knowledge graph. SQLite-backed S→P→O triples
   with valid_from/ended timestamps.
 - **MCP** — Model Context Protocol. MemPalace exposes 29 MCP tools.
-- **Recipe** — an activity-shaped workflow (today: `bugfix-a-bead`;
-  in flight: `feature-a-bead`, `refactor-a-bead`, `research-a-bead`,
+- **Recipe** — an activity-shaped workflow (one of `bugfix-a-bead`,
+  `feature-a-bead`, `refactor-a-bead`, `research-a-bead`,
   `cleanup-a-bead`, `docs-a-bead`) that supplies its own variable
   middle and defers to `bead-lifecycle-shell` for the surrounding
   phases. Pre-2026-05-03 this was a single 14-step `working-a-bead`
-  skill; the rename + extraction happened in bead `loom-lzi`.
+  skill; the rename + extraction happened in bead `loom-lzi`, and
+  the sibling recipes + `/working-a-bead` router shipped under
+  epic `loom-0y6`.
 - **Room** — topic/aspect within a wing (e.g., `decisions`, `diary`).
 - **Subagent** — isolated worker with own context, returns summary.
 - **Tunnel** — explicit cross-wing link in MemPalace.
