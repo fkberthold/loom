@@ -102,6 +102,18 @@ slash commands.
 - **Status drawers** for incremental delivery — append-only updates
   to the master plan drawer (mirrors the `WORKFLOW INFRASTRUCTURE
   PLAN` pattern from HAW).
+- **Parallel worker dispatch — use relative paths in prompts.**
+  When dispatching workers via `Agent` + `isolation: "worktree"`,
+  give them **relative** file paths (`commands/foo.md`), not
+  main-repo absolutes. The harness creates the worktree but does
+  NOT sandbox absolute-path Edit/Write calls — workers using
+  `/home/frank/repos/loom/<path>` write into MAIN, bypassing the
+  worktree. Avoid prompts that lead workers to do main-branch git
+  archaeology (`git show <main-sha>`), since the resulting paths
+  are easy to misinterpret as main-absolute. After workers return,
+  verify with `git diff --stat` in BOTH the worktree and main to
+  detect leaks. See `drawer_loom_decisions_df73c725b47dd67832935e3a`
+  (loom-tag, 2026-05-04) for the full finding.
 
 ## Tools
 
