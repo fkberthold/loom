@@ -14,6 +14,7 @@ filesystem at build time via `mkdocs-include-markdown`.
 
 | Skill | Invocation |
 |---|---|
+| `audit-project` | `/audit-project` (manual-only; never auto-suggested) |
 | `bead-lifecycle-shell` | Indirect; cited by activity recipes by phase letter (A/B/C/D) |
 | `bugfix-a-bead` | `/bugfix-a-bead [bead-id]`, `/working-a-bead` router, or auto-discovery |
 | `feature-a-bead` | `/working-a-bead` router or auto-discovery |
