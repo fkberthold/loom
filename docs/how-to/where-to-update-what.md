@@ -30,7 +30,7 @@ for that surface.
 | Project tribal one-liners | `bd remember "<insight>"` |
 | Multi-paragraph decision | `mempalace_add_drawer` |
 | Entity relationship | `mempalace_kg_add` |
-| Personal session note | `mempalace_diary_write` |
+| Personal session note | `mempalace_diary_write` (param: `entry`) |
 
 ## Edit-in-place
 

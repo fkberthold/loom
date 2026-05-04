@@ -9,7 +9,7 @@ loom-shipped surface that handles it.
 |---|---|
 | One-line tribal fact ("Haiku rejects `access_key=`, use `api_key=`") | `bd remember` (auto-injects at next `bd prime`) |
 | Multi-paragraph decision with options + reasoning | MemPalace drawer (`mempalace_add_drawer`) |
-| Per-agent introspective note ("today I learned…") | MemPalace diary (`mempalace_diary_write`) |
+| Per-agent introspective note ("today I learned…") | MemPalace diary (`mempalace_diary_write`, param: `entry`) |
 | Structured S→P→O relationship (sibling-of, superseded-by) | MemPalace KG (`mempalace_kg_add`) |
 
 ## Brainstorming variant

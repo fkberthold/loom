@@ -20,9 +20,11 @@ in volatile context, follow these steps.
    automatically at conversation end. The AUTO-SAVE checkpoint is
    the trigger to capture anything not already wrapped up.
 
-3. **Write a diary entry.** Run `mempalace_diary_write` with an
-   AAAK summary of what shipped, what stalled, and what to surface
-   next session.
+3. **Write a diary entry.** Run `mempalace_diary_write` with the AAAK
+   summary in the `entry` parameter (params: `agent_name`, `entry`,
+   optional `topic`) — what shipped, what stalled, what to surface
+   next session. The plugin returns an opaque `-32000 Internal tool
+   error` if `entry` is missing or misnamed.
 
 4. **File a decision drawer if needed.** If the session produced a
    decision that wasn't captured by a `/wrap-up` (e.g., a deferred
