@@ -29,3 +29,7 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# MkDocs build output + local docs venv
+/site/
+/.venv-docs/
