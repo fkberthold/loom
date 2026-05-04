@@ -91,12 +91,19 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
    - Detect: does `<root>/prompts/` exist? → expect `prompts.md`.
    - Report each detected directory as PASS (matching rules file present) or MISS (rules file absent — suggest scaffold).
 
-8. **`.claude/agents/` and `.claude/commands/` (optional, informational)**
+8. **Diataxis-shaped docs (informational)**
+   - Check `<root>/docs/.no-diataxis` first — if present, report INFO ("project opts out of Diataxis docs convention"). The marker wins even when the four quadrants happen to exist; the project has explicitly opted out, so loom respects that and stops nagging.
+   - Else, check whether `<root>/docs/{tutorials,how-to,reference,explanation}/` are all present and each contains at least an `index.md` — if so, report PASS.
+   - Else, if `<root>/docs/` exists but lacks the four quadrants, report INFO ("docs present but not Diataxis-shaped — `/docs-scaffold` if desired").
+   - Else (`<root>/docs/` absent), report INFO ("no docs/ — `/docs-scaffold` to start a Diataxis skeleton").
+   - This check is INFO/PASS only — it never reports WARN or MISS. Diataxis is a loom recommendation, not a loom requirement; the suggested-fix line points at `/docs-scaffold` but the project owns whether to take it.
+
+9. **`.claude/agents/` and `.claude/commands/` (optional, informational)**
    - Report present/absent. No PASS/MISS verdict — just informational so the main agent can offer to scaffold if Frank wants.
 
-9. **`bd memories <project-keyword>` has at least one tribal fact**
-   - Run `bd memories <project-short-name>` (and a couple of close variants if the name is hyphenated). Count matches.
-   - PASS = ≥1 match. MISS = no memories yet (suggest `bd remember "<one-line tribal fact>"`).
+10. **`bd memories <project-keyword>` has at least one tribal fact**
+    - Run `bd memories <project-short-name>` (and a couple of close variants if the name is hyphenated). Count matches.
+    - PASS = ≥1 match. MISS = no memories yet (suggest `bd remember "<one-line tribal fact>"`).
 
 ## Output format
 
@@ -117,7 +124,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
 2. **`.beads/` initialized** — <PASS|MISS>
    - ...
 
-(... continue through item 9 ...)
+(... continue through item 10 ...)
 
 ## Summary
 
