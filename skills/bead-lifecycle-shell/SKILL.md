@@ -344,8 +344,10 @@ For each closed bead, file:
    family on the next phase A1 search. The
    `kg-relationship-extractor` subagent handles this.
 
-3. **Diary entry** via `mempalace_diary_write` in AAAK — what got
-   shipped, what was surprising, what to remember.
+3. **Diary entry** via `mempalace_diary_write` (params: `agent_name`,
+   `entry`, optional `topic`) in AAAK — what got shipped, what was
+   surprising, what to remember. Pass the AAAK summary in the `entry`
+   field; the plugin's `-32000` error is opaque on param-name typos.
 
 4. **Optional** `bd remember "<one-line insight>"` for project tribal
    knowledge that should auto-inject at `bd prime` time. Boundary

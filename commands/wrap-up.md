@@ -40,8 +40,10 @@ Present each subagent's output to the user for review. After approval:
   update the existing drawer (`update_drawer`) or file a new one.
 - `mempalace_add_drawer` with the approved drawer body.
 - `mempalace_kg_add` for each approved triple.
-- `mempalace_diary_write` with an AAAK-compressed one-line session
-  summary.
+- `mempalace_diary_write` (params: `agent_name`, `entry`, optional
+  `topic`) with an AAAK-compressed one-line session summary in the
+  `entry` field. Note: the plugin returns an opaque `-32000 Internal
+  tool error` when `entry` is missing or misnamed (e.g., as `content`).
 
 ## 4. Close bead(s) + push
 

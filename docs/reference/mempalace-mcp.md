@@ -14,8 +14,8 @@ mempalace_search              # semantic similarity over drawers
 mempalace_kg_query            # structured S→P→O lookup
 mempalace_kg_add              # add new fact
 mempalace_add_drawer          # file decision drawer
-mempalace_diary_write         # AAAK session summary
-mempalace_diary_read          # recover own continuity
+mempalace_diary_write         # AAAK session summary; params: agent_name, entry, [topic]
+mempalace_diary_read          # recover own continuity; params: agent_name, [last_n]
 ```
 
 ## Mid-frequency tools

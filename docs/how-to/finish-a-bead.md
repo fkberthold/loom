@@ -37,8 +37,9 @@ work to the remote, follow these steps.
 7. **Add the KG triples.** Call `mempalace_kg_add` for each approved
    triple from the extractor's output.
 
-8. **Write the diary entry.** Call `mempalace_diary_write` with an
-   AAAK-compressed summary of the session.
+8. **Write the diary entry.** Call `mempalace_diary_write` with the
+   AAAK summary in the `entry` parameter (params: `agent_name`,
+   `entry`, optional `topic`).
 
 9. **Close the bead.** Run `bd close <bead-id> --reason="..."`. The
    `bd-close-capture` hook lets the close through because capture
