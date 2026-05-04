@@ -214,6 +214,44 @@ counts (test pass/fail counts, lint output, manual smoke results),
 and check `git diff --stat` matches intended scope. State results
 with evidence in user-facing output BEFORE moving to phase C.
 
+**Doc-surface audit.** After the diff-scope check, walk the docs
+site quickly using the diff itself as the worklist. The published
+site under `docs/` (Diataxis-shaped, MkDocs Material) pulls primitive
+bodies in via include globs, so most edits propagate automatically.
+What remains manual is the chrome around those includes and the
+prose pages that aren't auto-generated:
+
+1. **Did the diff touch any primitive** (`skills/<name>/SKILL.md`,
+   `commands/<name>.md`, `agents/<name>.md`, `hooks/<name>.sh`)? If
+   yes: the docs site auto-picks up the body via include glob —
+   inspect the *chrome* only. That's the intro paragraph above the
+   include directive on the relevant `docs/reference/` page, any
+   "shipped in bead X" / version label that should be bumped, and
+   cross-links from Tutorials / How-to / Explanation pages that
+   point at the primitive. Usually 2 lines of text touched, often
+   zero. If nothing needs editing, say so explicitly so the audit
+   leaves a footprint.
+2. **New primitive added or removed?** Auto-handled by the include
+   glob; nothing manual on the reference side. (Removals: see
+   `cleanup-a-bead` M2 — the orphan-reference grep covers `docs/`
+   so dead in-doc cross-links to the removed primitive don't
+   linger.)
+3. **Did the diff change user-visible behavior described in
+   non-reference docs** (Tutorials / How-to / Explanation)? If yes,
+   the prose on those pages doesn't update itself. Decide:
+   in-scope to fix here, or follow-up bead? Default is
+   **file-later** — open a `docs-a-bead`-shaped follow-up via
+   `bd create` and keep this bead focused on the behavior change.
+   In-scope-here is appropriate only when the doc edit is a
+   one-or-two-line factual correction directly downstream of the
+   code edit; otherwise the bead grows mid-flight.
+
+State the audit result (which of 1/2/3 applied, what was edited or
+deferred) before advancing to phase C. The audit is cheap when run
+incrementally and expensive to retrofit — running it at every B1
+keeps the docs site aligned without ever needing a "great
+documentation sweep" bead.
+
 If verification fails, do not advance the stage — return to the
 variable middle and address the failure. The shell will not paper
 over a red verification.

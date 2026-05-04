@@ -163,8 +163,19 @@ references it.
 
 Surfaces to scan that aren't covered by the test suite:
 
-- **Docs** — README, manual, walkthrough, in-tree `docs/` files. Dead
-  doc links don't break tests; they break readers.
+- **Docs** — README, walkthrough, and the published docs site under
+  `docs/` (Diataxis quadrants: `docs/tutorials/`, `docs/how-to/`,
+  `docs/reference/`, `docs/explanation/`). Dead doc links don't
+  break tests; they break readers. Two distinct grep targets here:
+  (a) prose mentions of the removed thing across all four quadrants,
+  and (b) cross-links and intro-chrome on `docs/reference/` pages
+  that point at a removed primitive (`skills/<name>/SKILL.md`,
+  `commands/<name>.md`, `agents/<name>.md`, `hooks/<name>.sh`). The
+  reference pages use include globs — the body disappears
+  automatically when the primitive is removed, but the surrounding
+  intro paragraph and any "shipped in bead X" labels do not. Grep
+  `docs/` for the removed primitive's name; every hit is a kill-list
+  entry.
 - **Configs** — `settings.json`, `workflow.json`, `kustomize`
   overlays, `*_VERSION` files, generated configs. Stale keys
   silently noop or, worse, log warnings nobody sees.
