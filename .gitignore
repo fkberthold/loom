@@ -25,6 +25,11 @@
 # Worktrees (per CLAUDE.md convention)
 .worktrees/
 
+# Per-subagent worktrees created by `Agent` tool with isolation:"worktree".
+# Auto-cleaned by the harness on session exit; never tracked.
+# Loom convention: project-onboarder item 11 checks for this entry.
+.claude/worktrees/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db

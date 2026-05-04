@@ -105,6 +105,12 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
     - Run `bd memories <project-short-name>` (and a couple of close variants if the name is hyphenated). Count matches.
     - PASS = ≥1 match. MISS = no memories yet (suggest `bd remember "<one-line tribal fact>"`).
 
+11. **`.gitignore` includes `.claude/worktrees/` (informational)**
+    - Read `<root>/.gitignore`. Check for a line matching `.claude/worktrees/` (the path where the `Agent` tool with `isolation: "worktree"` creates per-subagent worktrees; auto-cleaned by the harness on session exit, never meant to be tracked).
+    - PASS = entry present.
+    - INFO = entry absent (suggest one-line append: add `.claude/worktrees/` to `.gitignore`).
+    - This check is INFO/PASS only — never WARN or MISS. The project may not yet have used parallel-dispatch with worktree isolation; the entry is preventive hygiene that costs one line. Lineage: `drawer_loom_decisions_df73c725b47dd67832935e3a` (loom-tag, the Agent isolation:worktree path-resolution finding).
+
 ## Output format
 
 Return Markdown structured like this. Cap at 250 lines; one blank line between items.
@@ -124,7 +130,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
 2. **`.beads/` initialized** — <PASS|MISS>
    - ...
 
-(... continue through item 10 ...)
+(... continue through item 11 ...)
 
 ## Summary
 
