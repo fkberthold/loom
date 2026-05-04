@@ -91,14 +91,10 @@ install_link() {
 }
 
 log "Linking skills..."
-install_link skills/bugfix-a-bead/SKILL.md skills/bugfix-a-bead/SKILL.md
-install_link skills/research-a-bead/SKILL.md skills/research-a-bead/SKILL.md
-install_link skills/feature-a-bead/SKILL.md skills/feature-a-bead/SKILL.md
-install_link skills/refactor-a-bead/SKILL.md skills/refactor-a-bead/SKILL.md
-install_link skills/cleanup-a-bead/SKILL.md skills/cleanup-a-bead/SKILL.md
-install_link skills/docs-a-bead/SKILL.md skills/docs-a-bead/SKILL.md
-install_link skills/bead-lifecycle-shell/SKILL.md skills/bead-lifecycle-shell/SKILL.md
-install_link skills/session-startup/SKILL.md skills/session-startup/SKILL.md
+for f in "$LOOM_ROOT"/skills/*/SKILL.md; do
+  rel="${f#$LOOM_ROOT/}"
+  install_link "$rel" "$rel"
+done
 
 log "Linking agents..."
 for f in "$LOOM_ROOT"/agents/*.md; do
