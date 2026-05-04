@@ -1,7 +1,6 @@
 ---
 name: bead-lifecycle-shell
 description: Cross-activity lifecycle scaffolding for working a beads issue from claim to merged. Owns MemPalace bug-family search, claim, optional worktree, verification, commit, finishing-a-development-branch, preflight + close + push, and decision drawer + KG triples + diary capture. Each activity recipe (bugfix-a-bead, feature-a-bead, refactor-a-bead, research-a-bead, etc.) references the lettered phases below and supplies its own VARIABLE MIDDLE between phase B and phase C. Internal building block — invoked indirectly via an activity recipe, not directly by the user.
-disable-model-invocation: true
 ---
 
 # Bead Lifecycle Shell — Cross-Activity Scaffolding
@@ -13,11 +12,13 @@ activity recipe (bugfix / feature / refactor / research / cleanup /
 docs) references the phases here and only specifies its own VARIABLE
 MIDDLE between phase B and phase C.
 
-`disable-model-invocation: true` — the shell is an internal building
-block. Activity recipes call into it by reference; the user never
-invokes it directly. Triggering: an activity recipe (or the
-`/working-a-bead` router that picks one) cites this skill in its body
-and instructs you to follow specific phases.
+The shell is an internal building block — activity recipes call into
+it by reference; the user (and the router) never invoke it directly.
+Triggering: an activity recipe (or the `/working-a-bead` router that
+picks one) cites this skill in its body and instructs you to follow
+specific phases. If the Skill tool ever surfaces the shell directly
+(via auto-discovery against the description), decline — start at an
+activity recipe instead and let it cite the shell phases by letter.
 
 ## When to use
 

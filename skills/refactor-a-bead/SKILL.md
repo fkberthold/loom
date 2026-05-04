@@ -1,7 +1,6 @@
 ---
 name: refactor-a-bead
 description: Activity recipe for working a refactor-shaped beads issue. Owns the refactor-specific variable middle — identify scope → write characterization tests if missing → restructure → verify behavior preserved (tests stay GREEN throughout, never RED). Defers to the bead-lifecycle-shell skill for claim/isolate/verify/close/capture. Triggers on phrases like "refactor X", "extract Y", "rename Z", "consolidate ...", "restructure ...", or right after the session-startup or /working-a-bead router picks a refactor bead.
-disable-model-invocation: true
 ---
 
 # Refactor-a-Bead — Variable Middle for Refactor-Shaped Beads
@@ -29,9 +28,12 @@ Keep this inversion in mind at every step. It is the difference
 between a refactor that ships safely and a refactor that quietly
 becomes a behavior change.
 
-`disable-model-invocation: true` — this recipe runs only when explicitly
-invoked, either directly (`/refactor-a-bead <bead-id>`) or via the
-`/working-a-bead` router that selects an activity recipe by bead shape.
+Invocation: explicit only — either directly (`/refactor-a-bead <bead-id>`)
+or via the `/working-a-bead` router that selects an activity recipe by
+bead shape. The Skill tool may surface this recipe via auto-discovery
+when a message strongly matches the trigger phrases above; if that
+happens at the wrong moment (e.g., the bead isn't refactor-shaped),
+decline and switch to the right recipe.
 
 ## When to use
 

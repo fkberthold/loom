@@ -1,7 +1,6 @@
 ---
 name: research-a-bead
 description: Activity recipe for working a research-shaped beads issue. Owns the research-specific variable middle — define the question → search prior art (palace + KG + bd memories + diary) → fetch authoritative external docs → synthesize → file findings as decision drawer + KG triples + optional follow-up beads. Defers to the bead-lifecycle-shell skill for claim/verify/close/capture. No code, no worktree (usually). Triggers on phrases like "research <topic>", "what do we know about <X>", "investigate <Y>", or right after the session-startup or /working-a-bead router picks a research bead.
-disable-model-invocation: true
 ---
 
 # Research-a-Bead — Variable Middle for Research-Shaped Beads
@@ -22,10 +21,12 @@ triples as the primary output — not a write-up afterthought.
 For a research bead the closeout *is* the deliverable. Skipping
 phase D3 is equivalent to not doing the work.
 
-`disable-model-invocation: true` — this recipe runs only when
-explicitly invoked, either directly (`/research-a-bead <bead-id>`)
-or via the `/working-a-bead` router that selects an activity recipe
-by bead shape.
+Invocation: explicit only — either directly (`/research-a-bead <bead-id>`)
+or via the `/working-a-bead` router that selects an activity recipe by
+bead shape. The Skill tool may surface this recipe via auto-discovery
+when a message strongly matches the trigger phrases above; if that
+happens at the wrong moment (e.g., the bead isn't research-shaped),
+decline and switch to the right recipe.
 
 ## When to use
 

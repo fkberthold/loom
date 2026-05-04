@@ -1,7 +1,6 @@
 ---
 name: feature-a-bead
 description: Activity recipe for working a feature-shaped beads issue. Owns the feature-specific variable middle — brainstorm the design → optionally split into a plan + child beads → RED test that pins the desired contract → minimal GREEN implementation → negative-cases + integration coverage. Defers to the bead-lifecycle-shell skill for claim/isolate/verify/close/capture. Triggers on phrases like "let's work on <feature-bead-id>", "build <bead-id>", "implement <bead-id>", or right after the session-startup or /working-a-bead router picks a feature bead.
-disable-model-invocation: true
 ---
 
 # Feature-a-Bead — Variable Middle for Feature-Shaped Beads
@@ -29,9 +28,12 @@ bugfix-a-bead: every new contract introduces new failure modes
 landing time so the next regression surfaces fast — don't wait for a
 production bug to teach you what your validation surface looks like.
 
-`disable-model-invocation: true` — this recipe runs only when explicitly
-invoked, either directly (`/feature-a-bead <bead-id>`) or via the
-`/working-a-bead` router that selects an activity recipe by bead shape.
+Invocation: explicit only — either directly (`/feature-a-bead <bead-id>`)
+or via the `/working-a-bead` router that selects an activity recipe by
+bead shape. The Skill tool may surface this recipe via auto-discovery
+when a message strongly matches the trigger phrases above; if that
+happens at the wrong moment (e.g., the bead isn't feature-shaped),
+decline and switch to the right recipe.
 
 ## When to use
 

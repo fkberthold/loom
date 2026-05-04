@@ -365,9 +365,9 @@ substitute their own variable middle but reuse phases A/B/C/D verbatim.
 The cross-activity scaffolding. Owns phases A (search + claim), B
 (verification), C (commit + finish-branch), and D (close + capture).
 Every activity recipe cites the shell by phase letter and trusts it to
-remain the source of truth for the surrounding lifecycle.
-`disable-model-invocation: true` — invoked indirectly via an activity
-recipe, never directly by the user.
+remain the source of truth for the surrounding lifecycle. Invoked
+indirectly via an activity recipe; the user (and the router) never
+invoke it directly.
 
 ### `~/.claude/skills/bugfix-a-bead/SKILL.md`
 
@@ -375,10 +375,9 @@ The bug-shaped variable middle (steps M1–M5: debug → RED → GREEN →
 bug-class → enshrined-sweep). Renamed from `working-a-bead` on
 2026-05-03 (bead `loom-lzi`) when the cross-activity scaffolding
 moved into `bead-lifecycle-shell` and sibling activity recipes were
-filed (epic `loom-0y6`). Frontmatter has `disable-model-invocation:
-true` so it only fires on explicit invocation
-(`/bugfix-a-bead <bead-id>` or via the `/working-a-bead` router once
-that lands).
+filed (epic `loom-0y6`). Invocation: explicit only —
+`/bugfix-a-bead <bead-id>` directly, or via the `/working-a-bead`
+router once that lands.
 
 ### `~/.claude/skills/session-startup/SKILL.md`
 

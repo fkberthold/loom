@@ -1,7 +1,6 @@
 ---
 name: cleanup-a-bead
 description: Activity recipe for working a cleanup-shaped beads issue. Owns the cleanup-specific variable middle — identify scope → hunt orphan references → remove → verify nothing broke. Defers to the bead-lifecycle-shell skill for claim/isolate/verify/close/capture. Triggers on phrases like "remove <X>", "delete <Y>", "drop <Z> dep", "rip out <W>", "retire <thing>", or right after the session-startup or /working-a-bead router picks a cleanup bead.
-disable-model-invocation: true
 ---
 
 # Cleanup-a-Bead — Variable Middle for Cleanup-Shaped Beads
@@ -32,9 +31,12 @@ bead (80v) shipped via the trimmed `working-a-bead` recipe before this
 skill existed. Future cleanups should use this recipe; the 80v
 lineage is the prior art.
 
-`disable-model-invocation: true` — this recipe runs only when explicitly
-invoked, either directly (`/cleanup-a-bead <bead-id>`) or via the
-`/working-a-bead` router that selects an activity recipe by bead shape.
+Invocation: explicit only — either directly (`/cleanup-a-bead <bead-id>`)
+or via the `/working-a-bead` router that selects an activity recipe by
+bead shape. The Skill tool may surface this recipe via auto-discovery
+when a message strongly matches the trigger phrases above; if that
+happens at the wrong moment (e.g., the bead isn't cleanup-shaped),
+decline and switch to the right recipe.
 
 ## When to use
 

@@ -1,7 +1,6 @@
 ---
 name: docs-a-bead
 description: Activity recipe for working a docs-shaped beads issue. Owns the docs-specific variable middle — identify the gap → sample sibling-doc voice → draft → review against code for accuracy → optional decision-drawer capture. Defers to the bead-lifecycle-shell skill for claim/verify/close/capture. The doc itself is the deliverable; a tracked file in the repo, not a MemPalace drawer. Triggers on phrases like "document <X>", "fix the docs for <Y>", "write a guide for <Z>", "update the README", "the docs are stale", or right after the session-startup or /working-a-bead router picks a docs bead.
-disable-model-invocation: true
 ---
 
 # Docs-a-Bead — Variable Middle for Docs-Shaped Beads
@@ -31,10 +30,12 @@ run, or a cross-reference that points nowhere, is worse than no doc
 docs. M4 (review against code) is the load-bearing step; everything
 else exists to feed it.
 
-`disable-model-invocation: true` — this recipe runs only when
-explicitly invoked, either directly (`/docs-a-bead <bead-id>`) or
-via the `/working-a-bead` router that selects an activity recipe by
-bead shape.
+Invocation: explicit only — either directly (`/docs-a-bead <bead-id>`)
+or via the `/working-a-bead` router that selects an activity recipe by
+bead shape. The Skill tool may surface this recipe via auto-discovery
+when a message strongly matches the trigger phrases above; if that
+happens at the wrong moment (e.g., the bead isn't docs-shaped), decline
+and switch to the right recipe.
 
 ## When to use
 

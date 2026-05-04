@@ -1,7 +1,6 @@
 ---
 name: bugfix-a-bead
 description: Activity recipe for working a bug-shaped beads issue. Owns the bug-specific variable middle — systematic debugging → RED test → minimal GREEN fix → bug-class coverage → enshrined-test sweep. Defers to the bead-lifecycle-shell skill for claim/isolate/verify/close/capture. Triggers on phrases like "let's work on <bug-bead-id>", "fix <bead-id>", or right after the session-startup or /working-a-bead router picks a bug bead.
-disable-model-invocation: true
 ---
 
 # Bugfix-a-Bead — Variable Middle for Bug-Shaped Beads
@@ -19,9 +18,12 @@ read BEFORE writing tests, RED the symptom verbatim, GREEN minimally,
 cover the bug *class* not just the instance, and run the full suite to
 surface tests that enshrined the buggy contract.
 
-`disable-model-invocation: true` — this recipe runs only when explicitly
-invoked, either directly (`/bugfix-a-bead <bead-id>`) or via the
-`/working-a-bead` router that selects an activity recipe by bead shape.
+Invocation: explicit only — either directly (`/bugfix-a-bead <bead-id>`)
+or via the `/working-a-bead` router that selects an activity recipe by
+bead shape. The Skill tool may surface this recipe via auto-discovery
+when a message strongly matches the trigger phrases above; if that
+happens at the wrong moment (e.g., the bead isn't bug-shaped), decline
+and switch to the right recipe.
 
 ## When to use
 
