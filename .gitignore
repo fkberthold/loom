@@ -5,6 +5,12 @@
 # But interactions.jsonl is a per-session log.
 .beads/interactions.jsonl
 
+# Defensive: bd's pre-commit hook can re-export issues.jsonl to a stray
+# path at repo / worktree root (loom-22h: the worktree-mode export bug).
+# The canonical export path is .beads/issues.jsonl; any root-level
+# issues.jsonl is the bug's footprint, not real state.
+/issues.jsonl
+
 # Per-session ephemera if loom itself is being worked on
 .claude/workflow-state.json
 

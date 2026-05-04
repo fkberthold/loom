@@ -119,6 +119,15 @@ commands regardless of which project you're in.
   docs/walkthrough.md — they're now project-agnostic. HAW-specific
   examples should mention HAW as one example, not as the only
   example.
+- Prefer committing from the main repo path
+  (`~/repos/loom/`) over committing from inside a worktree
+  (`.worktrees/<bead>/`). The bd pre-commit hook in worktree mode
+  has been observed exporting `issues.jsonl` to the worktree root
+  instead of (or in addition to) `.beads/issues.jsonl` (loom-22h).
+  `/issues.jsonl` is gitignored as a defense, but commits from the
+  worktree may still produce surprising state. Workflow: do the
+  bead's work in the worktree, then `cd ~/repos/loom && git merge
+  --no-ff frank/<bead>` from main.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
