@@ -499,13 +499,60 @@ invoke it directly.
 
 ### `~/.claude/skills/bugfix-a-bead/SKILL.md`
 
-The bug-shaped variable middle (steps M1–M5: debug → RED → GREEN →
+The bug-shaped variable middle (M1–M5: debug → RED → GREEN →
 bug-class → enshrined-sweep). Renamed from `working-a-bead` on
 2026-05-03 (bead `loom-lzi`) when the cross-activity scaffolding
 moved into `bead-lifecycle-shell` and sibling activity recipes were
-filed (epic `loom-0y6`). Invocation: explicit only —
-`/bugfix-a-bead <bead-id>` directly, or via the `/working-a-bead`
-router once that lands.
+filed (epic `loom-0y6`). Invocation: `/bugfix-a-bead <bead-id>`
+directly, via the `/working-a-bead` router, or via Skill
+auto-discovery on description match.
+
+### `~/.claude/skills/feature-a-bead/SKILL.md`
+
+The feature-shaped variable middle (M1–M5: brainstorm → plan-if-
+multi-task → RED pins desired contract → minimal GREEN → negative
+cases + integration). Differs from bugfix: no symptom to reproduce;
+the RED pins the desired contract, not a failure. Shipped in bead
+`loom-5rf` (2026-05-03). Invocation: via the `/working-a-bead`
+router or via Skill auto-discovery; no direct slash command.
+
+### `~/.claude/skills/refactor-a-bead/SKILL.md`
+
+The refactor-shaped variable middle (M1–M4: identify scope →
+characterization tests if missing → restructure → verify behavior
+preserved). Inverts TDD: tests stay GREEN throughout, never RED.
+Test edits during a refactor are a smell. Shipped in bead `loom-uca`
+(2026-05-03). Invocation: via the `/working-a-bead` router or via
+Skill auto-discovery; no direct slash command.
+
+### `~/.claude/skills/research-a-bead/SKILL.md`
+
+The research-shaped variable middle (M1–M5: define question →
+search prior art → fetch authoritative external docs → synthesize
+→ file findings as drawer + KG triples + optional follow-up beads).
+The closeout IS the deliverable — skipping phase D3 is equivalent
+to not doing the work. No code, no worktree usually. Shipped in
+bead `loom-0q0` (2026-05-03). Invocation: `/research-a-bead
+<bead-id>` directly, via the `/working-a-bead` router, or via
+Skill auto-discovery.
+
+### `~/.claude/skills/cleanup-a-bead/SKILL.md`
+
+The cleanup-shaped variable middle (M1–M4: identify scope → hunt
+orphan references → remove → verify). The orphan-reference grep
+BEFORE removal is the load-bearing step (lint and tests miss broken
+docs / configs / symlinks). The diff goes negative. Shipped in bead
+`loom-62x` (2026-05-03). Invocation: via the `/working-a-bead`
+router or via Skill auto-discovery; no direct slash command.
+
+### `~/.claude/skills/docs-a-bead/SKILL.md`
+
+The docs-shaped variable middle (M1–M5: identify gap operationally
+→ sample sibling-doc voice → draft → review against code → optional
+decision-drawer capture). M4 review-against-code is non-negotiable
+even in light mode; lying docs are the failure mode. Shipped in
+bead `loom-s0n` (2026-05-03). Invocation: via the `/working-a-bead`
+router or via Skill auto-discovery; no direct slash command.
 
 ### `~/.claude/skills/session-startup/SKILL.md`
 
@@ -556,8 +603,47 @@ application from the main conversation.
 
 ## 6. Reference: slash commands
 
-All three have `disable-model-invocation: true` — only Frank
+All six ship with `disable-model-invocation: true` — only Frank
 explicitly triggers them.
+
+### Inventory: user-facing vs internal
+
+Knowing what's user-facing matters because Skill auto-discovery (post
+loom-7z1) makes some skills reachable conversationally even without a
+direct slash command, while others are deliberately internal-only.
+
+**User-facing slash commands** — type these explicitly:
+
+- **`/working-a-bead <bead-id>`** — primary entry point; router that
+  selects an activity recipe by `bead.type` + description heuristics
+  and dispatches via the Skill tool. Pass `--recipe=<name>` to
+  override its pick.
+- **`/bugfix-a-bead <bead-id>`** — direct shortcut to the
+  `bugfix-a-bead` recipe (the most-used shape).
+- **`/research-a-bead <bead-id>`** — direct shortcut to the
+  `research-a-bead` recipe.
+- **`/wrap-up`** — close-time ritual; preflight + drawer/KG drafting
+  via subagents + close + push. Bead-id implicit from current claim.
+- **`/audit-project`** — project onboarding + health check
+  (manual-only, never auto-suggested).
+- **`/lineage <topic>`** — ad-hoc prior-art lookup; no claim, no
+  recipe.
+
+**Skills reachable via the router or Skill auto-discovery** (no
+direct slash command):
+
+- `feature-a-bead`, `refactor-a-bead`, `cleanup-a-bead`, `docs-a-bead`
+  — reached via `/working-a-bead` (which dispatches via the Skill
+  tool) or by typing the recipe's trigger phrases ("let's build X" /
+  "refactor X" / "remove X" / "document X"). There is no
+  `/feature-a-bead` (or sibling) slash command.
+
+**Internal — never user-invoked**:
+
+- `bead-lifecycle-shell` — the shared phase-A/B/C/D scaffolding.
+  Loaded indirectly by every activity recipe; the recipes cite the
+  shell by phase letter and the shell's own SKILL.md asks the model
+  to decline if invoked directly.
 
 ### `/bugfix-a-bead [bead-id]`
 
@@ -568,10 +654,36 @@ bug-shaped bead. The skill defers to `bead-lifecycle-shell` for the
 cross-activity phases. If no bead-id given, runs `bd ready` and
 confirms with you which bead to work first.
 
-The `/working-a-bead` router (loom-1ab) will replace direct
-`/bugfix-a-bead` invocation as the canonical entry point once it
-lands; until then call the activity recipe matching the bead shape
-directly.
+`/working-a-bead <bead-id>` (the router, loom-1ab) is the canonical
+entry point and routes a `type=bug` bead to this recipe automatically.
+Direct `/bugfix-a-bead` invocation remains supported when you already
+know the bead is bug-shaped.
+
+### `/research-a-bead [bead-id]`
+
+Source: `~/.claude/commands/research-a-bead.md`
+
+Loads the `research-a-bead` skill and runs the recipe on the named
+research-shaped bead. The recipe's deliverable is the closing
+decision drawer + KG triples (no code, usually no worktree). Shipped
+in bead `loom-0q0`. Same router relationship as `/bugfix-a-bead`:
+`/working-a-bead` routes research-keyword tasks here automatically;
+direct invocation is the explicit shortcut.
+
+### `/working-a-bead [bead-id] [--recipe=<name>]`
+
+Source: `~/.claude/commands/working-a-bead.md`
+
+The router. Runs `bd show <bead-id>` and scores the bead against the
+six recipes by `bead.type` + description-keyword heuristics, then
+dispatches to the winner via `Skill(<recipe>-a-bead)`. On ambiguity
+(2+ recipes tie at the top score), surfaces a numbered candidate
+list with one-line "because" per candidate and prompts you to pick
+or pass `--recipe=<name>`. `type=epic` doesn't dispatch — the router
+points you at the epic's children instead.
+
+If no bead-id given, runs `bd ready` and confirms with you which
+bead to work first. Shipped in bead `loom-1ab`.
 
 ### `/lineage <topic>`
 
@@ -606,7 +718,7 @@ suggested. Re-run after material project changes (e.g., a new
 
 ## 7. Reference: subagents
 
-All three live in `~/.claude/agents/`. Model: inherit. None of them
+All four live in `~/.claude/agents/`. Model: inherit. None of them
 write to MemPalace or beads themselves — they return reviewable
 artifacts the main agent files after sign-off.
 
