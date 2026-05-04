@@ -274,6 +274,24 @@ root cause (or design choice), fix (or implementation summary), test
 counts, family lineage if applicable. Co-author trailer per project
 convention.
 
+**Worktree commits — bd hook bypass.** When committing from inside
+a worktree (`.worktrees/<bead>/`), use:
+
+```bash
+git -c core.hooksPath=/dev/null commit -m '...'
+```
+
+The bd pre-commit hook misbehaves from worktrees (loom-22h /
+loom-bm2): it exports `issues.jsonl` to the worktree root instead
+of the canonical `.beads/issues.jsonl`, defeating `.gitignore` and
+amend-based cleanup (the hook re-stages on every commit). Bypassing
+the hook here is safe because the canonical `.beads/issues.jsonl`
+is regenerated from bd's database on the next main-repo commit
+(typically the post-merge `<bead>: bead closed (post-merge state)`
+commit). Skip this bypass when committing from the main repo path
+— the hook works correctly there and the canonical export is
+desired.
+
 ### C3. Finish the branch
 
 Invoke `superpowers:finishing-a-development-branch`. Presents the
