@@ -9,7 +9,7 @@
 > "working a bead" was one recipe with parameters.
 
 The per-recipe specs (M-step lists, trigger phrases, exact
-invocations) live in [Reference: skills](xref:reference/skills/index.md).
+invocations) live in [Reference: skills](../reference/skills/index.md).
 This page is about *why* the family is shaped the way it is, what
 was considered, and what the central inversion is for each shape.
 
@@ -161,8 +161,8 @@ every project wants the full discipline.
 
 For the operational specs of each recipe — exact M-step list,
 trigger phrases, slash command, frontmatter flags — see
-[Reference: skills](xref:reference/skills/index.md). For a
+[Reference: skills](../reference/skills/index.md). For a
 walked-through bugfix end-to-end, see the
-[bug walkthrough tutorial](xref:tutorials/bug-walkthrough.md).
+[bug walkthrough tutorial](../tutorials/bug-walkthrough.md).
 For a feature, see the
-[feature walkthrough tutorial](xref:tutorials/feature-walkthrough.md).
+[feature walkthrough tutorial](../tutorials/feature-walkthrough.md).

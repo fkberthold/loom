@@ -52,6 +52,6 @@ reproduction evidence.
 ## Related
 
 - For each hook's mode-by-mode behavior, see
-  [reference: hooks](xref:reference/hooks/index.md).
+  [reference: hooks](../../reference/hooks/index.md).
 - For when to bypass a misbehaving hook while waiting for a fix,
   see [Bypass workflow ceremony](../bypass-workflow-ceremony.md).

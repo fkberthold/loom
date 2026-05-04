@@ -42,6 +42,6 @@ applied, and what to cite when capturing the close drawer.
 ## Related
 
 - For the family-researcher subagent's full recipe + output format,
-  see [reference: subagents](xref:reference/subagents/index.md).
+  see [reference: subagents](../../reference/subagents/index.md).
 - For why MemPalace bug-family search is the load-bearing first
-  step, see [explanation: mental model](xref:explanation/mental-model.md).
+  step, see [explanation: mental model](../../explanation/mental-model.md).

@@ -52,7 +52,7 @@ without touching keys it does not own.
 
 If you need the deeper install reference — prerequisites, manual
 verification, or the uninstall path — see
-[How-to: install loom](xref:how-to/install.md).
+[How-to: install loom](../how-to/install.md).
 
 ## 2. Open a session
 
@@ -92,7 +92,7 @@ For your first session, type `full`. Claude writes the answer to
 in this project will skip the prompt.
 
 If you want the rationale behind these three modes, see
-[Explanation: workflow modes](xref:explanation/workflow-modes.md).
+[Explanation: workflow modes](../explanation/workflow-modes.md).
 
 ## 4. Prime the session
 
@@ -181,7 +181,7 @@ Two things to expect:
    that is the recipe doing its job.
 
 For full reference on each recipe's phases, see
-[Reference: skills](xref:reference/skills/index.md).
+[Reference: skills](../reference/skills/index.md).
 
 ## 7. Close + capture
 
@@ -238,7 +238,7 @@ You did have to:
   [the feature walkthrough](./feature-walkthrough.md).
 - When you want to do something specific (claim a bead, finish a
   branch, configure modes), browse the
-  [How-to guides](xref:how-to/index.md).
+  [How-to guides](../how-to/index.md).
 - For the conceptual model behind loom — what the four-axis memory
   model is, why the recipes are shaped this way — see
-  [Explanation](xref:explanation/index.md).
+  [Explanation](../explanation/index.md).

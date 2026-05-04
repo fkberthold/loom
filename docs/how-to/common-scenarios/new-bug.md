@@ -41,6 +41,6 @@ finish in 1–3 hours; some span sessions.
 ## Related
 
 - For the family-researcher subagent's interface, see
-  [reference: subagents](xref:reference/subagents/index.md).
+  [reference: subagents](../../reference/subagents/index.md).
 - For why TDD on bugs writes a RED test before any fix, see
-  [explanation: workflow modes](xref:explanation/workflow-modes.md).
+  [explanation: workflow modes](../../explanation/workflow-modes.md).

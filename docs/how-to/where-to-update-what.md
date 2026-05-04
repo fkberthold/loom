@@ -48,8 +48,8 @@ skill load, next session, etc.).
 ## Related
 
 - For the surfaces themselves and what they do, see
-  [reference: skills](xref:reference/skills/index.md),
-  [reference: commands](xref:reference/commands/index.md),
-  [reference: hooks](xref:reference/hooks/index.md).
+  [reference: skills](../reference/skills/index.md),
+  [reference: commands](../reference/slash-commands/index.md),
+  [reference: hooks](../reference/hooks/index.md).
 - For why surfaces are split this way (skill vs hook vs command),
-  see [explanation: mental model](xref:explanation/mental-model.md).
+  see [explanation: mental model](../explanation/mental-model.md).

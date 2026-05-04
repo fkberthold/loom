@@ -55,6 +55,6 @@ shorter, since path-scoped content does not need to live there).
 ## Related
 
 - For path-scoped vs always-on convention placement, see
-  [reference: path-scoped rules](xref:reference/path-scoped-rules.md).
+  [reference: path-scoped rules](../../reference/path-scoped-rules.md).
 - For why the rules system is split from CLAUDE.md, see
-  [explanation: mental model](xref:explanation/mental-model.md).
+  [explanation: mental model](../../explanation/mental-model.md).

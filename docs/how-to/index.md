@@ -6,10 +6,10 @@ do. Each guide solves one problem; titles state the task precisely;
 steps are executable.
 
 If you are learning loom for the first time, start at the
-[Tutorials](xref:tutorials/index.md) instead. For surface
-catalogues, see the [Reference](xref:reference/index.md). For the
+[Tutorials](../tutorials/index.md) instead. For surface
+catalogues, see the [Reference](../reference/index.md). For the
 *why* behind the design, see the
-[Explanation](xref:explanation/index.md).
+[Explanation](../explanation/index.md).
 
 ## Install
 

@@ -33,4 +33,4 @@ Length budget: ≤30 lines per rule file.
 
 ## Adding a rule
 
-See [How-to: add a path-scoped rule](xref:how-to/add-path-scoped-rule.md).
+See [How-to: add a path-scoped rule](../how-to/common-scenarios/add-path-rule.md).

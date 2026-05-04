@@ -41,6 +41,6 @@ but not yet claimed. Hand off to [Claim a bead](./claim-a-bead.md).
 ## Related
 
 - The full session-startup ritual is referenced in
-  [reference: skills](xref:reference/skills/index.md).
+  [reference: skills](../reference/skills/index.md).
 - For why session priming exists in this shape, see
-  [explanation: mental model](xref:explanation/mental-model.md).
+  [explanation: mental model](../explanation/mental-model.md).

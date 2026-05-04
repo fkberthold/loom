@@ -10,8 +10,10 @@
 
 A package of Claude Code primitives that integrates beads + MemPalace
 + superpowers + beadpowers into one disciplined workflow. See
-[README.md](README.md) for the user-facing description and
-[docs/manual.md](docs/manual.md) for the full reference.
+[README.md](README.md) for the user-facing description and the
+published docs site (https://fkberthold.github.io/loom/) for the
+Diataxis-shaped reference, how-to guides, tutorials, and design
+explanation.
 
 **Not a code project**. Loom is mostly markdown (skills, agent
 definitions, slash commands) + bash (hooks, helpers, scripts) + JSON
@@ -115,10 +117,9 @@ commands regardless of which project you're in.
 - Don't commit symlinks — install.sh creates them on a per-machine
   basis. The repo holds the canonical files; symlinks are
   per-installation.
-- Don't add HAW-specific content to docs/manual.md or
-  docs/walkthrough.md — they're now project-agnostic. HAW-specific
-  examples should mention HAW as one example, not as the only
-  example.
+- Don't add HAW-specific content to `docs/` — pages there are
+  project-agnostic. HAW-specific examples should mention HAW as one
+  example, not as the only example.
 - Prefer committing from the main repo path
   (`~/repos/loom/`) over committing from inside a worktree
   (`.worktrees/<bead>/`). The bd pre-commit hook in worktree mode

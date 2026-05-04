@@ -745,5 +745,5 @@ behavior:
 | One-liner tribal fact | `bd remember "<insight>"` |
 | Onboarding a new project | `/audit-project` (manual-only) |
 
-The reference manual (`docs/manual.md`) section 16 has the full
-matrix.
+The [where-to-update-what guide](../how-to/where-to-update-what.md)
+has the full matrix.

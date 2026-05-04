@@ -79,6 +79,6 @@ Removes the symlinks and restores any `.pre-loom.bak` backups.
 ## Related
 
 - For the layout of files inside `~/.claude/` after install, see
-  [reference: architecture](xref:reference/architecture.md).
+  [reference: architecture](../reference/installed-files.md).
 - For why loom uses symlinks rather than copies, see
-  [explanation: mental model](xref:explanation/mental-model.md).
+  [explanation: mental model](../explanation/mental-model.md).

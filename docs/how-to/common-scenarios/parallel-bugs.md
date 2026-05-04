@@ -51,6 +51,6 @@ idle.
 ## Related
 
 - For when *not* to parallelize (shared files, logical dependency),
-  see [reference: skills](xref:reference/skills/index.md).
+  see [reference: skills](../../reference/skills/index.md).
 - For the rationale behind disjoint-file gating, see
-  [explanation: mental model](xref:explanation/mental-model.md).
+  [explanation: mental model](../../explanation/mental-model.md).

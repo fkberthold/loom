@@ -32,8 +32,8 @@ is what `light` is for.
 | **off**   | silent | recipe refuses; session-startup skipped | empty | Quick edits, exploratory spikes, projects where the workflow doesn't fit |
 
 The exact resolution rules and CLI for setting modes live in
-[Reference: installed files](xref:reference/installed-files.md) and
-the per-project [how-to](xref:how-to/index.md) on switching modes.
+[Reference: installed files](../reference/installed-files.md) and
+the per-project [how-to](../how-to/index.md) on switching modes.
 
 ## Why ask-once-and-remember
 
@@ -133,6 +133,6 @@ recipe, not the recipe's central inversion.
 
 For the exact semantics of each mode (what each hook does in each
 mode, what `light` actually relaxes), see
-[Reference: hooks](xref:reference/hooks/index.md). For the operational
+[Reference: hooks](../reference/hooks/index.md). For the operational
 how-to of switching modes per-project, see the
-[How-to quadrant](xref:how-to/index.md).
+[How-to quadrant](../how-to/index.md).

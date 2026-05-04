@@ -67,15 +67,50 @@ nav:
   - Home: index.md
   - Tutorials:
       - tutorials/index.md
-      - Workflow walkthrough: tutorials/walkthrough.md
+      - Getting started: tutorials/getting-started.md
+      - Bug walkthrough: tutorials/bug-walkthrough.md
       - Feature walkthrough: tutorials/feature-walkthrough.md
   - How-to:
       - how-to/index.md
       - Install loom: how-to/install.md
+      - Open a session: how-to/open-a-session.md
+      - Claim a bead: how-to/claim-a-bead.md
+      - Finish a bead: how-to/finish-a-bead.md
+      - Stop a session: how-to/stop-a-session.md
+      - Bypass workflow ceremony: how-to/bypass-workflow-ceremony.md
+      - Where to update what: how-to/where-to-update-what.md
+      - Common scenarios:
+          - how-to/common-scenarios/index.md
+          - New bug: how-to/common-scenarios/new-bug.md
+          - Parallel bugs: how-to/common-scenarios/parallel-bugs.md
+          - Exploratory work: how-to/common-scenarios/exploratory-work.md
+          - Find prior art: how-to/common-scenarios/find-prior-art.md
+          - Debug workflow: how-to/common-scenarios/debug-workflow.md
+          - Tweak a hook: how-to/common-scenarios/tweak-a-hook.md
+          - Add a path-scoped rule: how-to/common-scenarios/add-path-rule.md
   - Reference:
       - reference/index.md
+      - Installed files: reference/installed-files.md
       - Skills:
-          - reference/skills/session-startup.md
+          - reference/skills/index.md
+          - All skills: reference/skills/all-skills.md
+      - Slash commands:
+          - reference/slash-commands/index.md
+          - All commands: reference/slash-commands/all-commands.md
+      - Subagents:
+          - reference/subagents/index.md
+          - All subagents: reference/subagents/all-subagents.md
+      - Hooks:
+          - reference/hooks/index.md
+          - All hooks: reference/hooks/all-hooks.md
+      - Path-scoped rules: reference/path-scoped-rules.md
+      - bd CLI: reference/bd-cli.md
+      - MemPalace MCP: reference/mempalace-mcp.md
+      - Decision tables: reference/decision-tables.md
+      - Glossary: reference/glossary.md
   - Explanation:
       - explanation/index.md
       - Mental model: explanation/mental-model.md
+      - Recipe family: explanation/recipe-family.md
+      - Workflow modes: explanation/workflow-modes.md
+      - Provenance: explanation/provenance.md

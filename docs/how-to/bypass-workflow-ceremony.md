@@ -76,8 +76,8 @@ did keep still ran.
 ## Related
 
 - For the full mode-resolution logic, see
-  [reference: hooks](xref:reference/hooks/index.md).
+  [reference: hooks](../reference/hooks/index.md).
 - For why each hook blocks by default, see
-  [explanation: workflow modes](xref:explanation/workflow-modes.md).
+  [explanation: workflow modes](../explanation/workflow-modes.md).
 - For the `--force` flag and other escape hatches in the bd CLI,
-  see [reference: bd CLI](xref:reference/bd-cli.md).
+  see [reference: bd CLI](../reference/bd-cli.md).

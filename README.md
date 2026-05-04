@@ -109,9 +109,11 @@ loom/
 ├── scripts/                   # Executable scripts
 │   ├── statusline.sh          # Claude Code statusLine target
 │   └── workflow-state         # CLI wrapper for skills/agents
-├── docs/                      # Reference material
-│   ├── manual.md              # The Claude Workflow Manual (16 sections)
-│   └── walkthrough.md         # Narrative session walkthrough
+├── docs/                      # Diataxis-shaped MkDocs site (deployed via GH Pages)
+│   ├── tutorials/             # Learning-by-doing: getting-started + walkthroughs
+│   ├── how-to/                # Task-oriented guides
+│   ├── reference/             # Austere primitive specs (auto-glob over skills/, commands/, agents/, hooks/)
+│   └── explanation/           # Design rationale, mental model, provenance
 ├── settings.snippet.json      # The stanzas install.sh merges into ~/.claude/settings.json
 ├── install.sh                 # Symlink installer
 ├── uninstall.sh               # Restore .pre-loom.bak backups
@@ -142,11 +144,19 @@ a mode. The answer is written to `workflow.json` and remembered.
 
 ## Documentation
 
-- [`docs/manual.md`](docs/manual.md) — full reference (16 sections):
-  mental model, what's installed where, daily session lifecycle, the
-  recipe, decision tables, bypass mechanisms, cookbook, glossary.
-- [`docs/walkthrough.md`](docs/walkthrough.md) — narrative end-to-end
-  session walkthrough with `[v1.5]` annotations.
+Published docs site: https://fkberthold.github.io/loom/ — Diataxis-shaped
+across four quadrants:
+
+- [Tutorials](docs/tutorials/) — learning-by-doing: `getting-started.md`
+  walks zero → first shipped bead; `bug-walkthrough.md` and
+  `feature-walkthrough.md` are deeper narrative walkthroughs.
+- [How-to](docs/how-to/) — task-oriented guides: install, daily session
+  lifecycle, common scenarios, bypass mechanisms.
+- [Reference](docs/reference/) — austere primitive specs (skills, slash
+  commands, subagents, hooks auto-discovered from disk), plus glossary,
+  decision tables, and path-scoped rules.
+- [Explanation](docs/explanation/) — design rationale: mental model,
+  recipe family, workflow modes, provenance.
 
 ## License
 

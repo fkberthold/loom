@@ -152,4 +152,4 @@ looks the way it does.
 For specific decisions, search the relevant MemPalace wing
 (`loom/decisions` for post-split, `hundred_acre_woods/decisions`
 for pre-split). For the current shape of loom, see the other
-explanation pages or the [reference catalogue](xref:reference/index.md).
+explanation pages or the [reference catalogue](../reference/index.md).

@@ -47,6 +47,6 @@ smoke-test path documents the expected exit codes.
 ## Related
 
 - For each hook's purpose and mode behavior, see
-  [reference: hooks](xref:reference/hooks/index.md).
+  [reference: hooks](../../reference/hooks/index.md).
 - For why hooks (rather than skills) own deterministic guardrails,
-  see [explanation: mental model](xref:explanation/mental-model.md).
+  see [explanation: mental model](../../explanation/mental-model.md).

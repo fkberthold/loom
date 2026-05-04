@@ -38,6 +38,6 @@ lifecycle takes over.
 
 - For the brainstorming-variant boundary
   (`beadpowers` vs `superpowers`), see
-  [reference: skills](xref:reference/skills/index.md).
+  [reference: skills](../../reference/skills/index.md).
 - For why brainstorming is held outside the recipe, see
-  [explanation: workflow modes](xref:explanation/workflow-modes.md).
+  [explanation: workflow modes](../../explanation/workflow-modes.md).

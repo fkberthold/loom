@@ -50,4 +50,4 @@ beads/git state agree. The next session's `bd prime` and
 - For a fresh start tomorrow, follow
   [Open a session](./open-a-session.md).
 - For why diary capture is the load-bearing step at session end,
-  see [explanation: mental model](xref:explanation/mental-model.md).
+  see [explanation: mental model](../explanation/mental-model.md).

@@ -149,5 +149,5 @@ echo '{"v":1,"mode":"light"}' > .claude/workflow.json   # change mode
 ## Cross-references
 
 - Bypass mechanisms: [bd CLI](bd-cli.md#bypass-and-escape-hatches) and
-  [How-to: switch workflow modes](xref:how-to/switch-workflow-modes.md).
-- Rationale for the four-axis split: [Mental model](xref:explanation/mental-model.md).
+  [How-to: switch workflow modes](../how-to/where-to-update-what.md).
+- Rationale for the four-axis split: [Mental model](../explanation/mental-model.md).

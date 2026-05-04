@@ -62,7 +62,7 @@ state file records `stage=close`, `activity=idle`, `bead=null`.
 ## Related
 
 - For the close-capture hook's full behavior in each mode, see
-  [reference: hooks](xref:reference/hooks/index.md).
+  [reference: hooks](../reference/hooks/index.md).
 - When you cannot or should not capture, see
   [Bypass workflow ceremony](./bypass-workflow-ceremony.md).
 - To stop the session afterward, follow

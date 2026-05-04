@@ -8,9 +8,9 @@ pages here are meant to be read, not consulted. They have a thesis;
 they argue for it.
 
 > **What explanation is not.** It does not give direct instruction
-> (that is [How-to](xref:how-to/index.md)) and does not catalogue
-> surface area (that is [Reference](xref:reference/index.md)).
-> Step-by-step belongs in [Tutorials](xref:tutorials/index.md).
+> (that is [How-to](../how-to/index.md)) and does not catalogue
+> surface area (that is [Reference](../reference/index.md)).
+> Step-by-step belongs in [Tutorials](../tutorials/index.md).
 > If you find yourself reaching for a procedure or an exhaustive
 > list, you have drifted out of this quadrant.
 
@@ -26,7 +26,7 @@ they argue for it.
   and what was rejected (a single fourteen-step recipe; bigger
   recipe count; arbitrary process metadata). The design rationale
   half of the old §4; the per-recipe specs live in
-  [Reference](xref:reference/skills/index.md).
+  [Reference](../reference/skills/index.md).
 - [**Workflow modes**](workflow-modes.md) — why `full` / `light` /
   `off` exist as a mode triad rather than a single boolean, why
   ask-once-and-remember beats per-session prompting, and what was
@@ -42,7 +42,7 @@ they argue for it.
 Each page has a thesis at the top. If a page reads like a manual, it
 has drifted; file a bead. If a page reads like an instruction sheet,
 it has *really* drifted; file a stronger bead. Cross-references into
-[Reference](xref:reference/index.md) and [How-to](xref:how-to/index.md)
+[Reference](../reference/index.md) and [How-to](../how-to/index.md)
 are deliberate — explanation does not duplicate the surface or the
 recipe; it explains why the surface is shaped the way it is and why
 the recipe is the recipe.

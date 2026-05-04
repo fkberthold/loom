@@ -5,8 +5,8 @@ signatures, flags, and behaviour. They are consulted, not read
 sequentially.
 
 > **What reference is not.** It does not teach, instruct, or argue.
-> Recipes belong in [How-to](xref:how-to/index.md). Rationale belongs
-> in [Explanation](xref:explanation/index.md).
+> Recipes belong in [How-to](../how-to/index.md). Rationale belongs
+> in [Explanation](../explanation/index.md).
 
 ## Auto-discovered primitives
 

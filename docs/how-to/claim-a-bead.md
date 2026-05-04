@@ -50,8 +50,8 @@ working branch for trivial fixes).
 ## Related
 
 - For the recipe shapes themselves, see
-  [reference: skills](xref:reference/skills/index.md).
+  [reference: skills](../reference/skills/index.md).
 - For the rationale behind the recipe split, see
-  [explanation: workflow modes](xref:explanation/workflow-modes.md).
+  [explanation: workflow modes](../explanation/workflow-modes.md).
 - When you reach the close step, follow
   [Finish a bead](./finish-a-bead.md).

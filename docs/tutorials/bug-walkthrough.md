@@ -1,9 +1,9 @@
 # Claude Workflow Walkthrough
 
-> A narrative session walkthrough showing what Frank's experience looks
-> like end-to-end. Companion to `claude-workflow-manual.md` (the
-> reference) — this file shows the workflow in motion using a real bead
-> from the HAW project (`hundred-acre-woods-80v`: remove the diagnostic
+> A narrative session walkthrough showing what a working session looks
+> like end-to-end. Companion to the [Reference quadrant](../reference/index.md)
+> — this file shows the workflow in motion using a real bead from the
+> HAW project (`hundred-acre-woods-80v`: remove the diagnostic
 > fingerprint logging from poe_server + server).
 >
 > Format: "**You:**" lines are what you type; "**Claude:**" lines are
@@ -824,5 +824,5 @@ behavior:
 | One-liner tribal fact | `bd remember "<insight>"` |
 | Onboarding a new project | `/audit-project` (manual-only) |
 
-The reference manual (`~/repos/claude-workflow-manual.md`) section 16
+The [where-to-update-what guide](../how-to/where-to-update-what.md)
 has the full matrix.
