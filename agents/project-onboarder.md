@@ -82,11 +82,20 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
    - Optional: also confirm the hook references `bd` to distinguish
      "hook present but not bd's" from "bd hook installed".
    - PASS = `$hooks_dir/pre-commit` exists.
-   - MISS = absent (suggest `bd hooks install`).
-   - Lineage: loom-j4r — the previous version of this check looked
-     at `.git/hooks/pre-commit` only and reported MISS even when bd's
+   - MISS = absent (suggest the two-step remediation: `bd hooks install`
+     followed by an immediate bd-only commit to absorb the export-pending
+     queue, e.g. `git add .beads/issues.jsonl && git commit -m "bd:
+     post-install export sync"`. The bd pre-commit hook re-exports
+     `.beads/issues.jsonl` on the next commit regardless of subject;
+     without the absorbing commit, the user's first logical commit after
+     install silently picks up the export churn — observed in loom-cka,
+     loom-b6o tla-puzzles trial 2026-05-04. The audit-project skill
+     renders this as a single suggested remediation block.).
+   - Lineage: loom-j4r — the previous version of this check looked at
+     `.git/hooks/pre-commit` only and reported MISS even when bd's
      canonical install (`.beads/hooks/` + `core.hooksPath`) was wired
-     up correctly.
+     up correctly. loom-cka — added the absorbing-commit remediation
+     to the MISS path.
 
 4. **`workflow.json` exists with mode set**
    - Read `<root>/.claude/workflow.json`. Parse JSON. Report `.mode`.
