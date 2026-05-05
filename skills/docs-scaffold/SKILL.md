@@ -38,6 +38,10 @@ skill as the fix, but never invokes.
   Refuse and tell the user to run `/audit-project` first.
 - `docs/.no-diataxis` is present at the project root. The project has
   explicitly opted out; respect the marker and refuse with explanation.
+- `<root>/docs/` is generated (gitignored or written by a build
+  script — detected by `lib/docs-generated.sh`). Refuse with
+  `[SCAFFOLD SKIP][GENERATED]`; scaffolding into a generated tree
+  silently breaks on the next build cycle. (loom-3hb.)
 - The user wants a non-MkDocs SSG (Hugo, Docusaurus, Jekyll). Out of
   scope for v1; the opt-out marker is the supported escape hatch.
 - The user wants to scaffold a single page rather than the whole tree.
@@ -106,7 +110,7 @@ index.
 
 ### M3 — Detect existing docs
 
-Three cases, each handled differently:
+Four cases, each handled differently:
 
 1. **`<root>/docs/.no-diataxis` present.** The project has explicitly
    opted out. **Refuse** with this message:
@@ -118,10 +122,34 @@ Three cases, each handled differently:
 
    Stop.
 
-2. **`<root>/docs/` absent or empty.** Clean scaffold path. Proceed to M4.
+2. **`<root>/docs/` is generated** (per the shared detector at
+   `lib/docs-generated.sh` in this loom checkout — exit 0 means
+   generated). **Refuse** with this message, parameterised on the
+   detector's reason and the build-source it identified:
 
-3. **`<root>/docs/` exists with content.** List every existing file under
-   `<root>/docs/` and ask the user how to proceed:
+   > [SCAFFOLD SKIP][GENERATED] `<root>/docs/` is generated, not
+   > hand-written.
+   >
+   > Detector: <one-line reason from `lib/docs-generated.sh`>
+   >
+   > Scaffolding into a generated tree would write template files
+   > that the next build cycle erases — silent breakage. The
+   > scaffold is whole-tree only; there is no per-file mode that
+   > would survive a `rm -rf docs/ && rebuild` cycle.
+   >
+   > If you want a Diataxis surface for this project, edit the
+   > build script to copy from a Diataxis-shaped source tree (e.g.
+   > `docs-src/`), then re-run `/docs-scaffold --root <docs-src>`
+   > against the source. Or remove the build pipeline that
+   > generates `docs/` and let the scaffold own the directory.
+
+   Stop. Do not proceed. (loom-3hb.)
+
+3. **`<root>/docs/` absent or empty.** Clean scaffold path. Proceed to M4.
+
+4. **`<root>/docs/` exists with content** (and is NOT detected as
+   generated). List every existing file under `<root>/docs/` and
+   ask the user how to proceed:
 
    - **skip** — abort the scaffold, leave existing docs alone.
    - **merge** — proceed; at M5 the user will approve per-file, so
