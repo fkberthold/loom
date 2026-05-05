@@ -97,15 +97,30 @@ check_gitignore() {
 # We accept some false-positives here in exchange for simplicity;
 # false-positives mean "skip/refuse" which is the safe direction.
 check_build_targets() {
-  # 2a: scripts/*.sh — look for docs/ as a path OR a `=docs` assignment
+  # 2a: scripts/*.sh — look for docs/ as a path OR a `=docs` assignment.
+  # Per loom-4iu: a line-grain grep over the whole file false-positives on
+  # documentation cross-references in shell comments (`# see docs/foo.md`)
+  # and echo/printf string literals (`echo "see docs/setup.md"`). Scope
+  # the match: skip comment-only lines, and skip echo/printf string lines
+  # that lack any write operator (cp / mkdir / install / >). Lines that are
+  # neither comments nor pure echo/printf still match on the original
+  # patterns.
   if [ -d "$ROOT/scripts" ]; then
     local sh
     while IFS= read -r -d '' sh; do
-      # Two patterns, either sufficient:
-      #   - `docs/` as a path token (preceded by whitespace, '"', '=', '/', or line-start)
-      #   - `=docs` or `=docs"` or `="docs"` — assigning the bare 'docs' token (e.g. DOCS=docs)
-      if grep -Eq '(^|[[:space:]"=/])docs/' "$sh" 2>/dev/null \
-         || grep -Eq '=("|'"'"')?docs("|'"'"'|/|[[:space:]]|$)' "$sh" 2>/dev/null; then
+      if awk '
+        # skip comment-only lines (optional leading whitespace + #)
+        /^[[:space:]]*#/ { next }
+        # skip echo/printf lines that lack any write operator
+        /(^|[[:space:]])(echo|printf)[[:space:]]/ {
+          if ($0 !~ /(cp|mkdir|install|>)/) next
+        }
+        # `docs/` as a path token (preceded by ws, ", =, /, or line-start)
+        /(^|[[:space:]"=\/])docs\// { found = 1 }
+        # `=docs` or `=docs"` or `="docs"` — assigning bare token (e.g. DOCS=docs)
+        /=("|\047)?docs("|\047|\/|[[:space:]]|$)/ { found = 1 }
+        END { exit found ? 0 : 1 }
+      ' "$sh" 2>/dev/null; then
         echo "Signal 2: scripts/ build script references docs/ ($sh)"
         return 0
       fi
