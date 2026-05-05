@@ -113,12 +113,17 @@ audit. This is a deliberately user-pulled workflow.
   itself.
 - `--wing <name>` — MemPalace wing to use for drawer-slug resolution
   in Check 5 (and any other palace-citation checks). Default: the
-  basename of `--root` (lowercased, `_`→`-`). Fallback: `loom` only
-  if the auto-detect basename is itself `loom` (preserves the
+  basename of `--root` used verbatim (no case-folding, no `_`↔`-`
+  substitution — the palace's de-facto convention follows filesystem
+  naming, so `liza_base` filesystem → wing `liza_base`,
+  `hundred_acre_woods` → wing `hundred_acre_woods`). Fallback: `loom`
+  only if the auto-detect basename is itself `loom` (preserves the
   pre-portability behavior for loom's own audit). The wing-name flag
   exists for projects whose directory basename doesn't match their
   MemPalace wing slug (e.g., a checkout named `liza_live` whose wing
-  is `liza`).
+  is `liza`). Step 1b's wing-variant WARN catches the remaining
+  divergence cases (capitalization that doesn't match, separator
+  flip relative to a larger sibling wing).
 
 If no flag is given, the default is `--check=all` for projects with
 a Diataxis substrate (heuristic: `.beads/` exists AND `docs/`
@@ -150,10 +155,14 @@ Parse the rest of the flags. Decide whether the docs check runs
 Resolve the project's MemPalace wing in this precedence order:
 
 1. Explicit `--wing <name>` flag.
-2. Basename of the resolved root, lowercased, `_`→`-` (e.g., a root
-   at `/home/frank/repos/loom` → wing `loom`; a root at
-   `/home/frank/repos/hundred_acre_woods` → wing
-   `hundred-acre-woods`).
+2. Basename of the resolved root, used verbatim — no case-folding,
+   no `_`↔`-` substitution (e.g., a root at `/home/frank/repos/loom`
+   → wing `loom`; a root at `/home/frank/repos/hundred_acre_woods` →
+   wing `hundred_acre_woods`; a root at `/home/frank/repos/liza_base`
+   → wing `liza_base`). The palace's de-facto wing convention follows
+   filesystem naming, so the verbatim basename is the right default.
+   Step 1b's variant WARN handles the cases where the filesystem name
+   genuinely diverges from the canonical wing slug.
 3. The literal `loom` only when step 2 already produces `loom` —
    this is the no-flag, loom-itself path and preserves v1 behavior.
 
