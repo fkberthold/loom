@@ -388,14 +388,49 @@ shell phase still runs first; the extension follows.
 
 ## Decision: parallel vs sequential
 
+There are two distinct decision points — **across-bead** (which
+beads to work on) and **within-bead** (how to execute one bead's
+variable middle). Both call into `superpowers:dispatching-parallel-
+agents`; the trigger and the cost-payoff threshold differ.
+
+### Across-bead — when 2+ beads are unblocked
+
 Use `superpowers:dispatching-parallel-agents` when 2+ beads have
 independent root causes (different files, no shared state). Trigger:
 `bd ready` shows multiple unblocked beads that touch disjoint files.
 Stay sequential when beads share files, when one fix depends on
 another, or when interactive judgment is needed per step.
 
-The shell is per-bead; parallel agents each run their own copy of the
-shell + their own variable middle.
+The shell is per-bead; parallel agents each run their own copy of
+the shell + their own variable middle.
+
+### Within-bead — when M-steps are independent
+
+Before starting an activity recipe's variable middle, scan the
+M-steps and ask: are 2+ of them independent (different files, no
+shared state, no sequential dependency)? If yes, dispatch them in
+parallel via `superpowers:dispatching-parallel-agents` with
+`isolation: "worktree"`. If no, stay sequential.
+
+**Cost-payoff threshold.** Parallelism wins when each task is
+non-trivial — more than a one-line edit per step. For tiny edits
+(≤ ~5 lines per step), sequential is faster than dispatch overhead
+(worker prompt, isolation worktree, review-on-return). Make the
+call explicit: state "M-steps are independent but small; running
+sequentially" or "M-steps are independent and non-trivial;
+dispatching in parallel" so the choice is visible in the close
+drawer.
+
+**Worker leak hazard (loom-tag finding).** Parallel workers with
+absolute paths (`/home/frank/repos/<project>/<file>`) write into
+main, not the worktree — the harness creates the worktree but does
+NOT sandbox absolute-path Edit/Write calls. When dispatching, give
+workers **relative** paths in their prompts (`commands/foo.md`).
+After workers return, verify with `git diff --stat` in BOTH the
+worktree and main to detect leaks. See
+`drawer_loom_decisions_df73c725b47dd67832935e3a` (loom-tag,
+2026-05-04) for the full finding. This hazard is per-dispatch; it
+does not multiply with the number of nudges that point at it.
 
 ## Failure modes (concrete)
 
