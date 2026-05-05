@@ -95,6 +95,15 @@ slash commands.
   beads in HAW or any other project.
 - **One bead = one branch (`frank/<bead-id>`) = one worktree** when
   the change is non-trivial. Skip worktree for ≤1-line tweaks.
+- **Splitting heuristic at bead creation.** When filing 2+ candidate
+  items, ask: are they independent (no shared files, no sequential
+  dependency)? If yes, file as sibling beads under an umbrella
+  feature/epic — `bd ready` will surface them for parallel dispatch
+  via `superpowers:dispatching-parallel-agents`. If no (shared files,
+  one depends on another's outcome), file as one bead. The
+  recipe-middle within-bead parallel nudge in `bead-lifecycle-shell`
+  ("Decision: parallel vs sequential" → "Within-bead") catches what
+  slips through; this heuristic prevents the slip at the source.
 - **Capture decisions** in MemPalace drawers (`loom/decisions`
   room). The drawer is the design source-of-truth; this repo is the
   implementation source-of-truth. When they diverge, the drawer
