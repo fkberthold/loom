@@ -88,6 +88,30 @@ bd hooks list           # verify
 bd hooks uninstall      # remove
 ```
 
+!!! warning "Run an absorbing commit immediately after install"
+
+    The bd pre-commit hook re-exports `.beads/issues.jsonl` on the
+    next `git commit` in the workspace, regardless of subject. If
+    you go straight from `bd hooks install` to a logical commit,
+    the export churn (often +6 to +50 lines of `issues.jsonl`)
+    rides along silently — two-things-in-one-commit against intent.
+
+    Mitigation: right after `bd hooks install`, run an empty bd-only
+    absorbing commit before any logical work commit:
+
+    ```bash
+    bd hooks install
+    git add .beads/issues.jsonl
+    git commit -m "bd: post-install export sync"
+    # now proceed with logical commits cleanly
+    ```
+
+    Observed in loom-b6o tla-puzzles trial 2026-05-04 (cardinality
+    commit `891d2ae` silently picked up a +6-line `issues.jsonl`
+    re-export). Tracked as loom-cka. Out-of-scope follow-up
+    (defer-on-mixed-stage detection in bd itself) is loom-cka's
+    follow-up bead.
+
 ## Health checks (embedded mode)
 
 `bd doctor` returns a note rather than running checks in embedded

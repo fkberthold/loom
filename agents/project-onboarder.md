@@ -65,7 +65,17 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
 3. **bd hooks installed**
    - Check `<root>/.git/hooks/pre-commit` exists and references `bd`.
    - Also check `git -C <root> config core.hooksPath` (some setups use a shared hooksPath).
-   - PASS = bd hook artifacts found. MISS = absent (suggest `bd hooks install`).
+   - PASS = bd hook artifacts found. MISS = absent (suggest the
+     two-step remediation: `bd hooks install` followed by an
+     immediate bd-only commit to absorb the export-pending queue,
+     e.g. `git add .beads/issues.jsonl && git commit -m "bd:
+     post-install export sync"`. The bd pre-commit hook re-exports
+     `.beads/issues.jsonl` on the next commit regardless of subject;
+     without the absorbing commit, the user's first logical commit
+     after install silently picks up the export churn — observed in
+     loom-cka, loom-b6o tla-puzzles trial 2026-05-04. The
+     audit-project skill renders this as a single suggested
+     remediation block.).
 
 4. **`workflow.json` exists with mode set**
    - Read `<root>/.claude/workflow.json`. Parse JSON. Report `.mode`.
