@@ -51,7 +51,7 @@ run_detector() {
 # --- fixture: clean docs/ (NOT generated) -----------------------------
 echo "==> Negative case: hand-written docs/, no signals"
 TMP_NEG="$(mktemp -d)"
-trap 'rm -rf "$TMP_NEG" "$TMP_GI" "$TMP_BUILD" "$TMP_MAKE" "$TMP_PKG" "$TMP_PYP" "$TMP_NODOCS" "$TMP_GIIGNORE_OTHER"' EXIT
+trap 'rm -rf "$TMP_NEG" "$TMP_GI" "$TMP_BUILD" "$TMP_MAKE" "$TMP_PKG" "$TMP_PYP" "$TMP_NODOCS" "$TMP_GIIGNORE_OTHER" "$TMP_FP_COMMENT" "$TMP_FP_ECHO" "$TMP_FP_INDENT_COMMENT" "$TMP_FP_PRINTF" "$TMP_POS_ECHO_REDIRECT"' EXIT
 
 mkdir -p "$TMP_NEG/docs"
 echo "# hand-written" >"$TMP_NEG/docs/index.md"
@@ -209,6 +209,98 @@ if out=$(run_detector "$TMP_GIIGNORE_OTHER"); then
   fail "edge case: 'mydocs/' substring should NOT match docs/ as gitignored" "got generated; reason: $out"
 else
   pass "edge case: 'mydocs/' substring correctly NOT matched as docs/ gitignore"
+fi
+
+# --- fixture: scripts/*.sh mentions docs/ only in a shell comment (loom-4iu)
+# Reproduces the loom-wxo bootstrap_liza_home.sh L110 false-positive: a comment
+# like "# Subdirectories per the v2 design (docs/v2-design.md...)" is NOT a
+# build target, but the pre-fix grep treated it as evidence.
+echo "==> Negative case (loom-4iu FP-1): scripts/*.sh mentions docs/ only in a shell comment"
+TMP_FP_COMMENT="$(mktemp -d)"
+mkdir -p "$TMP_FP_COMMENT/docs" "$TMP_FP_COMMENT/scripts"
+echo "# hand-written" >"$TMP_FP_COMMENT/docs/index.md"
+cat >"$TMP_FP_COMMENT/scripts/bootstrap.sh" <<'EOF'
+#!/usr/bin/env bash
+# Subdirectories per the v2 design — see docs/v2-design.md (palace drawer)
+mkdir -p "$HOME/somewhere"
+echo "ready"
+EOF
+
+if out=$(run_detector "$TMP_FP_COMMENT"); then
+  fail "negative case (FP-1): docs/ inside a shell comment should NOT count as a build target" "got generated; reason: $out"
+else
+  pass "negative case (FP-1): docs/ inside a shell comment correctly ignored"
+fi
+
+# --- fixture: scripts/*.sh mentions docs/ only in an echo string literal (loom-4iu)
+# Reproduces the loom-wxo bootstrap_liza_home.sh L520 false-positive: echo
+# "(See ${LIZA_BASE}/docs/setup.md...)" cites a doc path but writes nothing.
+echo "==> Negative case (loom-4iu FP-2): scripts/*.sh mentions docs/ only in an echo string"
+TMP_FP_ECHO="$(mktemp -d)"
+mkdir -p "$TMP_FP_ECHO/docs" "$TMP_FP_ECHO/scripts"
+echo "# hand-written" >"$TMP_FP_ECHO/docs/index.md"
+cat >"$TMP_FP_ECHO/scripts/bootstrap.sh" <<'EOF'
+#!/usr/bin/env bash
+LIZA_BASE="$HOME/foo"
+echo "(See ${LIZA_BASE}/docs/setup.md for next steps)"
+EOF
+
+if out=$(run_detector "$TMP_FP_ECHO"); then
+  fail "negative case (FP-2): docs/ inside an echo string with no write ops should NOT count" "got generated; reason: $out"
+else
+  pass "negative case (FP-2): docs/ inside an echo string with no write ops correctly ignored"
+fi
+
+# --- fixture (bug class): indented shell comment with docs/ -----------
+echo "==> Negative case (loom-4iu FP-3, bug class): indented shell comment with docs/"
+TMP_FP_INDENT_COMMENT="$(mktemp -d)"
+mkdir -p "$TMP_FP_INDENT_COMMENT/docs" "$TMP_FP_INDENT_COMMENT/scripts"
+echo "# hand-written" >"$TMP_FP_INDENT_COMMENT/docs/index.md"
+cat >"$TMP_FP_INDENT_COMMENT/scripts/setup.sh" <<'EOF'
+#!/usr/bin/env bash
+if [ -d "$HOME/proj" ]; then
+    # see docs/onboarding.md for ramp-up
+    echo "ready"
+fi
+EOF
+
+if out=$(run_detector "$TMP_FP_INDENT_COMMENT"); then
+  fail "negative case (FP-3): docs/ inside an indented shell comment should NOT count" "got generated; reason: $out"
+else
+  pass "negative case (FP-3): docs/ inside an indented shell comment correctly ignored"
+fi
+
+# --- fixture (bug class): printf string mentioning docs/ no write ops -
+echo "==> Negative case (loom-4iu FP-4, bug class): printf string with docs/ no write ops"
+TMP_FP_PRINTF="$(mktemp -d)"
+mkdir -p "$TMP_FP_PRINTF/docs" "$TMP_FP_PRINTF/scripts"
+echo "# hand-written" >"$TMP_FP_PRINTF/docs/index.md"
+cat >"$TMP_FP_PRINTF/scripts/setup.sh" <<'EOF'
+#!/usr/bin/env bash
+printf "see %s/docs/setup.md\n" "$HOME"
+EOF
+
+if out=$(run_detector "$TMP_FP_PRINTF"); then
+  fail "negative case (FP-4): docs/ inside a printf string with no write ops should NOT count" "got generated; reason: $out"
+else
+  pass "negative case (FP-4): docs/ inside a printf string with no write ops correctly ignored"
+fi
+
+# --- fixture (bug class): echo with redirect TO docs/ — this IS a write
+# Guards against over-tightening: `echo "x" > docs/y` actually writes to docs/.
+echo "==> Positive case (loom-4iu, bug class): echo with redirect to docs/"
+TMP_POS_ECHO_REDIRECT="$(mktemp -d)"
+mkdir -p "$TMP_POS_ECHO_REDIRECT/docs" "$TMP_POS_ECHO_REDIRECT/scripts"
+echo "# generated" >"$TMP_POS_ECHO_REDIRECT/docs/index.md"
+cat >"$TMP_POS_ECHO_REDIRECT/scripts/build.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "<html/>" > docs/index.html
+EOF
+
+if out=$(run_detector "$TMP_POS_ECHO_REDIRECT"); then
+  pass "positive case (echo redirect): echo > docs/ correctly detected as build target"
+else
+  fail "positive case (echo redirect): echo \"x\" > docs/y SHOULD count as a build target" "exit $?; reason: $out"
 fi
 
 echo
