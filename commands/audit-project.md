@@ -9,8 +9,23 @@ Forward any flags the user passed to the slash command — the skill
 parses them. Recognized flags:
 
 - `--check=onboarding|docs|all` — pick which phase runs.
-- `--apply-trivial` — auto-apply trivial doc fixes (count
-  corrections + dead-bead-ID supersedes-chain replacement).
+- `--apply-trivial` — auto-apply doc-drift items the skill tagged
+  `[DOC FIX][TRIVIAL]`: cardinality count corrections (loom-469
+  class) and dead-bead-IDs whose `bd show` returns a unique
+  `superseded-by` ID. Larger/ambiguous fixes still require per-item
+  approval. (loom-8hg.)
+- `--apply-onboarding` — auto-apply onboarding-checklist items the
+  `project-onboarder` subagent tagged `[AUTOFIX:<recipe-id>]` on
+  the suggested-fix line: `bd-hooks` (item 3 — runs `bd hooks
+  install` + the loom-cka absorbing commit), `workflow-json` (item
+  4 — writes `{"v":1,"mode":"full"}`), `gitignore-worktrees` (item
+  11 — appends `.claude/worktrees/`). Items requiring real human
+  choice (`bd init`, MemPalace wing creation, CLAUDE.md authoring)
+  are NOT tagged AUTOFIX and remain in the per-item approval
+  queue. WARN items are never auto-applied. (loom-a29.)
+- `--workflow-mode=full|light|off` — override the mode value the
+  `[AUTOFIX:workflow-json]` recipe writes when `--apply-onboarding`
+  is set. Default `full`.
 - `--root <path>` — project root to audit (default: cwd's git
   root, then cwd). Lets the slash command run against any
   loom-managed project, not just loom itself.
@@ -22,13 +37,28 @@ path to the resolved project root and the resolved project short
 name (the `--wing` value, used as both wing slug and bd-memories
 keyword). Wait for its structured checklist report.
 
-Step 2: present the report to the user. For each `MISS` or `WARN`
-item, offer the template-based fix from the skill. Do NOT auto-apply
-any fix; require explicit user approval per item.
+Step 2: present the report to the user.
+
+If `--apply-trivial` and/or `--apply-onboarding` was passed, the skill's
+Step 3.5 walks the report and applies every `[DOC FIX][TRIVIAL]` /
+`[AUTOFIX:<id>]`-tagged item before the per-item loop starts. The
+auto-applied items appear in an `## Auto-applied` section; everything
+else flows to the per-item approval queue below.
+
+For each remaining `MISS` / `WARN` / `[DOC FIX]` item, offer the
+template-based fix from the skill. Do NOT auto-apply any fix outside
+the flag scope; require explicit user approval per item.
 
 Step 3: when the user says "skip" or "no" for an item, move on.
 When they approve, generate the fix from the skill's template,
 preview it, and only then write to disk.
+
+Auto-applied changes (from `--apply-trivial` / `--apply-onboarding`)
+leave git in a dirty state — the user reviews with `git diff` and
+commits or reverts themselves. The single exception is the
+`[AUTOFIX:bd-hooks]` recipe, which intentionally creates one absorbing
+commit (`bd: post-install export sync`) to clear the bd hook's
+export-pending queue per loom-cka.
 
 This is strictly a manual workflow. The audit-project skill is
 `disable-model-invocation: true` and is never auto-suggested by

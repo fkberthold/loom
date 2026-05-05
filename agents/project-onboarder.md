@@ -82,7 +82,7 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
    - Optional: also confirm the hook references `bd` to distinguish
      "hook present but not bd's" from "bd hook installed".
    - PASS = `$hooks_dir/pre-commit` exists.
-   - MISS = absent (suggest the two-step remediation: `bd hooks install`
+   - MISS = absent. Suggest the two-step remediation: `bd hooks install`
      followed by an immediate bd-only commit to absorb the export-pending
      queue, e.g. `git add .beads/issues.jsonl && git commit -m "bd:
      post-install export sync"`. The bd pre-commit hook re-exports
@@ -90,18 +90,27 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
      without the absorbing commit, the user's first logical commit after
      install silently picks up the export churn — observed in loom-cka,
      loom-b6o tla-puzzles trial 2026-05-04. The audit-project skill
-     renders this as a single suggested remediation block.).
+     renders this as a single suggested remediation block.
+   - **Tag the MISS suggested-fix line with `[AUTOFIX:bd-hooks]`** so
+     the audit-project skill's `--apply-onboarding` flag can identify
+     this as a deterministic two-command remediation. (loom-a29.)
    - Lineage: loom-j4r — the previous version of this check looked at
      `.git/hooks/pre-commit` only and reported MISS even when bd's
      canonical install (`.beads/hooks/` + `core.hooksPath`) was wired
      up correctly. loom-cka — added the absorbing-commit remediation
-     to the MISS path.
+     to the MISS path. loom-a29 — added the AUTOFIX tag.
 
 4. **`workflow.json` exists with mode set**
    - Read `<root>/.claude/workflow.json`. Parse JSON. Report `.mode`.
    - PASS = file present + valid JSON + mode in {full, light, off}.
    - WARN = file present but malformed or unrecognised mode.
-   - MISS = file absent (suggest `{"v":1, "mode":"full"}`).
+   - MISS = file absent. Suggest writing `{"v":1, "mode":"full"}` to
+     `<root>/.claude/workflow.json` (creating the directory if absent).
+   - **Tag the MISS suggested-fix line with `[AUTOFIX:workflow-json]`**
+     so the audit-project skill's `--apply-onboarding` flag can apply
+     it. The mode value is a real choice (full vs light vs off), but
+     `full` is the documented default for new projects; users who want
+     `light` can edit after. (loom-a29.)
 
 5. **MemPalace wing for project**
    - Call `mempalace_list_wings`; check whether the project's short name (or a close variant — replace `_` with `-`, lowercase) appears.
@@ -138,7 +147,12 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
 11. **`.gitignore` includes `.claude/worktrees/` (informational)**
     - Read `<root>/.gitignore`. Check for a line matching `.claude/worktrees/` (the path where the `Agent` tool with `isolation: "worktree"` creates per-subagent worktrees; auto-cleaned by the harness on session exit, never meant to be tracked).
     - PASS = entry present.
-    - INFO = entry absent (suggest one-line append: add `.claude/worktrees/` to `.gitignore`).
+    - INFO = entry absent. Suggest one-line append: add `.claude/worktrees/`
+      to `.gitignore`.
+    - **Tag the INFO suggested-fix line with `[AUTOFIX:gitignore-worktrees]`**
+      so the audit-project skill's `--apply-onboarding` flag can apply it.
+      The append is idempotent — the flag's apply step re-checks the file
+      before writing. (loom-a29.)
     - This check is INFO/PASS only — never WARN or MISS. The project may not yet have used parallel-dispatch with worktree isolation; the entry is preventive hygiene that costs one line. Lineage: `drawer_loom_decisions_df73c725b47dd67832935e3a` (loom-tag, the Agent isolation:worktree path-resolution finding).
 
 ## Output format
@@ -168,6 +182,35 @@ PASS: N · WARN: N · MISS: N
 
 Top 3 gaps to fix first (most blocking → least): <ordered short list>
 ```
+
+### AUTOFIX tags on suggested-fix lines
+
+For deterministic one-command remediations (items 3, 4, 11), append a
+trailing `[AUTOFIX:<recipe-id>]` token to the suggested-fix line so the
+`audit-project` skill's `--apply-onboarding` flag can identify which
+items it is allowed to apply unattended. The tag is a stable string —
+do NOT include it on items whose fix requires a real human choice
+(items 2 `bd init`, 5 MemPalace wing creation, 6 CLAUDE.md authoring,
+7 `.claude/rules/` content). Recognised recipe-ids:
+
+- `bd-hooks` — item 3 MISS, runs `bd hooks install` + the absorbing
+  `git add .beads/issues.jsonl && git commit -m "bd: post-install
+  export sync"` two-step (loom-cka).
+- `workflow-json` — item 4 MISS, writes `{"v":1,"mode":"full"}` to
+  `<root>/.claude/workflow.json`.
+- `gitignore-worktrees` — item 11 INFO, appends `.claude/worktrees/`
+  to `<root>/.gitignore` if not already present.
+
+Example suggested-fix line shape:
+
+```
+   - Suggested fix: run `bd hooks install`, then absorb the export
+     queue with `git add .beads/issues.jsonl && git commit -m "bd:
+     post-install export sync"` (loom-cka). [AUTOFIX:bd-hooks]
+```
+
+The skill parses the tag with a literal-substring match — keep it
+on a single line, single-bracketed, exactly `[AUTOFIX:<id>]`.
 
 ## What you do NOT do
 

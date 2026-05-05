@@ -74,10 +74,38 @@ audit. This is a deliberately user-pulled workflow.
   doc-vs-reality sweep.
 - `--check=all` (default when the project has a Diataxis substrate;
   see Step 1) — run both.
-- `--apply-trivial` — auto-apply the two trivial doc fixes:
-  cardinality count corrections (the loom-469 class) and dead
-  bead-ID replacement using the supersedes-chain. Larger fixes
-  still require per-item user approval.
+- `--apply-trivial` — auto-apply doc-drift items the skill has tagged
+  `[DOC FIX][TRIVIAL]`: cardinality count corrections (the loom-469
+  class — single-numeral substitution at a known file:line) and dead
+  bead-IDs whose `bd show` returns a unique `superseded-by` ID.
+  Ambiguous items (factual claims, behavior descriptions, fuzzy
+  drawer-citation matches) are NEVER tagged TRIVIAL and remain in
+  the per-item approval queue. See "Step 3.5 — apply tagged items"
+  below for the full apply procedure. (loom-8hg.)
+- `--apply-onboarding` — auto-apply onboarding-checklist items the
+  `project-onboarder` subagent has tagged `[AUTOFIX:<recipe-id>]` on
+  the suggested-fix line. Recognised recipes (loom-a29):
+  - `[AUTOFIX:bd-hooks]` (item 3 MISS) — runs `bd hooks install`
+    then `git add .beads/issues.jsonl && git commit -m "bd:
+    post-install export sync"` (the loom-cka two-step absorbing
+    commit).
+  - `[AUTOFIX:workflow-json]` (item 4 MISS) — writes
+    `{"v":1,"mode":"full"}` to `<root>/.claude/workflow.json`. Mode
+    is a real choice; `full` is the documented default. Override
+    with `--workflow-mode=light|off` to change the value the flag
+    writes; users who later want a different mode can edit the file
+    directly.
+  - `[AUTOFIX:gitignore-worktrees]` (item 11 INFO) — appends
+    `.claude/worktrees/` to `<root>/.gitignore` if not already
+    present. Idempotent.
+  Items NOT tagged AUTOFIX (item 2 `bd init`, item 5 MemPalace wing
+  creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`)
+  remain in the per-item approval queue. The flag never touches
+  WARN items (those imply real conflict — dirty tree, malformed
+  workflow.json, etc. — and need human triage).
+- `--workflow-mode=full|light|off` — only meaningful with
+  `--apply-onboarding`. Sets the `mode` value the
+  `[AUTOFIX:workflow-json]` recipe writes. Default `full`.
 - `--root <path>` — project root to audit (default: current working
   directory's git root, or cwd if not in a git repo). All filesystem
   globs, `bd` lookups, and `git` commands resolve against this root.
@@ -334,15 +362,26 @@ noun rather than reporting "0 found".
 Compare the doc's count to the actual count. Mismatch → emit:
 
 ```
-[DOC FIX] cardinality
+[DOC FIX][TRIVIAL] cardinality
   doc:        <file>:<line> "All <N> <noun> have <claim>"
-  reality:    <M> <noun> match <glob> (or N matches but K satisfy <claim>)
-  suggested:  s/<N>/<M>/ (or rewrite to enumerate which <K> satisfy)
+  reality:    <M> <noun> match <glob>
+  suggested:  s/<N>/<M>/
 ```
 
-This catches the loom-469 class. If `--apply-trivial` is set AND
-the only difference is the numeral, apply the substitution
-automatically and add a `[DOC FIX][AUTO-APPLIED]` line.
+Emit the `[TRIVIAL]` qualifier ONLY when:
+
+- The doc's text differs from reality by exactly one numeral (or one
+  word-number like `four` → `five`), AND
+- The substitution is unambiguous at the given file:line (the numeral
+  appears once on that line, so a literal s/old/new/ is safe).
+
+When the mismatch is "N matches but K satisfy <claim>" (e.g., the doc
+asserts a property of all six items but only five satisfy it), the fix
+is a rewrite, not a substitution — emit `[DOC FIX]` without the
+`[TRIVIAL]` tag and let the user resolve it manually.
+
+This catches the loom-469 class. The `--apply-trivial` flag (Step 3.5)
+applies every `[DOC FIX][TRIVIAL]` item.
 
 #### Check 2 — Citation resolution
 
@@ -392,9 +431,21 @@ Output line shape (per failed citation):
 For dead bead-IDs specifically, attempt to follow the
 supersedes-chain: `bd show <dead-id>` may return supersession
 metadata in the close reason or via a `superseded-by` label;
-if so, suggest the replacement ID. If `--apply-trivial` is set
-AND the supersedes-chain yields a unique replacement, apply the
-substitution automatically.
+if so, suggest the replacement ID. When the supersedes-chain
+yields exactly one replacement ID, emit the line with the
+`[TRIVIAL]` qualifier:
+
+```
+[DOC FIX][TRIVIAL] dead-bead-id
+  doc:        <file>:<line> cites `<dead-id>`
+  reality:    bd show <dead-id> → superseded-by <new-id>
+  suggested:  s/<dead-id>/<new-id>/
+```
+
+When the chain yields zero or multiple candidates, emit
+`[DOC FIX] dead-bead-id` without the `[TRIVIAL]` tag — the
+replacement is a real choice and stays in the per-item approval
+queue.
 
 This catches the loom-qj3 lying-doc class for the citation
 sub-class.
@@ -505,6 +556,118 @@ convention like `> Drawer: <wing>/<slug>` or footnote-style
 citations, prefer those structured patterns and skip free-text
 matching.
 
+### Step 3.5 — apply tagged items (only when --apply-trivial / --apply-onboarding set)
+
+If neither flag is set, skip this step entirely; every item flows to
+the per-item approval queue in Step 4.
+
+When at least one apply flag is set, walk the report top-to-bottom and
+process items as follows. Order: onboarding items first (they may
+create `.beads/`, `.claude/`, etc. that downstream items reference),
+then doc-drift items.
+
+#### --apply-onboarding: walk the project-onboarder report
+
+For each line whose `Suggested fix` text contains a literal
+`[AUTOFIX:<recipe-id>]` token (substring match — exact bracketed
+form), apply the recipe:
+
+- **`[AUTOFIX:bd-hooks]`** — execute, in order:
+  ```bash
+  cd <root> && bd hooks install
+  cd <root> && git add .beads/issues.jsonl 2>/dev/null
+  cd <root> && git -c core.hooksPath=/dev/null commit -m "bd: post-install export sync" 2>/dev/null \
+    || echo "(nothing to absorb — fresh .beads/ already clean)"
+  ```
+  The `core.hooksPath=/dev/null` override on the absorbing commit
+  prevents the just-installed pre-commit hook from re-firing on its
+  own export — it's the chicken-and-egg break the loom-cka two-step
+  is meant to dodge. If the absorbing commit has no staged content,
+  emit a one-line "(nothing to absorb)" note and continue.
+
+- **`[AUTOFIX:workflow-json]`** — write
+  `{"v":1,"mode":"<mode>"}` (where `<mode>` defaults to `full`, or
+  the value passed via `--workflow-mode`) to
+  `<root>/.claude/workflow.json`. Create `<root>/.claude/` if it
+  doesn't exist. Do NOT overwrite an existing file — re-check the
+  presence first; if the file appeared between the scan and apply
+  step (race), skip with a note.
+
+- **`[AUTOFIX:gitignore-worktrees]`** — append the line
+  `.claude/worktrees/` to `<root>/.gitignore` (creating the file if
+  absent). Idempotent: re-read the file first; skip if the entry is
+  already present (any of `.claude/worktrees`, `.claude/worktrees/`,
+  `/.claude/worktrees/`, etc.).
+
+For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
+queue for Step 4. Emit one summary line per skipped item: `--apply-
+onboarding: skipping item N (no AUTOFIX tag — requires human review)`.
+
+#### --apply-trivial: walk the docs-drift section
+
+For each line tagged `[DOC FIX][TRIVIAL]`, apply the suggested
+substitution:
+
+- The `suggested:` field for TRIVIAL items is always shape
+  `s/<old>/<new>/`. Use the `Edit` tool against the file at the
+  `doc:` field's `<file>:<line>` location; pass the verbatim
+  doc-line text (read fresh — file may have shifted) as `old_string`
+  and the substituted text as `new_string`.
+- Re-read the file before each Edit to defend against line-number
+  drift; if the verbatim text from the report no longer appears in
+  the file, skip the item with a note `--apply-trivial: skipping
+  <file>:<line> (text drifted between scan and apply)`.
+
+For each `[DOC FIX]` line WITHOUT the `[TRIVIAL]` qualifier, leave
+it in the queue for Step 4. Emit one summary line per skipped item:
+`--apply-trivial: skipping <file>:<line> (no TRIVIAL tag — requires
+human review)`.
+
+#### Apply-step output
+
+Print a `## Auto-applied` section listing every change made:
+
+```
+## Auto-applied
+
+[AUTOFIX:bd-hooks] @ <root>
+  - ran `bd hooks install` → wrote .beads/hooks/pre-commit + post-commit
+  - absorbed export queue: 1 commit `bd: post-install export sync`
+
+[AUTOFIX:workflow-json] @ <root>/.claude/workflow.json
+  - wrote {"v":1,"mode":"full"}
+
+[AUTOFIX:gitignore-worktrees] @ <root>/.gitignore
+  - appended `.claude/worktrees/`
+
+[DOC FIX][TRIVIAL] cardinality @ README.md:42
+  - s/(105 dirs)/(106 dirs)/
+
+[DOC FIX][TRIVIAL] cardinality @ docs/index.md:78
+  - s/Prelude (4)/Prelude (5)/
+
+(N items skipped — see "--apply-* skipping" notes above)
+```
+
+#### What this step does NOT do
+
+- **Does not commit.** Git is left in a dirty state for the user to
+  review with `git diff` / `git status` and commit (or revert)
+  themselves. The `[AUTOFIX:bd-hooks]` recipe is the one exception
+  — it MUST commit the absorbing commit because the bd hook needs
+  to fire once on a clean queue before the user's first logical
+  commit (loom-cka). That commit is intentional, scoped, and
+  message-tagged.
+- **Does not run the project's test suite.** The user verifies post-
+  apply.
+- **Does not retry on failure.** A failed Edit / Bash / Write step
+  emits one error line and continues to the next item; the
+  per-item approval queue in Step 4 still has the failed items for
+  manual handling.
+- **Does not touch WARN items.** Onboarding WARNs (item 1 dirty
+  tree, item 4 malformed workflow.json, etc.) imply real conflict
+  — apply flags never auto-resolve them.
+
 ### Step 4 — present combined report + drive interactive fixes
 
 Produce one combined report:
@@ -523,11 +686,12 @@ explicit or when no basename-variant has more drawers>
 <list of [DOC FIX] lines, if run; "no drift detected" otherwise>
 
 ## Auto-applied
-<list of [DOC FIX][AUTO-APPLIED] lines, if --apply-trivial and any
-fired>
+<output of Step 3.5, if --apply-trivial and/or --apply-onboarding
+fired and any items applied; omitted otherwise>
 
 ## Summary
 PASS: <N> · WARN: <N> · MISS: <N> · [DOC FIX]: <N>
+auto-applied: <K> · skipped (untagged): <S>
 Top 3 gaps to fix first: <ordered short list>
 ```
 
@@ -540,8 +704,8 @@ edit for docs drift), preview the diff, then write to disk.
 On `skip`: move on. On `edit`: ask the user for the corrected text
 and use that.
 
-Never auto-apply a fix outside `--apply-trivial` scope. The skill
-is a co-pilot for cleanup, not an autonomous editor.
+Never auto-apply a fix outside `--apply-trivial` / `--apply-onboarding`
+scope. The skill is a co-pilot for cleanup, not an autonomous editor.
 
 ### Step 5 — capture findings to `<wing>/decisions`
 
@@ -619,10 +783,19 @@ One line per drift item, prefix-tagged. Concrete examples:
 ## What this skill does NOT do
 
 - **Does not write to disk without user approval** (except for
-  `--apply-trivial` items where the user has pre-authorized the
-  trivial-fix class by passing the flag).
-- **Does not run `bd init`, `bd hooks install`, or any MemPalace
-  write.** Onboarding fixes are templated; the user applies them.
+  `--apply-trivial` / `--apply-onboarding` items where the user
+  has pre-authorized the AUTOFIX-tagged class by passing the flag).
+- **Does not run `bd init`** (interactive — requires the user to
+  acknowledge the workspace prompt). Even with `--apply-onboarding`,
+  item 2 MISS stays in the per-item queue.
+- **Does not write to MemPalace.** Even with `--apply-onboarding`,
+  item 5 MISS (no project-named wing) stays in the per-item queue —
+  wing creation is a per-user MCP-server operation, not a script
+  recipe.
+- **Does NOT run `bd hooks install` or write `workflow.json` /
+  `.gitignore` without `--apply-onboarding`.** When the flag is set,
+  the AUTOFIX recipes in Step 3.5 do these writes; without it, the
+  skill emits the suggested-fix line and waits for per-item approval.
 - **Does not perform semantic claim extraction in v1.** "X does Y"
   claims with verb-level disagreement (the doc says "fires on
   X" but the hook fires on Y) are out of scope. v2 may add LLM-
@@ -667,8 +840,8 @@ trivial cases.
 
 - Slash command: `commands/audit-project.md` — manual-only entry
   point with `disable-model-invocation: true`. The slash command
-  forwards `--root`, `--wing`, `--check`, and `--apply-trivial`
-  to this skill.
+  forwards `--root`, `--wing`, `--check`, `--apply-trivial`,
+  `--apply-onboarding`, and `--workflow-mode` to this skill.
 - Subagent: `agents/project-onboarder.md` — read-only scanner the
   skill dispatches in step 2. The subagent already takes the
   project root + short name as inputs, so portability flows
