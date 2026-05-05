@@ -37,7 +37,9 @@ in volatile context, follow these steps.
 
 6. **Push outstanding state.** Run `bd dolt push` and `git push` if
    you committed anything since the last push. Confirm
-   `git status` is "up to date with origin."
+   `git status` is "up to date with origin." (Solo bd workspaces
+   with no Dolt remote configured can skip `bd dolt push` — its
+   "remote 'origin' not found" exit-1 is benign. See loom-hsb.)
 
 7. **End the conversation.** Close the session.
 
