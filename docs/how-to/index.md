@@ -41,6 +41,12 @@ matches what you are about to do.
 - [Where to update what](./where-to-update-what.md) — the canonical
   edit surface for each piece of loom's behavior.
 
+## Adopt loom's docs convention in another project
+
+- [Scaffold a managed project's docs](./scaffold-managed-project-docs.md)
+  — copy loom's Diataxis skeleton into a managed project with
+  per-file approval; opt-out marker; post-scaffold audit.
+
 ## Common scenarios
 
 Recipes for recurring situations that span multiple lifecycle

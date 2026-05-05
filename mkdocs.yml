@@ -79,6 +79,7 @@ nav:
       - Stop a session: how-to/stop-a-session.md
       - Bypass workflow ceremony: how-to/bypass-workflow-ceremony.md
       - Where to update what: how-to/where-to-update-what.md
+      - Scaffold a managed project's docs: how-to/scaffold-managed-project-docs.md
       - Common scenarios:
           - how-to/common-scenarios/index.md
           - New bug: how-to/common-scenarios/new-bug.md
