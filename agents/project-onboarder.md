@@ -63,9 +63,30 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
    - PASS = present. MISS = absent (suggest `bd init`).
 
 3. **bd hooks installed**
-   - Check `<root>/.git/hooks/pre-commit` exists and references `bd`.
-   - Also check `git -C <root> config core.hooksPath` (some setups use a shared hooksPath).
-   - PASS = bd hook artifacts found. MISS = absent (suggest `bd hooks install`).
+   - Resolve the active hooks directory FIRST:
+     ```bash
+     hooks_dir=$(git -C <root> config --get core.hooksPath 2>/dev/null)
+     [ -z "$hooks_dir" ] && hooks_dir=".git/hooks"
+     # If hooks_dir is relative, it's relative to <root> (gitconfig
+     # convention). If absolute, use as-is.
+     case "$hooks_dir" in
+       /*) ;;
+       *) hooks_dir="<root>/$hooks_dir" ;;
+     esac
+     ```
+   - Check `$hooks_dir/pre-commit` exists. (`bd hooks install` writes
+     to `.beads/hooks/` and sets `core.hooksPath=.beads/hooks`, so
+     resolving via gitconfig finds the hook regardless of which
+     install layout the project uses — bd-canonical or vanilla
+     `.git/hooks/`.)
+   - Optional: also confirm the hook references `bd` to distinguish
+     "hook present but not bd's" from "bd hook installed".
+   - PASS = `$hooks_dir/pre-commit` exists.
+   - MISS = absent (suggest `bd hooks install`).
+   - Lineage: loom-j4r — the previous version of this check looked
+     at `.git/hooks/pre-commit` only and reported MISS even when bd's
+     canonical install (`.beads/hooks/` + `core.hooksPath`) was wired
+     up correctly.
 
 4. **`workflow.json` exists with mode set**
    - Read `<root>/.claude/workflow.json`. Parse JSON. Report `.mode`.
