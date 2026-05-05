@@ -18,11 +18,14 @@ the skeleton would write.
 
 ## Steps
 
-1. **Switch to the target project.** `/docs-scaffold` reads the cwd's
-   git root.
+1. **Switch to the target project.** `/docs-scaffold` resolves the
+   target via the same precedence chain as `/audit-project`: explicit
+   `--root <path>` flag wins, then cwd's git root, then cwd itself.
 
    ```bash
-   cd /path/to/managed-project
+   cd /path/to/managed-project          # implicit cwd
+   # or
+   /docs-scaffold --root /path/to/managed-project  # cross-project from anywhere
    ```
 
 2. **Run the slash command.** The skill walks six steps (M1–M6) with
@@ -59,7 +62,7 @@ the skeleton would write.
      content; no-op.
 
    The full skeleton inventory lives at
-   [`templates/diataxis/README.md`](https://github.com/fkberthold/loom/blob/main/templates/diataxis/README.md)
+   [`templates/diataxis-README.md`](https://github.com/fkberthold/loom/blob/main/templates/diataxis-README.md)
    (~17 files: `mkdocs.yml`, `requirements.txt`, the GH Pages
    workflow, four quadrant `index.md`s, a thin tutorial, an install
    how-to, four reference catalog pages, a mental-model explanation,
@@ -130,6 +133,49 @@ workflow. Reference pages auto-surface every project primitive via
 quadrants ship with placeholder copy that is structurally correct
 but content-empty — the project owns filling them in.
 
+## Migrating existing flat docs
+
+Most projects adopt loom *after* accumulating some `docs/` content.
+At M3 the skill detects the existing files and offers `skip` /
+`merge` / `refuse`. `merge` is the typical answer when no template
+file collides with an existing one (see step 4 above) — the
+quadrants and skeleton bones land alongside the legacy files
+without overwriting anything.
+
+That leaves the project in a **legitimate half-migrated state**:
+the new `docs/{tutorials,how-to,reference,explanation}/` tree
+co-exists with whatever was there before (`architecture.md`,
+`spec.md`, `*-reference.md`, project-local `plans/`, `research/`,
+etc.). This is fine. The skill is a copier, not a migrator; the
+project owner decides which legacy files belong inside the
+quadrants and on what schedule.
+
+When you do migrate, this cheat-sheet covers most filenames:
+
+| Legacy filename pattern | Likely quadrant | Notes |
+|---|---|---|
+| `*-reference.md`, `api.md`, `cli.md`, `spec.md` | `reference/` | Move into a flat file under `docs/reference/`, or a sub-page of the catalog if it documents one of the project's primitives. |
+| `architecture.md`, `mental-model.md`, `philosophy.md`, `theory.md` | `explanation/` | Why-shaped prose. Diataxis F1 forbids mixing with how-to or reference content. |
+| `setup.md`, `install.md`, `*-guide.md`, `*-walkthrough.md` | `how-to/` | Goal-oriented procedural content. Each how-to should solve one problem. |
+| `getting-started.md`, `tutorial.md`, `intro.md` | `tutorials/` | Learning-oriented; one path through the project for a beginner. |
+| `plans/`, `research/`, `decisions/` (existing project-local subdirs) | usually leave as-is | These are typically project conventions for ADRs / decision logs / RFCs and don't fit the four Diataxis quadrants. The Diataxis discipline doesn't require absorbing them. Cross-link from `explanation/` if useful. |
+| `notes/`, `scratch/`, `wip/` | leave as-is or delete | Diataxis is about published docs. Internal notes belong elsewhere or in version control's history. |
+
+When a legacy file straddles two quadrants (e.g. half-reference,
+half-how-to), split it. Don't keep mixed-mode pages just to avoid
+the work; mixed-mode pages are exactly what `/audit-project
+--check=docs` Check 4 will start surfacing once `reference/` and
+`how-to/` catalog pages exist.
+
+You don't have to migrate everything in one pass. A common rhythm
+is: scaffold → leave legacy alone for a release → audit drift →
+migrate the noisiest files → audit again. The audit shows you which
+flat files are now being cited from quadrant pages, which surfaces
+the natural migration order without guessing.
+
+A `/docs-migrate` skill that auto-classifies legacy files is out of
+scope for v1; this human playbook is the supported v1 path.
+
 ## Opt out
 
 To declare that the project will not adopt Diataxis:
@@ -190,7 +236,7 @@ losing your project-owned voice.
   and [reference: skills](../reference/skills/index.md).
 - For the canonical skeleton inventory and the `sed`-based
   substitution mechanism, see
-  [`templates/diataxis/README.md`](https://github.com/fkberthold/loom/blob/main/templates/diataxis/README.md).
+  [`templates/diataxis-README.md`](https://github.com/fkberthold/loom/blob/main/templates/diataxis-README.md).
 - For why loom recommends Diataxis (Procida verbatim plus the C1–C6
   loom accommodations), see
   [explanation: mental model](../explanation/mental-model.md).

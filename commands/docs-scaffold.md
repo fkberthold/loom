@@ -4,10 +4,13 @@ disable-model-invocation: true
 ---
 
 Invoke the `docs-scaffold` skill and follow it exactly as presented.
+Forward `--root <path>` if provided so the skill targets that
+project root instead of cwd's git root (parity with `/audit-project`).
 
-Step 1: confirm the cwd is loom-managed (`.claude/workflow.json`
-present). If not, refuse and tell the user to run `/audit-project`
-first to onboard the project.
+Step 1: confirm the resolved root (`--root` if given, else cwd's
+git root) is loom-managed (`.claude/workflow.json` present). If
+not, refuse and tell the user to run `/audit-project` first to
+onboard the project.
 
 Step 2: walk M1-M6 from the skill — detect target, detect
 primitives, detect existing docs (honoring `docs/.no-diataxis`),

@@ -1,15 +1,21 @@
 # `templates/diataxis/` — canonical Diataxis skeleton
 
-This directory is the source-of-truth canonical Diataxis docs skeleton
-that `/docs-scaffold` (loom-km8.2) copies into a target project. It is
-also reusable directly: a maintainer can copy + substitute by hand
-without invoking the slash command.
+This file is `templates/diataxis-README.md`, the documentation for the
+sibling `templates/diataxis/` directory. It is intentionally kept
+**outside** that directory so the documented `cp -r templates/diataxis/.`
+recipe never copies maintainer documentation into a target project
+(loom-c6n: prior placement at `templates/diataxis/README.md` would
+have overwritten any existing `<target>/README.md`).
 
-## What ships here
+The `templates/diataxis/` directory is the source-of-truth canonical
+Diataxis docs skeleton that `/docs-scaffold` (loom-km8.2) copies into
+a target project. It is also reusable directly: a maintainer can copy
++ substitute by hand without invoking the slash command.
+
+## What ships in `templates/diataxis/`
 
 ```
 templates/diataxis/
-├── README.md                                   ← this file
 ├── README.docs-pointer.md.template             ← snippet to splice into project README
 ├── mkdocs.yml.template                         ← MkDocs Material site config
 ├── requirements.txt                            ← pinned mkdocs deps

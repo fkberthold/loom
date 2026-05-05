@@ -43,15 +43,37 @@ skill as the fix, but never invokes.
 - The user wants to scaffold a single page rather than the whole tree.
   This skill is whole-tree only; targeted edits are out of scope.
 
+## Flags
+
+- `--root <path>` — project root to scaffold into (default: current
+  working directory's git root, or cwd if not in a git repo). All
+  filesystem checks (`.claude/workflow.json` detection, primitive
+  scan, `docs/.no-diataxis` opt-out, existing-docs inventory),
+  `git config` lookups for variable defaults, and the M6 file copy
+  resolve against this root. Lets the skill scaffold any
+  loom-managed project, not just the one matching cwd. Mirrors the
+  precedence chain used by `/audit-project`.
+
 ## The Sequence
 
 ### M1 — Detect target
 
-Resolve the target project root (default: cwd's git root). Verify it
-is loom-managed by checking for `.claude/workflow.json` at the project
-root.
+Resolve the target project root in this precedence order:
 
-If `.claude/workflow.json` is absent: **refuse** with this message:
+1. Explicit `--root <path>` flag (absolute or relative; resolved to
+   absolute).
+2. Current working directory's git root (`git -C $PWD rev-parse
+   --show-toplevel`).
+3. Current working directory itself (fallback when not in a git repo).
+
+Call this `<root>` for the rest of the sequence. Every subsequent
+filesystem path is rooted at `<root>` (e.g. `<root>/docs/`,
+`<root>/.claude/workflow.json`).
+
+Verify the project is loom-managed by checking for
+`<root>/.claude/workflow.json`.
+
+If `<root>/.claude/workflow.json` is absent: **refuse** with this message:
 
 > This project is not loom-managed (no `.claude/workflow.json`).
 > Run `/audit-project` first to onboard the workflow infrastructure,
@@ -61,7 +83,7 @@ Stop. Do not proceed.
 
 ### M2 — Detect primitives
 
-Scan the project root for these primitive directories:
+Scan `<root>` for these primitive directories:
 
 | Directory | Reference catalog page |
 |---|---|
@@ -86,8 +108,8 @@ index.
 
 Three cases, each handled differently:
 
-1. **`docs/.no-diataxis` present at project root.** The project has
-   explicitly opted out. **Refuse** with this message:
+1. **`<root>/docs/.no-diataxis` present.** The project has explicitly
+   opted out. **Refuse** with this message:
 
    > This project carries `docs/.no-diataxis` (opt-out marker). The
    > project has chosen a non-Diataxis docs convention. Remove the
@@ -96,10 +118,10 @@ Three cases, each handled differently:
 
    Stop.
 
-2. **`docs/` absent or empty.** Clean scaffold path. Proceed to M4.
+2. **`<root>/docs/` absent or empty.** Clean scaffold path. Proceed to M4.
 
-3. **`docs/` exists with content.** List every existing file under
-   `docs/` and ask the user how to proceed:
+3. **`<root>/docs/` exists with content.** List every existing file under
+   `<root>/docs/` and ask the user how to proceed:
 
    - **skip** — abort the scaffold, leave existing docs alone.
    - **merge** — proceed; at M5 the user will approve per-file, so
@@ -126,8 +148,8 @@ that the user can override at the prompt:
 
 | Variable | Default source | Example |
 |---|---|---|
-| `{{ project_name }}` | `git config --get remote.origin.url` basename, falling back to `basename "$(pwd)"` | `acme-widgets` |
-| `{{ repo_url }}` | `git config --get remote.origin.url`, normalized to https form | `https://github.com/acme/widgets` |
+| `{{ project_name }}` | `git -C <root> config --get remote.origin.url` basename, falling back to `basename "<root>"` | `acme-widgets` |
+| `{{ repo_url }}` | `git -C <root> config --get remote.origin.url`, normalized to https form | `https://github.com/acme/widgets` |
 | `{{ short_description }}` | (no default — prompt the user) | `Widget orchestration for the Acme platform.` |
 
 Show the user each detected default and ask whether to accept or
@@ -142,19 +164,19 @@ workflow needs a real URL to do anything useful.
 
 Build the full list of files the scaffold will create or replace.
 The list is the contents of `templates/diataxis/` (the loom repo's
-canonical skeleton — see `templates/diataxis/README.md` for the
+canonical skeleton — see `templates/diataxis-README.md` for the
 inventory) **minus** any `docs/reference/<thing>/index.md` pages
 whose primitive type was absent at M2, **with** every `*.template`
 file renamed to drop the suffix (the substituted content lands at
 the suffixless path).
 
-For each file, show one of these tags:
+For each file, show one of these tags (existence checked under `<root>`):
 
-- `[NEW]` — file does not exist in the target. Will be created.
-- `[EXISTS — would overwrite]` — file exists in the target. Requires
-  explicit approval to overwrite (declined → skip this file).
-- `[EXISTS — identical]` — file exists with byte-identical content.
-  No-op; show in the preview but do not prompt.
+- `[NEW]` — file does not exist at `<root>/<path>`. Will be created.
+- `[EXISTS — would overwrite]` — file exists at `<root>/<path>`.
+  Requires explicit approval to overwrite (declined → skip this file).
+- `[EXISTS — identical]` — file exists at `<root>/<path>` with
+  byte-identical content. No-op; show in the preview but do not prompt.
 
 For each `[NEW]` and `[EXISTS — would overwrite]` line, ask:
 
@@ -177,9 +199,8 @@ visible.
 
 For each approved file:
 
-1. Copy the file from `templates/diataxis/<path>` into the target
-   project at the corresponding path (creating directories as
-   needed).
+1. Copy the file from `templates/diataxis/<path>` into `<root>` at
+   the corresponding path (creating directories as needed).
 2. If the source path ends in `.template`, perform variable
    substitution on the copied content (replace `{{ project_name }}`,
    `{{ repo_url }}`, `{{ short_description }}`) and rename the
@@ -191,7 +212,7 @@ For each approved file:
    catalog pages dropped at M2.
 
 Substitution mechanism: use the same four-line `sed` pass documented
-in `templates/diataxis/README.md` — `cp -r` the staged subset, then
+in `templates/diataxis-README.md` — `cp -r` the staged subset, then
 `find ... -exec sed -i ...` for the three placeholders, then
 `find ... -name '*.template' -exec mv ...` to rename. Substitution
 is plain `sed`; no Python, no envsubst, no external scaffold tool
@@ -277,8 +298,9 @@ fit Diataxis. Loom recommends Diataxis; loom doesn't impose it.
 
 - Slash command: `commands/docs-scaffold.md` — manual-only entry
   point with `disable-model-invocation: true`.
-- Source skeleton: `templates/diataxis/` — canonical bones; see its
-  `README.md` for inventory + substitution mechanism.
+- Source skeleton: `templates/diataxis/` — canonical bones; see the
+  sibling `templates/diataxis-README.md` for inventory + substitution
+  mechanism.
 - Companion check: `agents/project-onboarder.md` (loom-km8.3) —
   10th INFO check reports Diataxis-shape gap and names this skill
   as the fix.

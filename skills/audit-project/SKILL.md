@@ -1,6 +1,6 @@
 ---
 name: audit-project
-description: Audit the current project's workflow infrastructure (git/branch hygiene, beads init, bd hooks, workflow.json, MemPalace wing, CLAUDE.md, .claude/rules/, .claude/agents/+commands/, bd memories) and — for loom-managed projects — the docs/system/beads/MemPalace alignment of the project's documentation. Drives the project-onboarder subagent, presents the structured checklist to the user, and offers interactive template-based fixes per gap. Manual-only — never auto-suggested by session-startup or any activity recipe; only fires when the user invokes `/audit-project`.
+description: Audit the current project's workflow infrastructure (git/branch hygiene, beads init, bd hooks, workflow.json, MemPalace wing, CLAUDE.md, .claude/rules/, .claude/agents/+commands/, bd memories) and — for projects that already have a Diataxis docs substrate — the docs/system/beads/MemPalace alignment of the project's documentation. Drives the project-onboarder subagent, presents the structured checklist to the user, and offers interactive template-based fixes per gap. Manual-only — never auto-suggested by session-startup or any activity recipe; only fires when the user invokes `/audit-project`.
 ---
 
 # Audit-Project — Project Onboarding + Drift-Detection Skill
@@ -13,11 +13,19 @@ It coordinates two responsibilities, run sequentially in one session:
    `workflow.json`, MemPalace wing, `CLAUDE.md`, rules dir, `bd
    memories`) and return a `PASS`/`WARN`/`MISS` checklist. This is
    the v1 behavior shipped 2026-05-03.
-2. **Docs drift detection** — for loom-managed projects, compare
-   `docs/` against the system (filesystem primitives), beads
-   (`bd show`), and MemPalace (`mempalace_*`) and report
-   doc-vs-reality drift. This is the v2 behavior gated by
-   `--check=docs` (default-on for loom-managed projects).
+2. **Docs drift detection** — for projects with a Diataxis docs
+   substrate, compare `docs/` against the system (filesystem
+   primitives), beads (`bd show`), and MemPalace (`mempalace_*`) and
+   report doc-vs-reality drift. This is the v2 behavior gated by
+   `--check=docs` (default-on when the substrate is present).
+
+   Note: "Diataxis substrate" (the docs-check gate) is a *different*
+   condition from "loom-managed" (the docs-scaffold and onboarding
+   gate). Loom-managed = `.claude/workflow.json` present. Diataxis
+   substrate = `.beads/` present AND `docs/` already has at least one
+   Diataxis quadrant. A project is typically loom-managed first, then
+   gains a Diataxis substrate after running `/docs-scaffold`. Don't
+   conflate the two terms.
 
 The two phases produce a single combined report. The user approves
 fixes per item — nothing is auto-applied unless the user asks.
@@ -64,7 +72,8 @@ audit. This is a deliberately user-pulled workflow.
 - `--check=docs` — run only the docs drift detection. Useful when
   the project is already onboarded and you only want the
   doc-vs-reality sweep.
-- `--check=all` (default for loom-managed projects) — run both.
+- `--check=all` (default when the project has a Diataxis substrate;
+  see Step 1) — run both.
 - `--apply-trivial` — auto-apply the two trivial doc fixes:
   cardinality count corrections (the loom-469 class) and dead
   bead-ID replacement using the supersedes-chain. Larger fixes
@@ -83,11 +92,16 @@ audit. This is a deliberately user-pulled workflow.
   MemPalace wing slug (e.g., a checkout named `liza_live` whose wing
   is `liza`).
 
-If no flag is given, the default is `--check=all` for projects
-that look loom-managed (heuristic: `.beads/` exists AND `docs/`
+If no flag is given, the default is `--check=all` for projects with
+a Diataxis substrate (heuristic: `.beads/` exists AND `docs/`
 contains at least one Diataxis quadrant directory — `tutorials/`,
 `how-to/`, `reference/`, or `explanation/`). For other projects
 the default is `--check=onboarding` to preserve v1 behavior.
+
+This gate condition is named `has-diataxis-substrate` throughout the
+sequence below; it is *not* the same as "loom-managed" (which is
+`.claude/workflow.json` present, the gate `/docs-scaffold` and the
+project-onboarder use).
 
 ## The Sequence
 
@@ -102,7 +116,8 @@ Resolve the project root in this precedence order:
 3. Current working directory itself (fallback when not in a git repo).
 
 Parse the rest of the flags. Decide whether the docs check runs
-(loom-managed heuristic below, or explicit `--check=docs|all`).
+(`has-diataxis-substrate` heuristic below, or explicit
+`--check=docs|all`).
 
 Resolve the project's MemPalace wing in this precedence order:
 
@@ -129,10 +144,13 @@ that use additional primitive types) drive what the checks compare
 against. Checks 3 and 4 silently skip a primitive class whose
 directory doesn't exist.
 
-Detect "loom-managed" by checking the project root for: `.beads/`
+Detect `has-diataxis-substrate` by checking `<root>` for: `.beads/`
 present AND `docs/` containing at least one of `tutorials/`,
 `how-to/`, `reference/`, `explanation/`. If both conditions hold,
-the docs check defaults on; otherwise it defaults off.
+the docs check defaults on; otherwise it defaults off. (This is
+distinct from "loom-managed", which is `.claude/workflow.json`
+present — the gate used by `/docs-scaffold` and the
+project-onboarder. The two gates can be true independently.)
 
 Detect the Diataxis opt-out: if `<root>/docs/.no-diataxis` exists,
 record `opt_out_diataxis = true`. Check 4 (inclusion-glob coverage,
@@ -141,6 +159,54 @@ pages) is skipped under opt-out. Checks 1, 2, 3, and 5 still run
 if `<root>/docs/` exists at all — those checks are about
 docs-vs-reality drift in whatever shape the docs take, not about
 Diataxis layout.
+
+### Step 1b — wing-variant warning (auto-detect only)
+
+If the wing was auto-detected (steps 2 or 3 of the wing precedence
+chain — i.e., `--wing` was NOT explicitly passed), surface a WARN when
+the resolved wing has basename-variant siblings in the palace. This
+catches the case where the canonical project wing uses a different
+separator or capitalization than the directory basename suggests
+(e.g., directory `hundred-acre-woods` auto-resolves to wing
+`hundred-acre-woods` with 3 drawers, but the canonical wing is
+`hundred_acre_woods` with 13 drawers).
+
+Procedure:
+
+1. Call `mempalace_list_wings`.
+2. Compare the auto-detected wing slug `W` against every other wing
+   slug `S` in the result. `S` is a basename-variant of `W` when any
+   of these holds:
+   - `S` equals `W` after substituting `_` ↔ `-` and lowercasing
+   - `S` equals `W` after stripping/adding a trailing `s` (singular ↔
+     plural)
+   - `S` equals `W` after collapsing `_` and `-` to a common neutral
+     (snake_case ↔ kebab-case both reduce to the same compact form)
+3. For each variant `S`, record its drawer count (use
+   `mempalace_list_drawers(wing=S, limit=1)` and the returned total
+   count, or whichever palace API surfaces the count cheaply).
+4. Emit the WARN line **only when** at least one variant `S` has
+   `drawer_count(S) > drawer_count(W)`. Skip the WARN when the
+   auto-detected wing is the largest sibling (it's plausibly canonical;
+   no escalation needed).
+
+WARN line shape:
+
+```
+[WING WARN] auto-detected wing may not be canonical
+  resolved:   <W> (<M> drawers, basename auto-detect)
+  variants:   <S1> (<N1> drawers), <S2> (<N2> drawers)
+  suggested:  re-run with --wing <S_largest> if you want drift checks
+              scoped to the larger wing
+```
+
+Surface this WARN **before Step 2**, so the user can interrupt and
+re-run with the correct `--wing`. Do not block — emit, then continue.
+The user owns the call; the skill just makes the silent-wrong case
+loud.
+
+If `--wing` was explicitly passed, skip Step 1b entirely (the user
+made the call deliberately).
 
 ### Step 2 — dispatch project-onboarder (unless `--check=docs`)
 
@@ -382,6 +448,10 @@ Produce one combined report:
 ```markdown
 # Project audit: <project-short-name>
 
+## Pre-flight warnings
+<[WING WARN] line from Step 1b, if any; omitted when wing was
+explicit or when no basename-variant has more drawers>
+
 ## Onboarding
 <verbatim project-onboarder report, if run>
 
@@ -478,8 +548,8 @@ truthful. Two bug classes proved that assumption wrong:
 The docs check exists because the human review pass at PR time is
 the wrong layer to catch this kind of drift — it's mechanical and
 should be mechanized. Running it at audit time, default-on for
-loom-managed projects, surfaces drift at the moment when there's
-budget to fix it.
+projects with a Diataxis substrate, surfaces drift at the moment
+when there's budget to fix it.
 
 The precedence rule (`docs lose`) is what makes the check tractable.
 If docs and reality disagreed in either direction the check would
