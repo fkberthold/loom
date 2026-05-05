@@ -48,7 +48,14 @@ Present each subagent's output to the user for review. After approval:
 ## 4. Close bead(s) + push
 
 - `bd close <id1> <id2> ... --reason="<one-line summary referencing the drawer>"`.
-- `bd dolt push`.
+- `bd dolt push` — but guard for solo workspaces (loom-hsb):
+  ```bash
+  if bd dolt remote list --json 2>/dev/null | grep -q '"name"'; then
+    bd dolt push
+  else
+    echo "(solo bd workspace; no Dolt remote — skipping bd dolt push)"
+  fi
+  ```
 - `git push`.
 - Final `git status` to confirm "up to date with origin".
 

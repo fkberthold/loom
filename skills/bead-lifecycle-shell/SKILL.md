@@ -317,7 +317,12 @@ closing.
 
 ```bash
 bd close <id1> <id2> ... --reason="<one-line summary>"
-bd dolt push
+# Guard: skip bd dolt push for solo workspaces (no remote configured) — loom-hsb.
+if bd dolt remote list --json 2>/dev/null | grep -q '"name"'; then
+  bd dolt push
+else
+  echo "(solo bd workspace; no Dolt remote — skipping bd dolt push)"
+fi
 git push
 git status   # MUST show "up to date with origin"
 ```
@@ -326,6 +331,12 @@ The `bd-close-capture` hook will block the close if recent capture
 work is missing — bypass with `--force` or `BD_CLOSE_FORCE=1` only
 for trivial fixes that genuinely don't warrant a drawer. The hook
 writes `stage=close`.
+
+The `bd dolt push` guard exists because solo bd workspaces (no Dolt
+remote configured) have `bd dolt push` exit 1 with a "remote 'origin'
+not found" error that is benign — issues are still versioned locally
+in `.beads/`. The guard checks `bd dolt remote list --json` and skips
+the push when the result is empty (`[]`). See loom-hsb.
 
 ### D3. Capture the decision in MemPalace
 

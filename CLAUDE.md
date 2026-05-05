@@ -175,7 +175,12 @@ bd close <id>         # Complete work
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase=merges  # preserves --no-ff bead-merge bubbles (loom-6z3)
-   bd dolt push
+   # Guard: skip bd dolt push for solo workspaces (no remote configured) — loom-hsb.
+   if bd dolt remote list --json 2>/dev/null | grep -q '"name"'; then
+     bd dolt push
+   else
+     echo "(solo bd workspace; no Dolt remote — skipping bd dolt push)"
+   fi
    git push
    git status  # MUST show "up to date with origin"
    ```

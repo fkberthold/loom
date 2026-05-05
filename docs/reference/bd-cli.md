@@ -16,7 +16,14 @@ bd close <id> --reason="x"  # close (BLOCKED by bd-close-capture hook by default
 bd close <id1> <id2> ...    # batch close
 bd dolt push                # push beads state to Dolt remote
 bd dolt pull                # pull beads state from Dolt remote
+bd dolt remote list --json  # list configured remotes (use to guard push for solo workspaces — loom-hsb)
 ```
+
+`bd dolt push` exits 1 with "remote 'origin' not found" on solo
+workspaces (no Dolt remote configured); that error is benign because
+issues are still versioned locally in `.beads/`. The session-close
+protocol guards the push with `bd dolt remote list --json` to avoid
+treating it as a failure.
 
 ## Bypass and escape hatches
 

@@ -48,7 +48,11 @@ work to the remote, follow these steps.
 
 10. **Push everything.** Run `bd dolt push` to publish the beads
     state, then `git push` to publish the branch. Verify
-    `git status` reports "up to date with origin."
+    `git status` reports "up to date with origin." For solo bd
+    workspaces with no Dolt remote configured (`bd dolt remote
+    list --json` returns `[]`), `bd dolt push` exits 1 with a
+    "remote 'origin' not found" error — that's benign, skip it.
+    See loom-hsb.
 
 11. **Suggest follow-ups.** If the work surfaced new beads, file
     them now — but do not auto-create. The `/wrap-up` flow proposes;
