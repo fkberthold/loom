@@ -113,7 +113,7 @@ Run these checks in order. Each item produces one line of the report (`PASS` / `
      `light` can edit after. (loom-a29.)
 
 5. **MemPalace wing for project**
-   - Call `mempalace_list_wings`; check whether the project's short name (or a close variant — replace `_` with `-`, lowercase) appears.
+   - Call `mempalace_list_wings`; check whether the project's short name appears verbatim. (Per audit-project Step 1, the short name == filesystem basename without case-folding or `_`↔`-` substitution; the audit-project Step 1b variant WARN handles divergence cases separately.)
    - Also check `mempalace_status` for `palace_path` so the report includes the resolved palace.
    - PASS = wing exists. WARN = palace exists but no project-named wing.
    - MISS = MCP server not reachable or no palace at the expected location.
