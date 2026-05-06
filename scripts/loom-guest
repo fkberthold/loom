@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# loom-guest — manage guest mode on the current host repo. The
+# /loom-guest slash command delegates to this script.
+#
+# Subcommands:
+#   on [--personal-bd | --no-bd]   activate guest mode
+#   off                            deactivate guest mode
+#   status                         report current state
+#
+# When `on` runs without a flag and the host has its own .beads/, the
+# bd_mode defaults to "host" (your bd commands operate on the host's
+# tracker; bd remember is refused — see loom-n7x). Pass --personal-bd
+# to use an external personal workspace at ~/.loom/guests/<repo-key>/
+# .beads/, or --no-bd to skip bd entirely. When the host has no
+# .beads/, you MUST pass one of those flags (refuses to default).
+#
+# Marker is written to <repo>/.claude/workflow.json (.guest block).
+# Hidden from host's git via <repo>/.git/info/exclude (per-clone).
+
+set -euo pipefail
+
+__LG_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+__LG_LIB_DIR="$__LG_SCRIPT_DIR/../lib"
+# shellcheck source=../lib/workflow-config.sh
+. "$__LG_LIB_DIR/workflow-config.sh"
+# shellcheck source=../lib/info-exclude.sh
+. "$__LG_LIB_DIR/info-exclude.sh"
+
+# Patterns added to .git/info/exclude when guest mode is on.
+__LG_DEFAULT_PATTERNS=(.claude/workflow.json .claude/settings.json)
+
+__lg_repo_key() {
+  local toplevel
+  toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  local base sha8
+  base=$(basename "$toplevel")
+  sha8=$(printf '%s' "$toplevel" | sha1sum | cut -c1-8)
+  printf '%s-%s\n' "$base" "$sha8"
+}
+
+__lg_host_has_bd() {
+  local toplevel
+  toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ -d "$toplevel/.beads" ]
+}
+
+__lg_must_be_in_git_repo() {
+  if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+    echo "loom-guest: not inside a git repo" >&2
+    return 1
+  fi
+}
+
+__lg_on() {
+  local bd_mode_override=""
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --personal-bd) bd_mode_override=personal ;;
+      --no-bd)       bd_mode_override=none ;;
+      *)
+        echo "loom-guest on: unknown flag '$arg'" >&2
+        return 2
+        ;;
+    esac
+  done
+
+  __lg_must_be_in_git_repo || return $?
+
+  local repo_key
+  repo_key=$(__lg_repo_key)
+
+  local bd_mode
+  if [ -n "$bd_mode_override" ]; then
+    bd_mode="$bd_mode_override"
+  elif __lg_host_has_bd; then
+    bd_mode=host
+  else
+    echo "loom-guest: no host .beads/ found." >&2
+    echo "  Pass --personal-bd to use an external personal workspace, or" >&2
+    echo "  --no-bd to skip bd integration entirely." >&2
+    return 2
+  fi
+
+  workflow_config_guest_on "$bd_mode" "$repo_key"
+  info_exclude_add "${__LG_DEFAULT_PATTERNS[@]}"
+
+  if [ "$bd_mode" = personal ]; then
+    local ext="$HOME/.loom/guests/$repo_key/.beads"
+    mkdir -p "$ext"
+    echo "loom-guest: created external bd workspace at $ext"
+    echo "loom-guest: NOTE: bd resolution to this workspace is loom-26w's job;"
+    echo "  bd commands still target the cwd's .beads/ until that ships."
+  fi
+
+  printf 'loom-guest: ON (bd_mode=%s, repo_key=%s)\n' "$bd_mode" "$repo_key"
+}
+
+__lg_off() {
+  __lg_must_be_in_git_repo || return $?
+  workflow_config_guest_off
+  info_exclude_remove
+  echo "loom-guest: OFF"
+}
+
+__lg_status() {
+  __lg_must_be_in_git_repo || return $?
+  if workflow_config_guest_active; then
+    local bd_mode repo_key
+    bd_mode=$(workflow_config_guest_get bd_mode)
+    repo_key=$(workflow_config_guest_get repo_key)
+    printf 'loom-guest: ACTIVE\n'
+    printf '  bd_mode: %s\n' "$bd_mode"
+    printf '  repo_key: %s\n' "$repo_key"
+    printf '  info/exclude block: '
+    if info_exclude_status; then echo present; else echo absent; fi
+    echo "  what's suppressed:"
+    echo "    - /docs-scaffold (refused)"
+    echo "    - /audit-project AUTOFIX in-tree writes (skipped)"
+    if [ "$bd_mode" = host ]; then
+      echo "    - bd remember (refused — would commit to host's issues.jsonl)"
+    fi
+  else
+    echo "loom-guest: INACTIVE"
+  fi
+}
+
+__lg_help() {
+  cat <<'EOF'
+usage: loom-guest <subcommand> [options]
+
+Subcommands:
+  on [--personal-bd | --no-bd]   activate guest mode
+  off                            deactivate guest mode
+  status                         report current state
+
+When `on` runs without a flag and the host has its own .beads/, the
+bd_mode defaults to "host" (your bd commands operate on the host's
+tracker; bd remember is refused). Pass --personal-bd to use an
+external personal workspace at ~/.loom/guests/<repo-key>/.beads/, or
+--no-bd to skip bd entirely.
+EOF
+}
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  on)              __lg_on "$@" ;;
+  off)             __lg_off "$@" ;;
+  status)          __lg_status "$@" ;;
+  ""|-h|--help)    __lg_help ;;
+  *)
+    echo "loom-guest: unknown subcommand '$cmd'" >&2
+    echo "try: loom-guest --help" >&2
+    exit 2
+    ;;
+esac
