@@ -1,21 +1,58 @@
 #!/usr/bin/env bash
-# workflow-state — CLI wrapper for ~/.claude/lib/workflow-state.sh
+# workflow-state — CLI wrapper for the workflow state + config libs.
 #
 # Usage:
 #   workflow-state get <field>            # read one field
+#                                         # supports nested guest.<x>
 #   workflow-state set k=v [k=v ...]      # atomic merge update
-#   workflow-state init                   # ensure file exists (idle)
+#   workflow-state init                   # ensure state file exists (idle)
 #   workflow-state path                   # echo state-file path
 #   workflow-state mode                   # echo resolved workflow mode
 #   workflow-state show                   # pretty-print full state JSON
 #
+#   workflow-state guest-on <bd_mode> <repo_key> [path]
+#   workflow-state guest-off [path]
+#   workflow-state guest-status [path]
+#
 # All commands accept an optional trailing PATH argument (or
 # --start-dir=PATH for `set`) to target a project other than cwd.
+# bd_mode for guest-on must be: host | personal | none.
 
 set -euo pipefail
 
+# Resolve script's lib dir relative to this script (works for symlinked
+# install at ~/.claude/scripts/ AND in-repo / worktree paths).
+__WS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+__WS_LIB_DIR="$__WS_SCRIPT_DIR/../lib"
 # shellcheck source=../lib/workflow-state.sh
-. "$HOME/.claude/lib/workflow-state.sh"
+. "$__WS_LIB_DIR/workflow-state.sh"
+# shellcheck source=../lib/workflow-config.sh
+. "$__WS_LIB_DIR/workflow-config.sh"
+
+# Route nested guest.<field> reads to the config lib.
+__ws_get() {
+  local field="$1"
+  shift
+  case "$field" in
+    guest.active)
+      if workflow_config_guest_active "$@"; then
+        printf 'true\n'
+      else
+        printf 'false\n'
+      fi
+      ;;
+    guest.bd_mode|guest.repo_key)
+      workflow_config_guest_get "${field#guest.}" "$@"
+      ;;
+    guest.*)
+      echo "workflow-state: unknown nested key '$field'" >&2
+      exit 2
+      ;;
+    *)
+      workflow_state_get "$field" "$@"
+      ;;
+  esac
+}
 
 cmd="${1:-}"
 shift || true
@@ -23,7 +60,7 @@ shift || true
 case "$cmd" in
   get)
     [ $# -ge 1 ] || { echo "usage: workflow-state get <field> [path]" >&2; exit 2; }
-    workflow_state_get "$@"
+    __ws_get "$@"
     ;;
   set)
     workflow_state_set "$@"
@@ -48,8 +85,29 @@ case "$cmd" in
       exit 1
     fi
     ;;
+  guest-on)
+    if [ $# -lt 2 ]; then
+      echo "usage: workflow-state guest-on <bd_mode> <repo_key> [path]" >&2
+      exit 2
+    fi
+    workflow_config_guest_on "$@"
+    ;;
+  guest-off)
+    workflow_config_guest_off "$@"
+    ;;
+  guest-status)
+    start="${1:-$PWD}"
+    if workflow_config_guest_active "$start"; then
+      bd_mode=$(workflow_config_guest_get bd_mode "$start")
+      repo_key=$(workflow_config_guest_get repo_key "$start")
+      printf 'guest mode: active (bd_mode=%s, repo_key=%s)\n' \
+        "$bd_mode" "$repo_key"
+    else
+      printf 'guest mode: inactive\n'
+    fi
+    ;;
   ""|-h|--help)
-    sed -n '2,16p' "$0"
+    sed -n '2,20p' "$0"
     ;;
   *)
     echo "workflow-state: unknown subcommand '$cmd'" >&2
