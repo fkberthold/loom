@@ -158,7 +158,7 @@ mem_dump = os.environ.get("BD_MEM_DUMP", "")
 reason = os.environ.get("REASON_TEXT", "")
 
 chroma_db = os.path.join(palace_home, "palace", "chroma.sqlite3")
-kg_db = os.path.join(palace_home, "knowledge_graph.sqlite3")
+kg_db = os.path.join(palace_home, "palace", "knowledge_graph.sqlite3")
 
 def open_ro(path):
     if not os.path.exists(path):

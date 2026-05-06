@@ -66,8 +66,11 @@ for k, v in (("wing", wing), ("room", room), ("chroma:document", body)):
     cur.execute("INSERT INTO embedding_metadata(id, key, string_value) VALUES (?, ?, ?)", (rid, k, v))
 con.commit()
 PY
-  # KG sqlite (empty triples table — exists so KG-matcher path doesn't crash)
-  python3 - "$dir/knowledge_graph.sqlite3" <<'PY'
+  # KG sqlite (empty triples table — exists so KG-matcher path doesn't crash).
+  # Lives next to chroma.sqlite3 in <palace_home>/palace/ — caught live on
+  # the loom-8vb self-test: the hook's earlier kg_db path was at the palace
+  # root, but the real palace puts both DBs under palace/.
+  python3 - "$dir/palace/knowledge_graph.sqlite3" <<'PY'
 import sqlite3, sys
 con = sqlite3.connect(sys.argv[1])
 con.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, name TEXT, type TEXT, properties TEXT, created_at TEXT)")
@@ -87,7 +90,7 @@ con.execute("CREATE VIRTUAL TABLE embedding_fulltext_search USING fts5(string_va
 con.execute("CREATE TABLE embedding_metadata (id INTEGER, key TEXT, string_value TEXT, int_value INTEGER, float_value REAL, bool_value INTEGER)")
 con.commit()
 PY
-  python3 - "$dir/knowledge_graph.sqlite3" <<'PY'
+  python3 - "$dir/palace/knowledge_graph.sqlite3" <<'PY'
 import sqlite3, sys
 con = sqlite3.connect(sys.argv[1])
 con.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, name TEXT, type TEXT, properties TEXT, created_at TEXT)")
@@ -99,7 +102,7 @@ PY
 # Add a KG triple to an existing palace.
 add_kg_triple() {
   local dir="$1" subj="$2" pred="$3" obj="$4"
-  python3 - "$dir/knowledge_graph.sqlite3" "$subj" "$pred" "$obj" <<'PY'
+  python3 - "$dir/palace/knowledge_graph.sqlite3" "$subj" "$pred" "$obj" <<'PY'
 import sqlite3, sys
 con = sqlite3.connect(sys.argv[1])
 con.execute("INSERT INTO triples(subject, predicate, object, valid_from, confidence) VALUES (?, ?, ?, '2026-05-06', 1.0)",
@@ -342,12 +345,16 @@ if [ "$rc" -eq 0 ]; then pass "--reason=\"…\" form (= sign) accepted"; else fa
 
 echo "==> 9. Edge cases"
 
-# `bd close` with no positional ID → distinct error, exit 2.
+# bd-close with no positional ID → distinct error, exit 2.
+# IMPORTANT: keep backticks out of test-name strings. An earlier draft
+# used `pass "bare \`bd close\` ..."` which bash command-substituted,
+# inadvertently firing `bd close` against the live workspace and closing
+# the most-recently-touched bead. Caught live during loom-8vb self-test.
 out=$(run_hook "$PROJ" 'bd close --reason "no positional"' "$NULL_PALACE" "$NULL_BD"); rc=$?
 if [ "$rc" -eq 2 ] && echo "$out" | grep -q 'Could not parse bead ID'; then
-  pass "bare `bd close` (no positional) → distinct parse-error block"
+  pass 'bd-close with no positional id -> distinct parse-error block'
 else
-  fail "bare `bd close` did not give parse-error" "$out"
+  fail 'bd-close no-positional did not give parse-error' "$out"
 fi
 
 # Mixed non-bead-token args ignored (wouldn't match the regex).
