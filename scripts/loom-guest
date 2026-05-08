@@ -86,11 +86,39 @@ __lg_on() {
   info_exclude_add "${__LG_DEFAULT_PATTERNS[@]}"
 
   if [ "$bd_mode" = personal ]; then
-    local ext="$HOME/.loom/guests/$repo_key/.beads"
-    mkdir -p "$ext"
-    echo "loom-guest: created external bd workspace at $ext"
-    echo "loom-guest: NOTE: bd resolution to this workspace is loom-26w's job;"
-    echo "  bd commands still target the cwd's .beads/ until that ships."
+    local ext_root="$HOME/.loom/guests/$repo_key"
+    local ext="$ext_root/.beads"
+    mkdir -p "$ext_root"
+    # Initialize the external bd workspace if it isn't already populated.
+    # `bd init` runs inside $ext_root and creates $ext_root/.beads/ — we
+    # detect "already initialized" by the presence of $ext/embeddeddolt.
+    # bd commands resolve to this workspace via BEADS_DIR (see
+    # lib/loom-bd-env.sh, loom-26w / Option A).
+    if [ ! -d "$ext/embeddeddolt" ]; then
+      if command -v bd >/dev/null 2>&1; then
+        # --skip-hooks / --skip-agents: this is a personal off-tree workspace,
+        # not a repo with collaborators. --non-interactive is required because
+        # we may be running from a slash command (no TTY).
+        (
+          cd "$ext_root"
+          BD_NON_INTERACTIVE=1 bd init \
+            --non-interactive \
+            --skip-hooks --skip-agents \
+            --role maintainer \
+            --prefix "guest-$repo_key" >/dev/null 2>&1
+        ) || {
+          # bd init may fail on environments without bd available or due to
+          # stricter perms. Create the bare directory so BEADS_DIR resolution
+          # at least has a target — bd will then surface a clear error if it
+          # tries to use it.
+          mkdir -p "$ext"
+        }
+      else
+        mkdir -p "$ext"
+      fi
+    fi
+    echo "loom-guest: external bd workspace ready at $ext"
+    echo "loom-guest: bd commands resolve here via BEADS_DIR (see lib/loom-bd-env.sh)"
   fi
 
   printf 'loom-guest: ON (bd_mode=%s, repo_key=%s)\n' "$bd_mode" "$repo_key"
