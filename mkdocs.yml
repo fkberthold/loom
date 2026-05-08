@@ -78,6 +78,7 @@ nav:
       - Finish a bead: how-to/finish-a-bead.md
       - Stop a session: how-to/stop-a-session.md
       - Bypass workflow ceremony: how-to/bypass-workflow-ceremony.md
+      - Use guest mode: how-to/guest-mode.md
       - Where to update what: how-to/where-to-update-what.md
       - Scaffold a managed project's docs: how-to/scaffold-managed-project-docs.md
       - Common scenarios:
