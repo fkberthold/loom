@@ -581,8 +581,21 @@ For each line whose `Suggested fix` text contains a literal
 `[AUTOFIX:<recipe-id>]` token (substring match — exact bracketed
 form), apply the recipe:
 
-- **`[AUTOFIX:bd-hooks]`** — execute, in order:
+> **Guest-mode gate (loom-3r8).** The read-only scan that produced
+> this report ALWAYS runs (Diataxis-shape detection, drawer-citation
+> probes, etc. don't touch the tree). But every AUTOFIX recipe below
+> writes into the project tree, so each one MUST source
+> `lib/refuse-on-guest.sh` and call `refuse_if_guest AUTOFIX:<recipe-id>`
+> before doing any in-tree work. If the call returns 1, skip that
+> item with a one-line note (`AUTOFIX:<id>: skipped — guest mode
+> active`) and continue to the next item. The check is per-item, not
+> per-run, so a future AUTOFIX recipe that's safe under guest mode
+> (e.g. external-only) can opt out simply by omitting the call.
+
+- **`[AUTOFIX:bd-hooks]`** — gate first, then execute:
   ```bash
+  . "$LOOM_ROOT/lib/refuse-on-guest.sh"
+  refuse_if_guest AUTOFIX:bd-hooks || exit $?
   cd <root> && bd hooks install
   cd <root> && git add .beads/issues.jsonl 2>/dev/null
   cd <root> && git -c core.hooksPath=/dev/null commit -m "bd: post-install export sync" 2>/dev/null \
@@ -594,7 +607,8 @@ form), apply the recipe:
   is meant to dodge. If the absorbing commit has no staged content,
   emit a one-line "(nothing to absorb)" note and continue.
 
-- **`[AUTOFIX:workflow-json]`** — write
+- **`[AUTOFIX:workflow-json]`** — gate first
+  (`refuse_if_guest AUTOFIX:workflow-json`), then write
   `{"v":1,"mode":"<mode>"}` (where `<mode>` defaults to `full`, or
   the value passed via `--workflow-mode`) to
   `<root>/.claude/workflow.json`. Create `<root>/.claude/` if it
@@ -602,11 +616,12 @@ form), apply the recipe:
   presence first; if the file appeared between the scan and apply
   step (race), skip with a note.
 
-- **`[AUTOFIX:gitignore-worktrees]`** — append the line
-  `.claude/worktrees/` to `<root>/.gitignore` (creating the file if
-  absent). Idempotent: re-read the file first; skip if the entry is
-  already present (any of `.claude/worktrees`, `.claude/worktrees/`,
-  `/.claude/worktrees/`, etc.).
+- **`[AUTOFIX:gitignore-worktrees]`** — gate first
+  (`refuse_if_guest AUTOFIX:gitignore-worktrees`), then append the
+  line `.claude/worktrees/` to `<root>/.gitignore` (creating the file
+  if absent). Idempotent: re-read the file first; skip if the entry
+  is already present (any of `.claude/worktrees`,
+  `.claude/worktrees/`, `/.claude/worktrees/`, etc.).
 
 For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
 queue for Step 4. Emit one summary line per skipped item: `--apply-
