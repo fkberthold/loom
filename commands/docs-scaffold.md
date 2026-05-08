@@ -7,6 +7,14 @@ Invoke the `docs-scaffold` skill and follow it exactly as presented.
 Forward `--root <path>` if provided so the skill targets that
 project root instead of cwd's git root (parity with `/audit-project`).
 
+Step 0 — guest-mode gate: before scaffolding, source
+`lib/refuse-on-guest.sh` and run `refuse_if_guest docs-scaffold`. If
+it errors (exit 1), stop immediately and surface the printed message
+to the user. Guest mode (loom-guest) intentionally suppresses
+in-tree writes from loom primitives; running `/docs-scaffold` would
+write a docs/ tree into the host repo, defeating the point. Run
+`/loom-guest off` first if the scaffold is genuinely intended.
+
 Step 1: confirm the resolved root (`--root` if given, else cwd's
 git root) is loom-managed (`.claude/workflow.json` present). If
 not, refuse and tell the user to run `/audit-project` first to
