@@ -24,8 +24,30 @@ if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
 fi
 CWD="${CWD:-$PWD}"
 
+# Resolve script's lib dir relative to this script (works for symlinked
+# install at ~/.claude/scripts/ AND in-repo / worktree paths).
+__SL_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+__SL_LIB_DIR="$__SL_SCRIPT_DIR/../lib"
 # shellcheck source=../lib/workflow-state.sh
-. "$HOME/.claude/lib/workflow-state.sh"
+. "$__SL_LIB_DIR/workflow-state.sh"
+# shellcheck source=../lib/workflow-config.sh
+. "$__SL_LIB_DIR/workflow-config.sh"
+
+# Build the [GUEST] prefix when guest mode is active. Empty when inactive.
+# bd_mode=host     → "[GUEST] "
+# bd_mode=personal → "[GUEST/personal-bd] "
+# bd_mode=none     → "[GUEST/no-bd] "
+__sl_guest_prefix() {
+  local cwd="$1"
+  workflow_config_guest_active "$cwd" || return 0
+  local bd_mode
+  bd_mode=$(workflow_config_guest_get bd_mode "$cwd")
+  case "$bd_mode" in
+    personal) printf '[GUEST/personal-bd] ' ;;
+    none)     printf '[GUEST/no-bd] ' ;;
+    *)        printf '[GUEST] ' ;;
+  esac
+}
 
 ROOT=$(workflow_project_root "$CWD")
 
@@ -37,9 +59,11 @@ MODE=$(workflow_resolve_mode "$CWD")
 # off mode: silent.
 [ "$MODE" = "off" ] && exit 0
 
+GUEST_PREFIX=$(__sl_guest_prefix "$CWD")
+
 STATE_PATH=$(workflow_state_path "$CWD")
 if [ ! -f "$STATE_PATH" ]; then
-  printf 'WORKFLOW: %s | unconfigured' "$MODE"
+  printf '%sWORKFLOW: %s | unconfigured' "$GUEST_PREFIX" "$MODE"
   exit 0
 fi
 
@@ -74,9 +98,9 @@ if [ -n "$UPDATED" ]; then
 fi
 
 if [ "$ACTIVITY" = "idle" ] && [ "$STAGE" = "idle" ]; then
-  printf 'WORKFLOW: %s | idle' "$MODE"
+  printf '%sWORKFLOW: %s | idle' "$GUEST_PREFIX" "$MODE"
 else
-  printf 'WORKFLOW: %s | %s:%s | %s' "$MODE" "$ACTIVITY" "$STAGE" "$BEAD_CHIP"
+  printf '%sWORKFLOW: %s | %s:%s | %s' "$GUEST_PREFIX" "$MODE" "$ACTIVITY" "$STAGE" "$BEAD_CHIP"
 fi
 
 [ -n "$AGE" ] && printf ' | %s' "$AGE"
