@@ -39,7 +39,12 @@ memoized via `.beads/.loom-preseeded`):
    suspenders defense. Even if layers 1-2 fail, git won't stage
    the file from the worktree.
 
-The sentinel ensures the hook fires exactly once per worktree.
+The sentinel ensures the hook fires exactly once per worktree — UNLESS
+the dolt has been wiped since the sentinel was created (loom-8vc:
+`git stash -u` + rebase can wipe the embedded-dolt blob while leaving
+the untracked sentinel in place). When the sentinel exists but the
+dolt directory is empty (no files), the hook self-heals by
+re-preseeding. The sentinel is refreshed at the end of the re-preseed.
 
 ## What the hook does NOT do
 
