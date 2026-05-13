@@ -39,6 +39,7 @@
         "hooks": [
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-claim-research.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-close-capture.sh"},
+          {"type": "command", "command": "bash $HOME/.claude/hooks/bd-worktree-preseed.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/git-push-bd-sync.sh"}
         ]
       }
