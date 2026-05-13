@@ -55,10 +55,13 @@ mk_bd_stub() {
 #!/usr/bin/env bash
 echo "BDCALL: \$*" >> "$logdir/bd-calls.log"
 # Honor 'bd import' as if it really populated the dolt DB by writing
-# a marker file. Tests check for the marker to verify pre-seed ran.
+# a marker file. The sed in each test substitutes 'preseeded-flag-target'
+# with the actual worktree dolt path (absolute), so this writes to the
+# real worktree's .beads/embeddeddolt/ — exposing it to the hook's
+# dolt-emptiness check (loom-8vc).
 if [ "\$1" = "import" ]; then
-  mkdir -p "$logdir/preseeded-flag-target"
-  echo "imported" > "$logdir/preseeded-flag-target/imported.flag"
+  mkdir -p "preseeded-flag-target"
+  echo "imported" > "preseeded-flag-target/imported.flag"
 fi
 # Honor 'bd config set export.git-add false' similarly.
 if [ "\$1" = "config" ] && [ "\$2" = "set" ] && [ "\$3" = "export.git-add" ]; then
@@ -166,6 +169,57 @@ if [ "$rc" -eq 0 ] && [ ! -s "$BDLOG/bd-calls.log" ]; then
   pass "re-run with sentinel present: no-op (idempotent)"
 else
   fail "re-run not idempotent. rc=$rc. bd log: $(cat $BDLOG/bd-calls.log 2>/dev/null)" "$out"
+fi
+rm -rf "$(dirname "$MAIN")"
+
+# -------------------------------------------------------------------
+# 2b. Sentinel present + dolt EMPTY (rebase wipe) → re-preseed runs.
+#     loom-8vc: closes the sentinel-survives-but-dolt-doesn't gap.
+# -------------------------------------------------------------------
+
+echo "==> 2b. Sentinel present + empty dolt → re-preseed (loom-8vc)"
+
+FX=$(mk_main_plus_worktree)
+MAIN=$(echo "$FX" | cut -f1)
+WT=$(echo "$FX" | cut -f2)
+BDLOG=$(echo "$FX" | cut -f3)
+BD=$(mk_bd_stub "$BDLOG")
+sed -i "s|preseeded-flag-target|$WT/.beads/embeddeddolt|g" "$BD"
+
+# Simulate post-rebase state: sentinel survived, dolt got wiped.
+mkdir -p "$WT/.beads"
+touch "$WT/.beads/.loom-preseeded"
+rm -rf "$WT/.beads/embeddeddolt"
+mkdir -p "$WT/.beads/embeddeddolt"   # empty dir, no files inside
+
+out=$(run_hook "$WT" "bd update loom-aaa --claim" "$BD"); rc=$?
+if [ "$rc" -eq 0 ] && grep -q "BDCALL: import" "$BDLOG/bd-calls.log" 2>/dev/null; then
+  pass "sentinel + empty dolt: re-preseed runs (rebase wipe recovery)"
+else
+  fail "re-preseed missing on dolt-empty path. rc=$rc. bd log: $(cat $BDLOG/bd-calls.log 2>/dev/null)" "$out"
+fi
+rm -rf "$(dirname "$MAIN")"
+
+# Sentinel present + dolt has files → still no-op (existing behavior).
+echo "==> 2c. Sentinel present + populated dolt → no-op (existing behavior preserved)"
+
+FX=$(mk_main_plus_worktree)
+MAIN=$(echo "$FX" | cut -f1)
+WT=$(echo "$FX" | cut -f2)
+BDLOG=$(echo "$FX" | cut -f3)
+BD=$(mk_bd_stub "$BDLOG")
+sed -i "s|preseeded-flag-target|$WT/.beads/embeddeddolt|g" "$BD"
+
+# Simulate already-preseeded state: sentinel + populated dolt.
+mkdir -p "$WT/.beads/embeddeddolt"
+touch "$WT/.beads/.loom-preseeded"
+touch "$WT/.beads/embeddeddolt/some-dolt-file"  # fake content
+
+out=$(run_hook "$WT" "bd update loom-bbb --claim" "$BD"); rc=$?
+if [ "$rc" -eq 0 ] && [ ! -f "$BDLOG/bd-calls.log" ]; then
+  pass "sentinel + populated dolt: still no-op"
+else
+  fail "unexpected re-preseed on populated dolt. rc=$rc. bd log: $(cat $BDLOG/bd-calls.log 2>/dev/null)" "$out"
 fi
 rm -rf "$(dirname "$MAIN")"
 

@@ -66,9 +66,18 @@ MAIN_DIR=$(dirname "$COMMON_DIR")
 # Not a linked worktree → no-op.
 [ "$TOPLEVEL" != "$MAIN_DIR" ] || exit 0
 
-# Sentinel: pre-seed once per worktree.
+# Sentinel: pre-seed once per worktree — UNLESS dolt has been wiped
+# since the sentinel was created (loom-8vc: stash+rebase can wipe the
+# embedded-dolt blob while leaving the untracked sentinel in place).
+# Self-heal by re-preseeding when sentinel exists but dolt is empty.
 SENTINEL="$TOPLEVEL/.beads/.loom-preseeded"
-[ ! -e "$SENTINEL" ] || exit 0
+DOLT_DIR="$TOPLEVEL/.beads/embeddeddolt"
+if [ -e "$SENTINEL" ]; then
+  # Sentinel present. Skip only if dolt is non-empty (has any files).
+  if [ -d "$DOLT_DIR" ] && [ -n "$(find "$DOLT_DIR" -mindepth 1 -type f -print -quit 2>/dev/null)" ]; then
+    exit 0
+  fi
+fi
 
 # Require a checked-in issues.jsonl to seed from.
 JSONL="$TOPLEVEL/.beads/issues.jsonl"
