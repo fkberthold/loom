@@ -13,6 +13,16 @@ set -euo pipefail
 
 INPUT=$(cat 2>/dev/null || true)
 
+# Subagent (sidechain) sessions don't structurally use the onboarding
+# preamble — the dispatch brief carries the intent. Skip silently to
+# save ~21 KB of additionalContext per spawn (loom-w58 / loom-nsb).
+# shellcheck source=../lib/subagent-detect.sh
+. "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/subagent-detect.sh" 2>/dev/null || true
+if declare -F loom_is_subagent_payload >/dev/null 2>&1; then
+  loom_is_subagent_payload "$INPUT" && exit 0
+fi
+
 CWD=""
 if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
   CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // ""' 2>/dev/null || true)
