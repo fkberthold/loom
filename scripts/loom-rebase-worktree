@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# loom-rebase-worktree — `git rebase` wrapper that preserves untracked
+# WIP files across a worktree rebase.
+#
+# Closes loom-azt (split from loom-35b symptom 2): an agent that
+# crashes mid-flight in a worktree (e.g. API 529) leaves untracked
+# WIP on disk. A resume agent that runs `git stash + rebase + pop`
+# wipes the untracked WIP — the snapshot/restore here is the
+# defensive replacement.
+#
+# Usage:
+#   loom-rebase-worktree <upstream-ref> [git-rebase-args...]
+#
+# Behavior:
+#   1. Refuses to run in the main working tree (use `git rebase`
+#      directly there — no WIP loss risk).
+#   2. Snapshots `git ls-files --others --exclude-standard` to a
+#      tmpdir, excluding `.beads/embeddeddolt/` (covered by the
+#      bd-worktree-preseed hook's self-heal).
+#   3. Runs `git rebase <args>`.
+#   4. Restores snapshotted files. If a snapshotted path now
+#      contains different content (rebase brought in a colliding
+#      file), the WIP is saved as `<path>.wip` and flagged.
+#   5. On rebase failure OR any collisions, the snapshot tmpdir is
+#      retained and its path printed for manual recovery.
+#
+# Exit code: passes through `git rebase`'s exit code. 2 means
+# wrapper-level refusal (e.g. not in a worktree).
+
+set -uo pipefail
+
+# --- Resolve git context ---------------------------------------------------
+
+TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "loom-rebase-worktree: not inside a git working tree" >&2
+  exit 2
+}
+COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null) || {
+  echo "loom-rebase-worktree: cannot resolve git common dir" >&2
+  exit 2
+}
+if [ "${COMMON_DIR#/}" = "$COMMON_DIR" ]; then
+  COMMON_DIR=$(cd "$TOPLEVEL" && cd "$COMMON_DIR" && pwd)
+fi
+MAIN_DIR=$(dirname "$COMMON_DIR")
+
+if [ "$TOPLEVEL" = "$MAIN_DIR" ]; then
+  echo "loom-rebase-worktree: refusing — current directory is the main working tree, not a linked worktree. Use plain 'git rebase' there." >&2
+  exit 2
+fi
+
+cd "$TOPLEVEL"
+
+# --- Snapshot untracked WIP (excluding .beads/embeddeddolt/) --------------
+
+SNAPSHOT=$(mktemp -d)
+WIP_LIST=$(mktemp)
+cleanup_wip_list() { rm -f "$WIP_LIST"; }
+trap cleanup_wip_list EXIT
+
+git ls-files --others --exclude-standard -z 2>/dev/null \
+  | python3 -c '
+import sys
+data = sys.stdin.buffer.read()
+for f in data.split(b"\0"):
+    if not f:
+        continue
+    s = f.decode("utf-8", "replace")
+    if s.startswith(".beads/embeddeddolt/"):
+        continue
+    print(s)
+' > "$WIP_LIST"
+
+COUNT=$(wc -l < "$WIP_LIST" | tr -d ' ')
+
+if [ "$COUNT" = "0" ]; then
+  echo "[loom-rebase-worktree] no untracked WIP files to preserve"
+  rm -rf "$SNAPSHOT"
+  exec git rebase "$@"
+fi
+
+echo "[loom-rebase-worktree] snapshotting $COUNT untracked WIP file(s) to $SNAPSHOT"
+
+UPSTREAM="${1:-HEAD}"
+PRE_COLLIDED=$(mktemp)
+trap 'cleanup_wip_list; rm -f "$PRE_COLLIDED"' EXIT
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  mkdir -p "$SNAPSHOT/$(dirname "$f")"
+  cp -p "$f" "$SNAPSHOT/$f"
+  # Pre-detect collisions: if the WIP path exists in upstream tree,
+  # rebase would refuse with "untracked file would be overwritten".
+  # Pre-save WIP as <path>.wip + remove the original so rebase proceeds.
+  if git cat-file -e "$UPSTREAM:$f" 2>/dev/null; then
+    cp -p "$f" "$f.wip"
+    rm "$f"
+    echo "$f" >> "$PRE_COLLIDED"
+    echo "[loom-rebase-worktree] PRE-COLLISION: $f would collide with $UPSTREAM; WIP saved as $f.wip" >&2
+  fi
+done < "$WIP_LIST"
+
+# --- Run the rebase --------------------------------------------------------
+
+RC=0
+git rebase "$@" || RC=$?
+
+# --- Restore --------------------------------------------------------------
+
+RESTORED=0
+CONFLICTS=$(wc -l < "$PRE_COLLIDED" | tr -d ' ')
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  # Skip files already handled in pre-collision phase.
+  if grep -qxF "$f" "$PRE_COLLIDED" 2>/dev/null; then
+    continue
+  fi
+  if [ -e "$f" ]; then
+    if ! cmp -s "$SNAPSHOT/$f" "$f"; then
+      cp -p "$SNAPSHOT/$f" "$f.wip"
+      echo "[loom-rebase-worktree] POST-COLLISION: $f — WIP saved as $f.wip" >&2
+      CONFLICTS=$((CONFLICTS + 1))
+    fi
+    # else: identical content already in place (git preserved untracked)
+  else
+    mkdir -p "$(dirname "$f")"
+    cp -p "$SNAPSHOT/$f" "$f"
+    RESTORED=$((RESTORED + 1))
+  fi
+done < "$WIP_LIST"
+
+echo "[loom-rebase-worktree] restored $RESTORED file(s); $CONFLICTS conflict(s) saved as .wip"
+
+# Retain snapshot on rebase failure or collisions; cleanup on clean exit.
+if [ "$RC" -eq 0 ] && [ "$CONFLICTS" -eq 0 ]; then
+  rm -rf "$SNAPSHOT"
+else
+  echo "[loom-rebase-worktree] snapshot retained at $SNAPSHOT (rc=$RC conflicts=$CONFLICTS)" >&2
+fi
+
+exit "$RC"
