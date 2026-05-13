@@ -190,6 +190,15 @@ else
   fail "sub-suffix bead ID lost" "$out"
 fi
 
+# 4+char hash suffix bead IDs (sibling projects like liza_base can mint
+# longer hashes; loom-gcb widened the regex from {3} to {3,}).
+out=$(run_hook "$PROJ" 'bd close liza_base-abcd --reason "..."' "$NULL_PALACE" "$NULL_BD")
+if echo "$out" | grep -qE 'liza_base-abcd'; then
+  pass "4-char hash suffix (liza_base-abcd) extracted (loom-gcb)"
+else
+  fail "4-char hash suffix dropped — regex still {3} not {3,}" "$out"
+fi
+
 # ---------------------------------------------------------------------------
 # 2. Bypass paths preserved (regression)
 # ---------------------------------------------------------------------------
