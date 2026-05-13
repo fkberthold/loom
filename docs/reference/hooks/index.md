@@ -19,6 +19,8 @@ each script document the trigger, mode behaviour, and block strategy.
 |---|---|---|---|---|
 | `bd-claim-research.sh` | PreToolUse | `Bash` cmd matches `bd update.*--claim` | Non-blocking (exit 0); advisory | Mode `light`/`off` silences |
 | `bd-close-capture.sh` | PreToolUse | `Bash` cmd matches `bd close` | Blocks (exit 2) in mode `full` unless bypass | `--force` flag, `BD_CLOSE_FORCE=1`, mode `light`/`off` |
+| `bd-prime-wrapper.sh` | SessionStart | n/a | Non-blocking (exit 0); trims `bd prime` memories bloat | Silent on `bd prime` failure |
+| `bd-remember-guest-guard.sh` | PreToolUse | `Bash` cmd matches `bd remember` | Blocks (exit 2) when guest mode + host bd | `/loom-guest off` |
 | `git-push-bd-sync.sh` | PreToolUse | `Bash` cmd matches `git push` (excludes `--dry-run`) | Non-blocking (exit 0); advisory | Mode `off` silences |
 | `workflow-mode-onboarding.sh` | SessionStart | n/a | Non-blocking (exit 0) | Skipped silently outside beads workspaces |
 
