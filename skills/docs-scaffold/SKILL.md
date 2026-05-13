@@ -266,7 +266,7 @@ Variables substituted: project_name=<...>, repo_url=<...>,
    cat README.docs-pointer.md  # then paste into your project README
 4. Push to publish (GH Pages workflow will deploy on push to main):
    git add . && git commit -m "scaffold Diataxis docs" && git push
-5. Enable GitHub Pages in repo settings: Source = "GitHub Actions"
+5. Enable GitHub Pages in repo settings: Source = "Deploy from a branch" → `gh-pages` (one-time setup; the workflow auto-creates the branch on first run).
 6. Run `/audit-project --check=docs` periodically to catch drift
    between docs/ and the system / beads / MemPalace.
 ```

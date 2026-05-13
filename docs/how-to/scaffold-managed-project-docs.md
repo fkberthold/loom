@@ -122,7 +122,9 @@ the skeleton would write.
     ```
 
     Then enable GitHub Pages in the repo settings: **Source =
-    GitHub Actions**. The next push to `main` deploys the site.
+    "Deploy from a branch" → `gh-pages`** (one-time setup; the
+    workflow auto-creates the branch on first run). The next push to
+    `main` deploys the site.
 
 ## Outcome
 
