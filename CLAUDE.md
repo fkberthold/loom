@@ -146,10 +146,15 @@ commands regardless of which project you're in.
   (`.worktrees/<bead>/`). The bd pre-commit hook in worktree mode
   has been observed exporting `issues.jsonl` to the worktree root
   instead of (or in addition to) `.beads/issues.jsonl` (loom-22h).
-  `/issues.jsonl` is gitignored as a defense, but commits from the
-  worktree may still produce surprising state. Workflow: do the
-  bead's work in the worktree, then `cd ~/repos/loom && git merge
-  --no-ff frank/<bead>` from main.
+  `/issues.jsonl` is gitignored as a defense. The
+  `hooks/bd-worktree-preseed.sh` PreToolUse hook (loom-x4m) now
+  pre-seeds the worktree's bd dolt + applies
+  `export.git-add=false` + adds `.beads/issues.jsonl` to the
+  worktree's `.git/info/exclude` on first write-class bd call —
+  so dispatched workers no longer wipe main's bd state. Even with
+  that fix, the recommended workflow is still: do the bead's work
+  in the worktree, then `cd ~/repos/loom && git merge --no-ff
+  frank/<bead>` from main.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
