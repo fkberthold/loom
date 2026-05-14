@@ -42,6 +42,12 @@
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-worktree-preseed.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/git-push-bd-sync.sh"}
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {"type": "command", "command": "bash $HOME/.claude/hooks/edit-write-pwd-guard.sh"}
+        ]
       }
     ],
     "SessionStart": [
