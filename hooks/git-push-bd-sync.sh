@@ -30,6 +30,14 @@ fi
 echo "$CMD" | grep -qE '(^|[;&|]|\n)[[:space:]]*git[[:space:]]+push([[:space:]]|$)' || exit 0
 echo "$CMD" | grep -qE '\-\-dry-run' && exit 0
 
+# Silence false-positive when the same Bash chain commits BEFORE pushing —
+# the chain itself handles staging, so the .beads/ dirty-at-fire-time check
+# would warn unnecessarily. Detect: `git commit` appears earlier in the
+# command than `git push` (separated by `&&` or `;`). See loom-0r6.
+if echo "$CMD" | grep -qE '(^|[;&|])[[:space:]]*git[[:space:]]+commit\b.*(&&|;)[[:space:]]*.*git[[:space:]]+push\b'; then
+  exit 0
+fi
+
 # Determine the directory `git push` will actually run in. If the command
 # chains `cd <dir>` (with `&&` or `;`) before `git push`, that <dir> is the
 # real push target — not $PWD. Otherwise default to $PWD.
