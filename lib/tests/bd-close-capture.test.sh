@@ -199,6 +199,15 @@ else
   fail "4-char hash suffix dropped — regex still {3} not {3,}" "$out"
 fi
 
+# Multi-hyphen prefix bead IDs (e.g. HAW's 'hundred-acre-woods-bng').
+# loom-2t7 widened the prefix class from [a-z0-9_]* to [a-z0-9_-]*.
+out=$(run_hook "$PROJ" 'bd close hundred-acre-woods-bng --reason "..."' "$NULL_PALACE" "$NULL_BD")
+if echo "$out" | grep -qE 'hundred-acre-woods-bng'; then
+  pass "multi-hyphen prefix (hundred-acre-woods-bng) extracted (loom-2t7)"
+else
+  fail "multi-hyphen prefix dropped — regex still rejects hyphens" "$out"
+fi
+
 # ---------------------------------------------------------------------------
 # 2. Bypass paths preserved (regression)
 # ---------------------------------------------------------------------------

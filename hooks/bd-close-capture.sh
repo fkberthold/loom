@@ -78,7 +78,7 @@ while i < n:
             t = toks[j]
             if t.startswith("-"):
                 break
-            if re.fullmatch(r"[a-z][a-z0-9_]*-[0-9a-z]{3,}(\.[0-9a-z]+)*", t):
+            if re.fullmatch(r"[a-z][a-z0-9_-]*-[0-9a-z]{3,}(\.[0-9a-z]+)*", t):
                 ids.append(t)
             j += 1
         break
