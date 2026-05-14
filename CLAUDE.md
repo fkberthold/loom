@@ -123,6 +123,30 @@ slash commands.
   verify with `git diff --stat` in BOTH the worktree and main to
   detect leaks. See `drawer_loom_decisions_df73c725b47dd67832935e3a`
   (loom-tag, 2026-05-04) for the full finding.
+- **Parallel worker dispatch — stale-base hygiene.**
+  `Agent({isolation: "worktree"})` does not guarantee that the
+  worktree branches off the latest local `main`. In sessions with
+  sequential dispatch waves, a later worktree can inherit a base
+  from earlier in the session, missing intervening merges that the
+  new bead depends on. Observed in liza_base 2026-05-06 across
+  bqo/9uo/982 agents. Mitigation is convention-only — the Agent
+  harness's base-ref behavior is opaque to loom. Each worker brief
+  should include a step-0 rebase:
+
+  ```
+  Step 0: cd into the worktree and rebase onto current main
+  before doing anything else:
+      git rebase main
+  or, if untracked WIP from a prior crash needs preserving:
+      scripts/loom-rebase-worktree main
+  ```
+
+  The `loom-rebase-worktree` wrapper (loom-azt, shipped 2026-05-12)
+  is the safer choice when WIP-preservation matters; for green-field
+  worker dispatch a plain `git rebase main` is fine. See
+  `drawer_loom_decisions_ae64101e954f38d533d02466` (loom-azt closing
+  drawer) and `drawer_loom_decisions_d09f9f243008f5a6731542e3`
+  (loom-x4m closing drawer) for cluster context.
 
 ## Tools
 
