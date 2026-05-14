@@ -128,7 +128,27 @@ assert_warns "force-push warns when dirty" "$out"
 out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}')
 assert_warns "push with refspec warns when dirty" "$out"
 
-# 12. Cleanup
+# Bug-class (loom-0r6): same Bash chain commits BEFORE pushing — the chain
+# itself stages-and-commits .beads/, so the dirty-at-fire-time check would
+# warn unnecessarily.
+
+# 12. Chained: add + commit + push (dirty at fire-time) → SILENT
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git add .beads/issues.jsonl && git commit -m \"x\" && git push"}}')
+assert_silent "chained commit-then-push is silent (simple)" "$out"
+
+# 13. Chained: add + commit + bd dolt push + git push (multi-step) → SILENT
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git add .beads/issues.jsonl && git commit -m \"x\" && git pull --rebase=merges && bd dolt push && git push"}}')
+assert_silent "chained commit-then-multi-step-then-push is silent" "$out"
+
+# 14. Chained with semicolon separators → SILENT
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git add .beads/ ; git commit -m \"x\" ; git push"}}')
+assert_silent "chained commit-then-push with semicolons is silent" "$out"
+
+# 15. Push BEFORE commit in the chain (commit doesn't precede push) → WARN
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git push && git commit -m \"x\""}}')
+assert_warns "push-then-commit (commit AFTER push) still warns" "$out"
+
+# 16. Cleanup
 rm -rf "$DIRTY" "$CLEAN" "$NOBEADS"
 
 echo "---"
