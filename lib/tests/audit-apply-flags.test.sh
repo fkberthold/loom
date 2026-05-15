@@ -440,6 +440,71 @@ assert_contains "subagent's 'Do NOT' list forbids writes" \
   "$AGENT_FILE" 'Read-only|any file write|do not modify'
 
 # =====================================================================
+# loom-ann: Claude Code hook command duplicate detection (item 12)
+# =====================================================================
+#
+# project-onboarder gains a 12th scan item that shells out to
+# scripts/find-hook-dups.sh. The check emits WARN per project-level
+# duplicate and INFO per user-level duplicate. JSON surgery is
+# content-aware so the check is NOT AUTOFIX-tagged (loom-a29 contract
+# excludes content-aware fixes).
+
+echo "==> loom-ann: project-onboarder declares item 12 (hook command duplicates)"
+assert_contains "onboarder item 12 heading" \
+  "$AGENT_FILE" '^12\. \*\*Claude Code hook command duplicates'
+assert_contains "onboarder item 12 shells out to find-hook-dups.sh" \
+  "$AGENT_FILE" 'find-hook-dups\.sh'
+assert_contains "onboarder item 12 names WARN as project-level verdict" \
+  "$AGENT_FILE" 'WARN.*project|project.*WARN|WARN.*= .*project'
+assert_contains "onboarder item 12 names INFO as user-level verdict" \
+  "$AGENT_FILE" 'INFO.*user|user.*INFO|user-level dup'
+assert_contains "onboarder item 12 explicitly says No AUTOFIX (content-aware)" \
+  "$AGENT_FILE" 'No AUTOFIX|excluded by the Wave 2 contract'
+assert_contains "onboarder item 12 cites loom-ann lineage" \
+  "$AGENT_FILE" 'loom-ann'
+assert_contains "onboarder item 12 cites loom-nsb research lineage" \
+  "$AGENT_FILE" 'loom-nsb'
+assert_contains "onboarder item 12 cites loom-sd5 live-example lineage" \
+  "$AGENT_FILE" 'loom-sd5'
+
+echo "==> loom-ann: SKILL.md surfaces the hook-dup check at Step 2"
+assert_contains "SKILL mentions the duplicate-hook check by name" \
+  "$SKILL_FILE" 'hook command duplicates|hook[- ]dup|HOOK DUP|duplicate.*hook'
+assert_contains "SKILL names the duplication pattern (event/matcher/command tuple)" \
+  "$SKILL_FILE" 'event, matcher, command|tuple'
+assert_contains "SKILL distinguishes project (WARN) vs user (INFO) verdicts" \
+  "$SKILL_FILE" 'WARN.*INFO|project.*INFO|machine-specific'
+assert_contains "SKILL explicitly says the check is NOT auto-fixable" \
+  "$SKILL_FILE" 'NOT auto-fixable|not auto[- ]fixable|content-aware'
+assert_contains "SKILL cites loom-ann (this bead)" \
+  "$SKILL_FILE" 'loom-ann'
+
+echo "==> loom-ann: SKILL still lists only the three existing AUTOFIX recipes"
+# Negative assertion — loom-ann correctly did NOT add a fourth AUTOFIX
+# recipe. Wave 2 contract (loom-a29) requires AUTOFIX recipes be
+# deterministic. Update this guard only after a future bead deliberately
+# adds a new AUTOFIX:<recipe-id> with documented determinism rationale.
+autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
+if [ "$autofix_recipe_count" = "3" ]; then
+  pass "SKILL AUTOFIX inventory still 3 (loom-ann correctly added no new recipe)"
+else
+  fail "SKILL AUTOFIX inventory should be 3 not $autofix_recipe_count" \
+    "(if a new AUTOFIX recipe was added deliberately, update this guard)"
+fi
+
+echo "==> loom-ann: find-hook-dups.sh exists, executable, has env-var overrides"
+SCRIPT_FILE="$LOOM_ROOT/scripts/find-hook-dups.sh"
+if [ -x "$SCRIPT_FILE" ]; then
+  pass "find-hook-dups.sh exists and is executable"
+else
+  fail "find-hook-dups.sh missing or not executable"
+fi
+assert_contains "script documents LOOM_FIND_HOOK_DUPS_USER_SETTINGS override" \
+  "$SCRIPT_FILE" 'LOOM_FIND_HOOK_DUPS_USER_SETTINGS'
+assert_contains "script documents LOOM_FIND_HOOK_DUPS_PLUGIN_BASE override" \
+  "$SCRIPT_FILE" 'LOOM_FIND_HOOK_DUPS_PLUGIN_BASE'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo

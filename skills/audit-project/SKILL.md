@@ -293,6 +293,21 @@ search keyword and the wing slug the subagent reports against).
 Wait for its structured `PASS`/`WARN`/`MISS` checklist. Display
 the report verbatim before moving to step 3.
 
+The onboarder enumerates 12 items including git hygiene, bd init,
+bd hooks, workflow.json, MemPalace wing, CLAUDE.md, `.claude/rules/`,
+docs scaffold, `.claude/agents/+commands/`, `bd memories` tribal
+facts, `.gitignore` loom-ephemera entries, and — added by loom-ann —
+**Claude Code hook command duplicates**: the same `(event, matcher,
+command)` tuple registered in both the project's
+`.claude/settings.json` (or `~/.claude/settings.json`) and a plugin's
+`plugin.json`. Duplicates fire the command twice per event, billing
+wasted tokens (observed in liza_base 2026-05-09; fixed via loom-sd5
+by removing the project-layer entry — the plugin's registration is
+canonical). Project-level dups surface as WARN; user-level dups as
+INFO (machine-specific config, advisory only). The check is NOT
+auto-fixable — JSON surgery is content-aware (multiple hook entries
+may share a stanza) and excluded by the Wave 2 contract.
+
 ### Step 3 — docs drift detection (unless `--check=onboarding`)
 
 Run the five sub-checks below in order. Each produces zero or more
