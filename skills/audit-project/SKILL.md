@@ -723,6 +723,33 @@ For each non-auto-applied gap, ask the user:
 
 > Item: <one-line>. Apply suggested fix? (yes / skip / edit)
 
+**Invariant (loom-xcw): the per-item gate is a conversational pause,
+not a tool-permission prompt.** Two distinct gates can be confused
+here:
+
+- **TOOL permission** — Claude Code's built-in prompt before
+  Write/Edit/Bash. `--dangerously-skip-permissions` silently
+  auto-accepts this gate. It is about which tools the harness is
+  allowed to invoke, not about whether the USER approved the change.
+- **USER approval** — the per-item question above. This is a real
+  conversational pause that requires a user-typed reply ("yes",
+  "skip", or "edit"). `--dangerously-skip-permissions` MUST NOT
+  auto-resolve this gate; running with it does NOT imply blanket
+  user consent.
+
+The two gates are NOT interchangeable. A session with
+`--dangerously-skip-permissions` set still owes the user an explicit
+yes/skip/edit reply per item — the flag only removes the
+tool-permission friction layer, never the user-approval layer.
+
+**Execution rule.** After printing the prompt, STOP. Do NOT call
+any tool (no Edit, no Write, no Bash, no further analysis) until
+the user replies with a message containing one of `yes` / `skip` /
+`edit`. Treat the next user message as the answer; if the user's
+reply is ambiguous, re-prompt rather than guessing. This is the
+fix for the loom-wxo / loom-xcw symptom where three items applied
+without an intervening user turn.
+
 On `yes`: generate the fix (template for onboarding gaps; surgical
 edit for docs drift), preview the diff, then write to disk.
 On `skip`: move on. On `edit`: ask the user for the corrected text

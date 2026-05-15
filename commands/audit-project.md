@@ -47,7 +47,15 @@ else flows to the per-item approval queue below.
 
 For each remaining `MISS` / `WARN` / `[DOC FIX]` item, offer the
 template-based fix from the skill. Do NOT auto-apply any fix outside
-the flag scope; require explicit user approval per item.
+the flag scope; require explicit user approval per item — meaning a
+user-typed reply in a fresh user message, NOT a tool-permission
+acceptance. The per-item gate is a conversational pause: print the
+prompt, then STOP and wait for the user's next message.
+
+`--dangerously-skip-permissions` is about TOOL permissions
+(Write/Edit/Bash allowed without prompt) and does NOT imply blanket
+user approval for AUTOFIX items — every per-item gate still requires
+a user-typed yes/skip/edit reply. (loom-xcw.)
 
 Step 3: when the user says "skip" or "no" for an item, move on.
 When they approve, generate the fix from the skill's template,
