@@ -54,6 +54,18 @@ BD_BIN="${BD_BIN:-bd}"
 ENTRY_TRUNCATE_CHARS="${BD_PRIME_ENTRY_TRUNCATE_CHARS:-200}"
 MEMORIES_MAX_BYTES="${BD_PRIME_MEMORIES_MAX_BYTES:-10000}"
 
+# Subagent (sidechain) sessions don't structurally use the bd-prime
+# preamble — the dispatch brief carries the intent. Skip silently when
+# the stdin payload carries subagent markers (loom-w58) OR when app
+# code has set LOOM_SUBAGENT_LEAN=1 to force slim emission (loom-b1l).
+INPUT=$(cat 2>/dev/null || true)
+# shellcheck source=../lib/subagent-detect.sh
+. "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/subagent-detect.sh" 2>/dev/null || true
+if declare -F loom_is_subagent_payload >/dev/null 2>&1; then
+  loom_is_subagent_payload "$INPUT" && exit 0
+fi
+
 # --- Fetch raw bd prime output -------------------------------------------
 
 if ! PRIME_RAW=$("$BD_BIN" prime 2>/dev/null); then
