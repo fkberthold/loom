@@ -160,7 +160,7 @@ assert_contains "bd-hooks recipe disables the hook for the absorbing commit" \
 
 echo "==> AUTOFIX:workflow-json recipe writes the documented JSON shape"
 TMP_WF="$(mktemp -d)"
-trap 'rm -rf "$TMP_WF" "$TMP_GI" "$TMP_GI2" "$TMP_GI3"' EXIT
+trap 'rm -rf "$TMP_WF" "$TMP_GI" "$TMP_GI2" "$TMP_GI3" "$TMP_GI4" "$TMP_GI5"' EXIT
 
 # Simulate the recipe: write {"v":1,"mode":"full"} to .claude/workflow.json
 mkdir -p "$TMP_WF/.claude"
@@ -187,54 +187,117 @@ assert_contains "SKILL says 'full' is the workflow.json default" \
   "$SKILL_FILE" 'mode.*defaults? to .full.|<mode>.*defaults? to .full.|default .full.'
 
 # =====================================================================
-# 6. AUTOFIX:gitignore-worktrees recipe — idempotent append
+# 6. AUTOFIX:gitignore-worktrees recipe — idempotent append (both lines)
 # =====================================================================
+#
+# Per loom-tat (2026-05-15), the recipe owns BOTH per-session loom
+# ephemera that show up at the root of every loom-managed project:
+#   - .claude/worktrees/         (dispatch isolation, loom-tag)
+#   - .claude/workflow-state.json (session-state, loom-b6o + loom-wxo)
+# Both customer trials hit the second line manually. The recipe must
+# append both lines idempotently in one shot.
 
-echo "==> AUTOFIX:gitignore-worktrees recipe is idempotent"
+echo "==> AUTOFIX:gitignore-worktrees recipe is idempotent (both lines)"
 
-# Case A: file absent — recipe should write the line.
+# Helper: simulate the recipe — for each entry, append iff not already
+# present (line-exact match).
+apply_recipe() {
+  local target="$1"; shift
+  local entry
+  for entry in "$@"; do
+    if [ ! -f "$target" ] || ! grep -qxF "$entry" "$target" 2>/dev/null; then
+      printf '%s\n' "$entry" >>"$target"
+    fi
+  done
+}
+
+ENTRY_WT='.claude/worktrees/'
+ENTRY_WS='.claude/workflow-state.json'
+
+# Case A: file absent — recipe should write BOTH lines.
 TMP_GI="$(mktemp -d)"
-# Simulate the recipe behavior:
 target="$TMP_GI/.gitignore"
-entry='.claude/worktrees/'
-if [ ! -f "$target" ] || ! grep -qxF "$entry" "$target" 2>/dev/null; then
-  printf '%s\n' "$entry" >>"$target"
-fi
-if grep -qxF "$entry" "$target"; then
-  pass "case A: empty .gitignore → entry appended"
+apply_recipe "$target" "$ENTRY_WT" "$ENTRY_WS"
+if grep -qxF "$ENTRY_WT" "$target"; then
+  pass "case A: empty .gitignore → worktrees entry appended"
 else
-  fail "case A: empty .gitignore append failed"
+  fail "case A: empty .gitignore — worktrees append failed"
+fi
+if grep -qxF "$ENTRY_WS" "$target"; then
+  pass "case A: empty .gitignore → workflow-state.json entry appended"
+else
+  fail "case A: empty .gitignore — workflow-state.json append failed"
 fi
 
-# Case B: file already contains the entry — recipe must NOT duplicate.
+# Case B: file already contains BOTH entries — recipe must NOT duplicate.
 TMP_GI2="$(mktemp -d)"
 target="$TMP_GI2/.gitignore"
-printf '%s\n' "*.pyc" "$entry" "node_modules/" >"$target"
-# Re-run the same logic
-if [ ! -f "$target" ] || ! grep -qxF "$entry" "$target" 2>/dev/null; then
-  printf '%s\n' "$entry" >>"$target"
-fi
-count=$(grep -cxF "$entry" "$target")
-if [ "$count" -eq 1 ]; then
-  pass "case B: idempotent — entry already present, not duplicated (count=$count)"
+printf '%s\n' "*.pyc" "$ENTRY_WT" "$ENTRY_WS" "node_modules/" >"$target"
+apply_recipe "$target" "$ENTRY_WT" "$ENTRY_WS"
+count_wt=$(grep -cxF "$ENTRY_WT" "$target")
+count_ws=$(grep -cxF "$ENTRY_WS" "$target")
+if [ "$count_wt" -eq 1 ] && [ "$count_ws" -eq 1 ]; then
+  pass "case B: idempotent — both entries already present, not duplicated (wt=$count_wt ws=$count_ws)"
 else
-  fail "case B: duplicated entry (count=$count, expected 1)"
+  fail "case B: duplicated entry (wt=$count_wt ws=$count_ws, expected 1 each)"
 fi
 
-# Case C: file contains a substring-but-not-exact match (e.g. 'mydocs/')
-# should NOT block the recipe from adding the real entry. We use grep
-# -xF (line-exact, fixed string) so the substring case is not matched.
+# Case C: file contains a substring-but-not-exact match (e.g.
+# 'my.claude/worktrees/...') should NOT block the recipe from adding
+# the real entries. We use grep -xF (line-exact, fixed string) so the
+# substring case is not matched.
 TMP_GI3="$(mktemp -d)"
 target="$TMP_GI3/.gitignore"
-printf '%s\n' "*.pyc" "my.claude/worktrees/something/" >"$target"
-if [ ! -f "$target" ] || ! grep -qxF "$entry" "$target" 2>/dev/null; then
-  printf '%s\n' "$entry" >>"$target"
-fi
-if grep -qxF "$entry" "$target"; then
-  pass "case C: substring-but-not-exact pre-existing line → real entry still added"
+printf '%s\n' "*.pyc" "my.claude/worktrees/something/" "x.claude/workflow-state.json.bak" >"$target"
+apply_recipe "$target" "$ENTRY_WT" "$ENTRY_WS"
+if grep -qxF "$ENTRY_WT" "$target" && grep -qxF "$ENTRY_WS" "$target"; then
+  pass "case C: substring-but-not-exact pre-existing lines → both real entries still added"
 else
   fail "case C: substring false-positive prevented the append"
 fi
+
+# Case D: partial pre-existing — only .claude/worktrees/ present,
+# workflow-state.json absent. Recipe must add the missing line and
+# NOT duplicate the existing one.
+TMP_GI4="$(mktemp -d)"
+target="$TMP_GI4/.gitignore"
+printf '%s\n' "*.pyc" "$ENTRY_WT" >"$target"
+apply_recipe "$target" "$ENTRY_WT" "$ENTRY_WS"
+count_wt=$(grep -cxF "$ENTRY_WT" "$target")
+count_ws=$(grep -cxF "$ENTRY_WS" "$target")
+if [ "$count_wt" -eq 1 ] && [ "$count_ws" -eq 1 ]; then
+  pass "case D: partial pre-existing — missing line added, present line not duplicated"
+else
+  fail "case D: partial pre-existing — wt=$count_wt ws=$count_ws (expected 1 each)"
+fi
+
+# Case E: the converse partial — only workflow-state.json present,
+# worktrees absent.
+TMP_GI5="$(mktemp -d)"
+target="$TMP_GI5/.gitignore"
+printf '%s\n' "*.pyc" "$ENTRY_WS" >"$target"
+apply_recipe "$target" "$ENTRY_WT" "$ENTRY_WS"
+count_wt=$(grep -cxF "$ENTRY_WT" "$target")
+count_ws=$(grep -cxF "$ENTRY_WS" "$target")
+if [ "$count_wt" -eq 1 ] && [ "$count_ws" -eq 1 ]; then
+  pass "case E: converse partial — missing line added, present line not duplicated"
+else
+  fail "case E: converse partial — wt=$count_wt ws=$count_ws (expected 1 each)"
+fi
+
+# Doc-presence: SKILL.md must describe BOTH lines in the recipe spec.
+assert_contains "SKILL recipe spec mentions .claude/worktrees/ line" \
+  "$SKILL_FILE" '\.claude/worktrees/'
+assert_contains "SKILL recipe spec mentions .claude/workflow-state.json line" \
+  "$SKILL_FILE" '\.claude/workflow-state\.json'
+assert_contains "SKILL cites loom-tat lineage on the two-line recipe" \
+  "$SKILL_FILE" 'loom-tat'
+
+# Agent must describe BOTH lines on item 11.
+assert_contains "agent item 11 mentions .claude/worktrees/ entry" \
+  "$AGENT_FILE" '\.claude/worktrees/'
+assert_contains "agent item 11 mentions .claude/workflow-state.json entry" \
+  "$AGENT_FILE" '\.claude/workflow-state\.json'
 
 # =====================================================================
 # 7. Determinism cases — TRIVIAL detection on the loom-b6o known set

@@ -71,11 +71,13 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - `bd memories <project-short-name>` (try close variants if hyphenated). Count matches.
     - PASS = ≥1. MISS = none (suggest `bd remember "<one-line fact>"`).
 
-11. **`.gitignore` includes `.claude/worktrees/` (informational)**
-    - Read `<root>/.gitignore`. Check for `.claude/worktrees/` entry (the path where `Agent` + `isolation: "worktree"` creates per-subagent worktrees; never meant to be tracked).
-    - PASS = present. INFO = absent. Suggest one-line append `.claude/worktrees/`.
-    - **Tag the INFO suggested-fix line with `[AUTOFIX:gitignore-worktrees]`**. Idempotent — apply step re-checks before writing.
-    - INFO/PASS only. Lineage: `drawer_loom_decisions_df73c725b47dd67832935e3a` (loom-tag, Agent isolation:worktree path-resolution finding).
+11. **`.gitignore` includes loom per-session ephemera (informational)**
+    - Read `<root>/.gitignore`. Check for BOTH entries:
+      - `.claude/worktrees/` — the path where `Agent` + `isolation: "worktree"` creates per-subagent worktrees; never meant to be tracked (loom-tag).
+      - `.claude/workflow-state.json` — per-session ephemeral state written at every session start by loom's statusline / `workflow-state` helper; both customer trials (loom-b6o tla-puzzles, loom-wxo liza_base) handled this manually before loom-tat folded the line into the recipe.
+    - PASS = both present. INFO = either or both absent. Suggest one-line append for each missing entry (independently idempotent).
+    - **Tag the INFO suggested-fix line with `[AUTOFIX:gitignore-worktrees]`**. Idempotent per line — apply step re-checks each candidate before writing.
+    - INFO/PASS only. Lineage: `drawer_loom_decisions_df73c725b47dd67832935e3a` (loom-tag, Agent isolation:worktree path-resolution finding); loom-tat (2026-05-15, folded workflow-state.json line into the recipe).
 
 ## Output format
 
@@ -108,7 +110,7 @@ For deterministic one-command remediations (items 3, 4, 11), append `[AUTOFIX:<r
 
 - `bd-hooks` — item 3 MISS, runs `bd hooks install` + the absorbing commit two-step (loom-cka).
 - `workflow-json` — item 4 MISS, writes `{"v":1,"mode":"full"}` to `<root>/.claude/workflow.json`.
-- `gitignore-worktrees` — item 11 INFO, appends `.claude/worktrees/` to `<root>/.gitignore`.
+- `gitignore-worktrees` — item 11 INFO, appends `.claude/worktrees/` AND `.claude/workflow-state.json` to `<root>/.gitignore` (independently idempotent per line; loom-tat folded the second line in 2026-05-15).
 
 Example shape:
 
