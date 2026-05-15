@@ -55,6 +55,11 @@ Tuning knobs (env vars; sensible defaults):
 | `BD_BIN`                          | `bd`    | `bd` binary path (matches the convention used by `bd-close-capture.sh`) |
 | `BD_PRIME_ENTRY_TRUNCATE_CHARS`   | `200`   | Per-entry body cap; longer bodies get `...` suffix |
 | `BD_PRIME_MEMORIES_MAX_BYTES`     | `10000` | Whole-memories-block cap; overflow entries are elided |
+| `LOOM_SUBAGENT_LEAN`              | unset   | When set to `1`, short-circuits the wrapper to silent slim emission (loom-b1l). See [LOOM_SUBAGENT_LEAN](loom-subagent-lean.md). |
+
+The wrapper also honors loom-w58's payload-based subagent detection:
+when the stdin JSON carries `isSidechain=true`, `parentUuid != null`,
+or `source ~= subagent`, the wrapper exits 0 silently.
 
 ## Installation
 

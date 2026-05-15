@@ -19,12 +19,12 @@ each script document the trigger, mode behaviour, and block strategy.
 |---|---|---|---|---|
 | `bd-claim-research.sh` | PreToolUse | `Bash` cmd matches `bd update.*--claim` | Non-blocking (exit 0); advisory | Mode `light`/`off` silences |
 | `bd-close-capture.sh` | PreToolUse | `Bash` cmd matches `bd close` | Blocks (exit 2) in mode `full` unless bypass | `--force` flag, `BD_CLOSE_FORCE=1`, mode `light`/`off` |
-| `bd-prime-wrapper.sh` | SessionStart | n/a | Non-blocking (exit 0); trims `bd prime` memories bloat | Silent on `bd prime` failure |
+| `bd-prime-wrapper.sh` | SessionStart | n/a | Non-blocking (exit 0); trims `bd prime` memories bloat | Silent on `bd prime` failure; `LOOM_SUBAGENT_LEAN=1` skips entirely |
 | `bd-remember-guest-guard.sh` | PreToolUse | `Bash` cmd matches `bd remember` | Blocks (exit 2) when guest mode + host bd | `/loom-guest off` |
 | `bd-worktree-preseed.sh` | PreToolUse | `Bash` cmd matches write-class `bd` in a linked worktree | Non-blocking (exit 0); pre-seeds dolt + applies info/exclude defense | `LOOM_BD_WORKTREE_PRESEED_SKIP=1`, sentinel `.beads/.loom-preseeded` |
 | `edit-write-pwd-guard.sh` | PreToolUse | `Edit\|Write\|MultiEdit` from a worktree-isolated cwd | Blocks (exit 2) when target resolves outside worktree root | `LOOM_EDIT_WRITE_GUARD_SKIP=1` |
 | `git-push-bd-sync.sh` | PreToolUse | `Bash` cmd matches `git push` (excludes `--dry-run`) | Non-blocking (exit 0); advisory | Mode `off` silences |
-| `workflow-mode-onboarding.sh` | SessionStart | n/a | Non-blocking (exit 0) | Skipped silently outside beads workspaces |
+| `workflow-mode-onboarding.sh` | SessionStart | n/a | Non-blocking (exit 0) | Skipped silently outside beads workspaces; subagent payloads (loom-w58) and `LOOM_SUBAGENT_LEAN=1` (loom-b1l) also skip |
 
 All hooks are mode-aware. Mode resolution is documented in
 [Installed files](../installed-files.md).

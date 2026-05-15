@@ -13,6 +13,11 @@
 # drawer_loom_decisions_3eec30046461f0766ac92eec).
 #
 # Detection signals (any one triggers a match):
+#   0. $LOOM_SUBAGENT_LEAN == "1"  — env-var force-override (loom-b1l);
+#                                    short-circuits all payload inspection.
+#                                    For app code wrapping subprocess
+#                                    Claude Code invocations that want
+#                                    deterministic slim emission.
 #   1. .isSidechain == true        — Claude Code transcript marker
 #   2. .parentUuid is a non-null   — Claude Code transcript marker
 #      string
@@ -25,10 +30,19 @@
 #   loom_is_subagent_payload "$INPUT" && exit 0
 #
 # Returns 0 (match — caller should skip) when any subagent marker is
-# present in the payload. Returns 1 (no match — caller continues) for
-# normal orchestrator payloads, empty input, or malformed JSON.
+# present in the payload OR when LOOM_SUBAGENT_LEAN=1. Returns 1
+# (no match — caller continues) for normal orchestrator payloads,
+# empty input, or malformed JSON.
 
 loom_is_subagent_payload() {
+  # Env-var override (loom-b1l): app code can wrap subprocess Claude
+  # Code with `LOOM_SUBAGENT_LEAN=1` to force slim emission regardless
+  # of payload contents. Only the literal "1" triggers — conservative
+  # match avoids surprise from `=yes` / `=true` / non-empty-truthy.
+  if [ "${LOOM_SUBAGENT_LEAN:-}" = "1" ]; then
+    return 0
+  fi
+
   local payload="${1:-}"
   [ -n "$payload" ] || return 1
   command -v python3 >/dev/null 2>&1 || return 1

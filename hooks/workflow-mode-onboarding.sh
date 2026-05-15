@@ -16,6 +16,9 @@ INPUT=$(cat 2>/dev/null || true)
 # Subagent (sidechain) sessions don't structurally use the onboarding
 # preamble — the dispatch brief carries the intent. Skip silently to
 # save ~21 KB of additionalContext per spawn (loom-w58 / loom-nsb).
+# Also honors `LOOM_SUBAGENT_LEAN=1` (loom-b1l) for app-code wrappers
+# that need deterministic slim emission — the env-var check lives
+# inside loom_is_subagent_payload, so it composes here for free.
 # shellcheck source=../lib/subagent-detect.sh
 . "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || \
   . "$(dirname "${BASH_SOURCE[0]}")/../lib/subagent-detect.sh" 2>/dev/null || true
