@@ -294,6 +294,89 @@ assert_contains "anti-case: behavior-claim semantic check deferred to v2" \
 # above in section 2.
 
 # =====================================================================
+# 8. Per-item conversational gate (loom-xcw)
+# =====================================================================
+#
+# The loom-wxo liza_base trial 2026-05-04 surfaced a contract break: a
+# `--dangerously-skip-permissions` session ran /audit-project and the
+# per-item AUTOFIX approval gate fired with no actual user turn between
+# the prompt and the apply. Three items (`workflow.json` write,
+# `.gitignore` append, `.claude/rules/tests.md` draft) landed without
+# explicit user "yes".
+#
+# Root cause: the Step 4 per-item gate is a printed Q&A line with no
+# explicit instruction to STOP and wait for a user-typed reply. The
+# `--dangerously-skip-permissions` flag turns off Claude Code's TOOL-
+# permission prompt (which is a different gate). With no tool-permission
+# interpose AND no explicit "wait for user message" instruction, the
+# agent's natural pattern is present-then-immediately-apply.
+#
+# These tests pin the conversational-gate contract: SKILL.md must
+# describe the gate as a real conversational pause, distinguish it
+# from tool-permission, and state that --dangerously-skip-permissions
+# does NOT auto-resolve it.
+
+echo "==> Per-item AUTOFIX gate is an explicit conversational pause (loom-xcw)"
+
+# The gate must be described as a pause requiring a user message,
+# not just a printed prompt.
+assert_contains "SKILL describes per-item gate as a conversational pause" \
+  "$SKILL_FILE" 'conversational pause|wait for (the )?user (message|reply|turn)|STOP.*until the user'
+
+# The skill must explicitly distinguish tool-permission from
+# user-approval — they are different gates.
+assert_contains "SKILL distinguishes tool-permission from user-approval gates" \
+  "$SKILL_FILE" 'tool[- ]permission.*user[- ]approval|different gates|TOOL permission.*USER approval'
+
+# --dangerously-skip-permissions MUST NOT auto-resolve the gate.
+# Flatten line wraps with tr before matching so markdown reflow doesn't
+# break the assertion.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'dangerously-skip-permissions[^.]*(MUST NOT|does not|never|NOT)[^.]*(auto-?resolve|auto-?yes|auto-?approve|imply)'; then
+  pass "SKILL invariant: --dangerously-skip-permissions does NOT auto-yes the gate"
+else
+  fail "SKILL invariant: --dangerously-skip-permissions does NOT auto-yes the gate" \
+    "(invariant not found in flattened SKILL.md)"
+fi
+
+# The Step 4 prompt must include an explicit "do not call any tool
+# until the user replies" instruction so an agent reading the skill
+# can't naturally present-then-apply.
+assert_contains "Step 4 instructs the agent to NOT call tools until user replies" \
+  "$SKILL_FILE" '[Dd]o [Nn][Oo][Tt] call any tool|[Nn]o tool call.*until.*user|STOP.*[Dd]o [Nn][Oo][Tt]'
+
+# The bead-lineage citation pins the historical anchor.
+assert_contains "SKILL cites loom-xcw lineage on the gate invariant" \
+  "$SKILL_FILE" 'loom-xcw'
+
+echo "==> commands/audit-project.md surfaces the conversational-gate invariant"
+# The slash command's "require explicit user approval per item"
+# language must clarify it means a user-typed reply, not a tool prompt.
+assert_contains "command clarifies 'approval' means user-typed reply" \
+  "$CMD_FILE" 'user[- ]typed reply|conversational|user message|user turn'
+
+# ---------------------------------------------------------------------
+# Bug-class coverage (loom-xcw): defend the broader contract that
+# "ungranted writes never happen" against future drift.
+# ---------------------------------------------------------------------
+
+echo "==> Bug-class: SKILL preserves the 'no write without user approval' invariant"
+# Step 3.5 must still gate writes on the explicit flags (loom-a29 contract).
+assert_contains "Step 3.5 writes are pre-authorized by --apply-onboarding flag only" \
+  "$SKILL_FILE" 'pre-authorized.*--apply-(trivial|onboarding)|pre-authorized.*by passing the flag'
+
+# The "What this skill does NOT do" section must still bind.
+assert_contains "SKILL: does not write to disk without user approval" \
+  "$SKILL_FILE" 'Does not write to disk without user approval'
+
+echo "==> Bug-class: project-onboarder subagent remains read-only (no gate by-pass)"
+# The subagent must NOT be tempted to apply fixes; if a future edit makes
+# it write to disk, the conversational gate becomes irrelevant.
+assert_contains "subagent declares read-only scope" \
+  "$AGENT_FILE" 'Read-only|read-only|never writes|do not propose code'
+assert_contains "subagent's 'Do NOT' list forbids writes" \
+  "$AGENT_FILE" 'Read-only|any file write|do not modify'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo
