@@ -30,12 +30,21 @@ python3 -c 'import <project_name>; print(<project_name>.__file__)' 2>/dev/null \
 
 # 3. bd state — worktree's bd dolt is non-empty
 bd list -n 1 >/dev/null 2>&1 || { echo "FAIL: bd list returned empty"; exit 1; }
+
+# 4. Base — branch base matches main tip (catches empty-branch
+#    rebase no-op when base is stale)
+merge_base=$(git merge-base HEAD main)
+main_tip=$(git rev-parse main)
+if [ "$merge_base" != "$main_tip" ]; then
+  echo "BASE STALE: $merge_base != $main_tip — rebasing"
+  git rebase main || { echo "FAIL: rebase failed — escalate"; exit 1; }
+fi
 ```
 
 Each section below documents the failure mode that motivates one
 smoke test, plus the mechanical-fix hook that backstops it. The
-three sections form a single pre-flight battery: pwd + import +
-bd state.
+four sections form a single pre-flight battery: pwd + import +
+bd state + base-freshness.
 
 ## Pwd verification
 
@@ -141,3 +150,42 @@ sentinel `.beads/.loom-preseeded` memoizes the seed; self-heals if
 the dolt is later wiped. Bypass with
 `LOOM_BD_WORKTREE_PRESEED_SKIP=1`. See
 [`docs/reference/bd-worktree-preseed.md`](../../docs/reference/bd-worktree-preseed.md).
+
+## Base-freshness check
+
+**Risk (loom-6zi, surfaced 2026-05-15 by loom-b1l worker).** A
+dispatched worker on a fresh branch with NO commits yet runs
+`git rebase main` and gets a no-op return code 0 — even when the
+branch's merge-base trails main by N intervening merges. The
+rebase is a no-op on an empty branch because there's nothing to
+replay; it nonetheless returns success. The staleness only surfaces
+post-commit when `git diff --stat main HEAD` shows unrelated files
+(the intervening merges' contents). By then the worker has already
+done work against a stale base; recovery requires a stash-bracketed
+rebase against a partially-typed change set. Catch it pre-flight by
+comparing merge-base against main's tip directly, before any work
+begins.
+
+**Pre-flight smoke test** (part of the aggregator above):
+
+```bash
+merge_base=$(git merge-base HEAD main)
+main_tip=$(git rev-parse main)
+if [ "$merge_base" != "$main_tip" ]; then
+  echo "BASE STALE: $merge_base != $main_tip — rebasing"
+  git rebase main || { echo "FAIL: rebase failed — escalate"; exit 1; }
+fi
+```
+
+For an empty branch the rebase fast-forwards the branch tip to
+main; for a branch with commits it replays them onto main. Either
+way the worker proceeds on a known-fresh base AND knows its
+starting point shifted (the diagnostic the silent no-op was
+hiding).
+
+**Mechanical fix.** Use `scripts/loom-rebase-worktree main`
+(loom-azt) instead of plain `git rebase main` when untracked WIP
+from a prior crash needs preserving across the rebase. The wrapper
+refuses outside a linked worktree, snapshots untracked files,
+pre-detects collisions, and restores files post-rebase. See
+[`docs/reference/loom-rebase-worktree.md`](../../docs/reference/loom-rebase-worktree.md).

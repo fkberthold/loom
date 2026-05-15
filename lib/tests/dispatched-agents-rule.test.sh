@@ -63,11 +63,13 @@ assert_not_contains() {
 # 1. All three pre-flight sections are present
 # =====================================================================
 
-echo "==> Three pre-flight sections form one battery"
+echo "==> Four pre-flight sections form one battery"
 assert_contains "section: Pwd verification" '^## Pwd verification'
 assert_contains "section: Python import resolution (loom-rsk)" \
   '^## Python import resolution'
 assert_contains "section: bd state preseed" '^## bd state preseed'
+assert_contains "section: Base-freshness check (loom-6zi)" \
+  '^## Base[- ]freshness check'
 
 # =====================================================================
 # 2. Pwd verification section (Mode 1 / Mode 4)
@@ -120,22 +122,24 @@ assert_contains "bd state section points at loom-x4m preseed hook" \
 # three checks together.
 
 echo "==> First-bash-call aggregator block present"
-# Look for a block that names all three smoke commands within a
+# Look for a block that names all four smoke commands within a
 # reasonable proximity (a single fenced bash block).
 if awk '
   /^```bash/ { in_block=1; block=""; next }
   /^```/ && in_block { in_block=0;
     if (block ~ /git rev-parse --show-toplevel/ &&
         block ~ /import / &&
-        block ~ /bd list -n 1/) { found=1 }
+        block ~ /bd list -n 1/ &&
+        block ~ /git merge-base[[:space:]]+HEAD[[:space:]]+main/ &&
+        block ~ /git rev-parse[[:space:]]+main/) { found=1 }
     block=""; next
   }
   in_block { block = block "\n" $0 }
   END { exit (found ? 0 : 1) }
 ' "$RULE_FILE"; then
-  pass "single fenced bash block contains all three smoke commands"
+  pass "single fenced bash block contains all four smoke commands"
 else
-  fail "no single fenced bash block aggregates pwd + import + bd-list smokes"
+  fail "no single fenced bash block aggregates pwd + import + bd-list + base-freshness smokes"
 fi
 
 # =====================================================================
@@ -160,6 +164,31 @@ assert_contains "cites loom-rsk (Python sibling)" 'loom-rsk'
 assert_contains "cites loom-ymc (pwd-guard mechanical fix)" 'loom-ymc'
 assert_contains "cites loom-x4m (bd-worktree-preseed mechanical fix)" \
   'loom-x4m'
+assert_contains "cites loom-6zi (base-freshness check origin)" 'loom-6zi'
+assert_contains "cites loom-b1l (worker that surfaced the empty-branch no-op)" \
+  'loom-b1l'
+assert_contains "cites loom-azt (loom-rebase-worktree WIP-preserving wrapper)" \
+  'loom-azt'
+
+# =====================================================================
+# 8. Base-freshness check section (loom-6zi)
+# =====================================================================
+#
+# Empty-branch workers can pass `git rebase main` as a no-op (rc=0)
+# even when the branch's merge-base trails main. The smoke battery
+# must explicitly compare merge-base HEAD main against rev-parse main
+# so staleness surfaces BEFORE work begins (not as confusing diff
+# output post-commit, as in loom-b1l 2026-05-15).
+
+echo "==> Base-freshness check section — risk + smoke + mechanical fix"
+assert_contains "base-freshness risk names empty-branch rebase no-op" \
+  'empty[- ]branch|no-op|fresh worker|rebase.*no-op|rebase is a no-op'
+assert_contains "base-freshness smoke uses git merge-base HEAD main" \
+  'git merge-base[[:space:]]+HEAD[[:space:]]+main'
+assert_contains "base-freshness smoke uses git rev-parse main" \
+  'git rev-parse[[:space:]]+main'
+assert_contains "base-freshness section points at loom-rebase-worktree wrapper" \
+  'loom-rebase-worktree'
 
 # =====================================================================
 # Summary
