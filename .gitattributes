@@ -1,0 +1,12 @@
+# bd-merge-driver wiring (loom-4um). The driver lives at
+# scripts/bd-merge-driver.sh and is registered in this repo's
+# .git/config by install.sh via:
+#   git config merge.bd-export.driver \
+#     "scripts/bd-merge-driver.sh %O %A %B %P"
+#
+# If you cloned this repo and have NOT run install.sh, plain git
+# merges of .beads/issues.jsonl will still use git's default line-
+# merge — fine functionally but exposes the bd-state-auto-revert
+# bug class (see drawer_loom_decisions_<loom-4um>). Run install.sh
+# to wire the driver.
+.beads/issues.jsonl merge=bd-export

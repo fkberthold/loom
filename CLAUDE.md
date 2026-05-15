@@ -147,6 +147,20 @@ slash commands.
   `drawer_loom_decisions_ae64101e954f38d533d02466` (loom-azt closing
   drawer) and `drawer_loom_decisions_d09f9f243008f5a6731542e3`
   (loom-x4m closing drawer) for cluster context.
+- **bd-state auto-merge protection (loom-4um, 2026-05-15).** Git's
+  line-based three-way merge of `.beads/issues.jsonl` can silently
+  reconcile bead-state lines across semantic boundaries when a
+  feature branch based on stale main is merged into post-newer-work
+  main. The `--ours` conflict-resolution pattern only fires on
+  textual conflicts; auto-merges look successful but revert closed
+  beads to in_progress. Structural fix: `.gitattributes` ships
+  `.beads/issues.jsonl merge=bd-export`, `scripts/bd-merge-driver.sh`
+  runs `bd export` to regenerate from the authoritative dolt store
+  on every merge, and `install.sh` wires the driver into the loom
+  repo's `.git/config`. Downstream projects adopting loom run a
+  similar `git config merge.bd-export.driver` step (handled by
+  `/audit-project` on first run). Composes orthogonally with the
+  bd-worktree-preseed hook (loom-x4m).
 
 ## Tools
 
