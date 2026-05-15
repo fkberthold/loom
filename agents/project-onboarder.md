@@ -79,6 +79,13 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - **Tag the INFO suggested-fix line with `[AUTOFIX:gitignore-worktrees]`**. Idempotent per line — apply step re-checks each candidate before writing.
     - INFO/PASS only. Lineage: `drawer_loom_decisions_df73c725b47dd67832935e3a` (loom-tag, Agent isolation:worktree path-resolution finding); loom-tat (2026-05-15, folded workflow-state.json line into the recipe).
 
+12. **Claude Code hook command duplicates**
+    - Shell out: `bash <loom-root>/scripts/find-hook-dups.sh <root>`. The script enumerates (event, matcher, command) tuples in `<root>/.claude/settings.json` AND `~/.claude/settings.json`, then compares each tuple against the hook blocks of every plugin manifest under `~/.claude/plugins/cache/*/*/*/{,.claude-plugin/}plugin.json`. Exact-tuple match → emits one `WARN ` (project layer) or `INFO ` (user layer) line per duplicate.
+    - PASS = script stdout empty. WARN = ≥1 `WARN ` line (project-level dup; recommend dropping the entry from the project `.claude/settings.json` — the plugin's registration is canonical and fires regardless). INFO = ≥1 `INFO ` line only (user-level dup; advisory, machine-specific config — recommend dropping from `~/.claude/settings.json`).
+    - Embed each output line verbatim in the report so the user can identify both registration sites.
+    - **No AUTOFIX tag** — JSON surgery is content-aware (multiple hook entries may share a stanza) and excluded by the Wave 2 contract (loom-a29) from deterministic apply.
+    - Lineage: surfaced by loom-nsb research (`drawer_loom_decisions_3eec30046461f0766ac92eec`, 2026-05-09); live example fixed via loom-sd5 (liza_base bd-prime SessionStart duplicate, 2026-05-15); preventive scan added by loom-ann (2026-05-15).
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -95,7 +102,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 11 ...)
+(... continue through item 12 ...)
 
 ## Summary
 
