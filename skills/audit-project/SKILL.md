@@ -396,13 +396,27 @@ applies every `[DOC FIX][TRIVIAL]` item.
 
 Every citation in `<root>/docs/` must resolve. Scan for:
 
-- **Bead IDs** — pattern `<prefix>-[a-z0-9]{3,}` where `<prefix>`
-  matches the project's bd prefix. Detect the prefix from the
-  project's own beads workspace: read `<root>/.beads/config.json`
-  if it pins a prefix, else inspect a few `bd list` rows from
-  `cd <root> && bd list --limit 1 --json` and extract the prefix.
-  For each match, run `cd <root> && bd show <id> 2>&1` so the
-  lookup hits the project's `.beads/` workspace, not loom's.
+- **Bead IDs** — delegate the scan + resolve to
+  `lib/bd-id-extract.sh` (loom-6m8). The helper takes doc text on
+  stdin and emits one dead bead-ID per line on stdout. It detects
+  the project's bd prefix as a LITERAL string from
+  `<root>/.beads/issues.jsonl` (or `bd list --limit 1 --json` as
+  fallback), so snake_case prefixes (`liza_base-`) and hyphenated
+  prefixes (`tla-puzzles-`) both work without regex-shape guessing.
+  Invocation:
+
+  ```bash
+  find <root>/docs -type f -name '*.md' -print0 \
+    | xargs -0 cat \
+    | bash <loom>/lib/bd-id-extract.sh --root=<root>
+  ```
+
+  For each emitted ID, also run `cd <root> && bd show <id> 2>&1`
+  to recover close-reason / supersession metadata for the
+  `[DOC FIX] dead-bead-id` line. Do NOT write ad-hoc regexes
+  inline — the helper exists precisely so every `/audit-project`
+  run produces the same answer (loom-6m8 surfaced an "every ID
+  shows as dead" false-positive caused by per-run regex drift).
   Failure → emit `[DOC FIX] dead-bead-id`.
 - **Commit SHAs** — pattern `\b[0-9a-f]{7,40}\b` adjacent to
   "commit" / "sha" / git context. For each match, run
