@@ -215,6 +215,28 @@ EOF
   fi
 fi
 
+# Wire the bd-merge-driver in loom's own .git/config (loom-4um).
+# Merge drivers are stored in git config (not in the tree), so the
+# repo's .gitattributes references `merge=bd-export` but nothing
+# resolves that name until `git config merge.bd-export.driver` is
+# set. Set it here so loom's own .beads/issues.jsonl is protected
+# against the silent-auto-merge regression class.
+#
+# Downstream projects that adopt loom set the same `git config`
+# entry in their own .git/config — that wiring is handled by
+# /audit-project, not by this install.sh (loom's install only
+# touches ~/.claude/ and the loom repo itself).
+log ""
+log "Wiring bd-merge-driver in loom's .git/config..."
+if [ "$DRY_RUN" = "1" ]; then
+  log "  WOULD: git -C '$LOOM_ROOT' config merge.bd-export.name 'bd-export merge driver (loom-4um)'"
+  log "  WOULD: git -C '$LOOM_ROOT' config merge.bd-export.driver 'scripts/bd-merge-driver.sh %O %A %B %P'"
+else
+  git -C "$LOOM_ROOT" config merge.bd-export.name 'bd-export merge driver (loom-4um)' || true
+  git -C "$LOOM_ROOT" config merge.bd-export.driver 'scripts/bd-merge-driver.sh %O %A %B %P' || true
+  log "  set merge.bd-export.driver → scripts/bd-merge-driver.sh"
+fi
+
 log ""
 log "Install complete."
 log ""
