@@ -1,6 +1,6 @@
 # `bd-remember-guest-guard` hook
 
-PreToolUse hook that refuses `bd remember` when [loom-guest](../how-to/loom-guest.md)
+PreToolUse hook that refuses `bd remember` when [loom-guest](../how-to/guest-mode.md)
 is active against a **host** project's bd workspace. Without it, a stray
 `bd remember` from inside a guest session would write to the host's
 `.beads/issues.jsonl` — exactly the contamination loom-guest exists to
