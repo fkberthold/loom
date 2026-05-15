@@ -95,9 +95,13 @@ audit. This is a deliberately user-pulled workflow.
     with `--workflow-mode=light|off` to change the value the flag
     writes; users who later want a different mode can edit the file
     directly.
-  - `[AUTOFIX:gitignore-worktrees]` (item 11 INFO) — appends
-    `.claude/worktrees/` to `<root>/.gitignore` if not already
-    present. Idempotent.
+  - `[AUTOFIX:gitignore-worktrees]` (item 11 INFO) — appends BOTH
+    `.claude/worktrees/` and `.claude/workflow-state.json` to
+    `<root>/.gitignore` if not already present. Idempotent per
+    line. Both are per-session loom ephemera that show up at the
+    root of every loom-managed project; folded into one recipe by
+    loom-tat after both customer trials (loom-b6o, loom-wxo)
+    handled the workflow-state.json line manually.
   Items NOT tagged AUTOFIX (item 2 `bd init`, item 5 MemPalace wing
   creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`)
   remain in the per-item approval queue. The flag never touches
@@ -631,11 +635,23 @@ form), apply the recipe:
   step (race), skip with a note.
 
 - **`[AUTOFIX:gitignore-worktrees]`** — gate first
-  (`refuse_if_guest AUTOFIX:gitignore-worktrees`), then append the
-  line `.claude/worktrees/` to `<root>/.gitignore` (creating the file
-  if absent). Idempotent: re-read the file first; skip if the entry
-  is already present (any of `.claude/worktrees`,
-  `.claude/worktrees/`, `/.claude/worktrees/`, etc.).
+  (`refuse_if_guest AUTOFIX:gitignore-worktrees`), then append BOTH
+  of the per-session loom ephemera lines to `<root>/.gitignore`
+  (creating the file if absent):
+  - `.claude/worktrees/` — the dispatch-isolation path
+    (`Agent` + `isolation: "worktree"`); never meant to be tracked.
+  - `.claude/workflow-state.json` — per-session ephemeral state
+    written at every session start by the loom statusline /
+    `workflow-state` helper. Both customer trials (tla-puzzles
+    loom-b6o, liza_base loom-wxo) hit this manually; loom-tat
+    folded the line into the same recipe.
+  Each line is appended INDEPENDENTLY and IDEMPOTENTLY — re-read
+  the file first; for each candidate line, skip the append if it
+  is already present (line-exact match against `.claude/worktrees/`
+  or `.claude/workflow-state.json` respectively). A partial pre-
+  existing state (only one of the two lines present) results in
+  exactly the missing line being appended; the already-present
+  line is never duplicated.
 
 For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
 queue for Step 4. Emit one summary line per skipped item: `--apply-
@@ -677,6 +693,7 @@ Print a `## Auto-applied` section listing every change made:
 
 [AUTOFIX:gitignore-worktrees] @ <root>/.gitignore
   - appended `.claude/worktrees/`
+  - appended `.claude/workflow-state.json`
 
 [DOC FIX][TRIVIAL] cardinality @ README.md:42
   - s/(105 dirs)/(106 dirs)/
