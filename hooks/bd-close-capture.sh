@@ -171,8 +171,9 @@ def open_ro(path):
 chroma = open_ro(chroma_db)
 kg = open_ro(kg_db)
 
-def palace_match(bead, wing_filter=None, exclude_room=None,
-                 only_room=None, require_bead_in_doc=False):
+def palace_match(needle, wing_filter=None, exclude_room=None,
+                 only_room=None, require_needle_in_doc=False,
+                 require_wing_in_doc=None):
     if chroma is None:
         return False
     cur = chroma.cursor()
@@ -180,7 +181,7 @@ def palace_match(bead, wing_filter=None, exclude_room=None,
         rows = cur.execute(
             "SELECT rowid FROM embedding_fulltext_search "
             "WHERE string_value MATCH ?",
-            (f'"{bead}"',)
+            (f'"{needle}"',)
         ).fetchall()
     except sqlite3.OperationalError:
         return False
@@ -206,17 +207,48 @@ def palace_match(bead, wing_filter=None, exclude_room=None,
             continue
         if only_room and r != only_room:
             continue
-        if require_bead_in_doc and bead not in doc:
+        if require_needle_in_doc and needle.lower() not in doc.lower():
+            continue
+        # Cross-wing scope guard for short-form lookups: when the diary
+        # (or any only_room match) accepts a short-form needle, require
+        # the bead's wing name to also appear in the doc body. Prevents
+        # `b33` in wing_claude-opus/diary from satisfying any project's
+        # `<wing>-b33` close (loom-b20 sub-issue 2).
+        if require_wing_in_doc is not None and \
+                require_wing_in_doc.lower() not in doc.lower():
             continue
         return True
     return False
 
+# Drawer matcher: try the full bead ID first; fall back to the short
+# suffix scoped to the bead's wing. Wing-scoping makes the short form
+# unambiguous within a single project's drawers (loom-b20 sub-issue 2).
 def has_drawer(bead, wing):
-    return palace_match(bead, wing_filter=wing, exclude_room="diary")
+    if palace_match(bead, wing_filter=wing, exclude_room="diary"):
+        return True
+    short = bead.split("-", 1)[1] if "-" in bead else ""
+    if len(short) >= 3 and palace_match(
+            short, wing_filter=wing, exclude_room="diary",
+            require_needle_in_doc=True):
+        return True
+    return False
 
+# Diary matcher: try the full bead ID first; fall back to the short
+# suffix when the diary doc body ALSO names the bead's wing (the diary
+# room is global across wings, so a `b33` mention in a different
+# project's diary entry must not satisfy `liza_base-b33`).
 def has_diary(bead):
-    return palace_match(bead, wing_filter=None, only_room="diary",
-                        require_bead_in_doc=True)
+    if palace_match(bead, wing_filter=None, only_room="diary",
+                    require_needle_in_doc=True):
+        return True
+    if "-" not in bead:
+        return False
+    wing, short = bead.split("-", 1)
+    if len(short) < 3:
+        return False
+    return palace_match(short, wing_filter=None, only_room="diary",
+                        require_needle_in_doc=True,
+                        require_wing_in_doc=wing)
 
 def has_kg(bead):
     if kg is None:

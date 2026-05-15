@@ -289,6 +289,66 @@ out=$(run_hook "$PROJ" 'bd close loom-8vb' "$WRONG_WING" "$NULL_BD"); rc=$?
 if [ "$rc" -eq 2 ]; then pass "drawer in OTHER wing → blocks (wing scoping works)"; else fail "wrong-wing drawer leaked (exit=$rc)" "$out"; fi
 rm -rf "$WRONG_WING"
 
+# Short-form drawer body (loom-b20 sub-issue 2): the drawer mentions the
+# bead via its short suffix (`b33`) instead of the full `liza_base-b33`.
+# Wing-scoped matching makes this unambiguous — the suffix only matches
+# within the bead's own wing. Lowercase form.
+SHORT_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$SHORT_PALACE" liza_base decisions "b33-architecture" \
+  "B33 ARCHITECTURE LOCKED. The b33 design names three tracks."
+out=$(run_hook "$PROJ" 'bd close liza_base-b33' "$SHORT_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "short-form drawer body (b33 within liza_base wing) → allows (loom-b20)"
+else
+  fail "short-form drawer match did not allow (exit=$rc)" "$out"
+fi
+rm -rf "$SHORT_PALACE"
+
+# Bug-class: drawer body uses ONLY uppercase short form (verbatim
+# loom-b20 sub-issue 2 scenario — "B33 ARCHITECTURE LOCKED"). Match
+# must be case-insensitive so the original failure case is fixed.
+UPPER_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$UPPER_PALACE" liza_base decisions "B33-arch" \
+  "B33 ARCHITECTURE LOCKED. Three tracks committed."
+out=$(run_hook "$PROJ" 'bd close liza_base-b33' "$UPPER_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "uppercase-only short-form drawer (B33) → allows (loom-b20 verbatim)"
+else
+  fail "uppercase short-form drawer did not allow (exit=$rc)" "$out"
+fi
+rm -rf "$UPPER_PALACE"
+
+# Short-form match must remain wing-scoped: a drawer in wing `loom` whose
+# body mentions only `b33` must NOT satisfy capture for `liza_base-b33`.
+# Wing scoping prevents cross-project ambiguity.
+CROSS_WING=$(mktemp -d)
+mk_palace_with_drawer "$CROSS_WING" loom decisions "b33-note" \
+  "Note: b33 mentioned but this drawer is in the loom wing."
+out=$(run_hook "$PROJ" 'bd close liza_base-b33' "$CROSS_WING" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "short-form match is wing-scoped (b33 in loom wing rejected for liza_base-b33) (loom-b20)"
+else
+  fail "short-form leaked across wings (exit=$rc)" "$out"
+fi
+rm -rf "$CROSS_WING"
+
+# Short-form must be ≥3 chars to avoid trivial-substring false positives.
+# Bead suffix regex is already {3,}; this guards regression if the matcher
+# ever takes a shorter substring.
+TINY_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$TINY_PALACE" liza_base decisions "ab-trivial" \
+  "Unrelated drawer mentioning 'ab' twice: ab and ab."
+out=$(run_hook "$PROJ" 'bd close liza_base-ab' "$TINY_PALACE" "$NULL_BD"); rc=$?
+# The bead-ID regex requires {3,} for the suffix; `liza_base-ab` won't
+# even parse as a bead ID, so the hook should treat the command as
+# "no parsable bead ID" — exit 2 with the parse error.
+if [ "$rc" -eq 2 ] && echo "$out" | grep -q 'Could not parse bead ID'; then
+  pass "2-char suffix not accepted as bead ID (regex {3,} guard) (loom-b20)"
+else
+  fail "2-char suffix passed bead-ID regex (suffix length guard regressed)" "$out"
+fi
+rm -rf "$TINY_PALACE"
+
 # ---------------------------------------------------------------------------
 # 5. Matcher 2 — KG triple referencing the bead → allows
 # ---------------------------------------------------------------------------
@@ -321,6 +381,34 @@ mk_palace_with_drawer "$DIARY_PALACE" wing_claude-opus diary loom-8vb \
 out=$(run_hook "$PROJ" 'bd close loom-8vb' "$DIARY_PALACE" "$NULL_BD"); rc=$?
 if [ "$rc" -eq 0 ]; then pass "diary entry mentioning bead → allows"; else fail "diary match did not allow (exit=$rc)" "$out"; fi
 rm -rf "$DIARY_PALACE"
+
+# Short-form diary entry (loom-b20 sub-issue 2). Diary is global across
+# wings — the bead body must still appear literally, so the short form
+# needs an extra wing-scope check inside the diary path.
+SHORT_DIARY=$(mktemp -d)
+mk_palace_with_drawer "$SHORT_DIARY" wing_claude-opus diary "b33-session" \
+  "SESSION:2026-05-08|liza_base: b33 architecture locked|stage:wrap-up"
+out=$(run_hook "$PROJ" 'bd close liza_base-b33' "$SHORT_DIARY" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "short-form diary body with wing-name nearby → allows (loom-b20)"
+else
+  fail "short-form diary did not allow (exit=$rc)" "$out"
+fi
+rm -rf "$SHORT_DIARY"
+
+# Bug-class: short-form diary entry that does NOT name the wing must
+# NOT satisfy capture (prevents `b33` mentioned in some unrelated diary
+# from satisfying liza_base-b33). loom-b20 sub-issue 2 wing-scope guard.
+SHORT_DIARY_NOWING=$(mktemp -d)
+mk_palace_with_drawer "$SHORT_DIARY_NOWING" wing_claude-opus diary "b33-only" \
+  "SESSION:2026-05-08|b33 mentioned in passing|stage:debug"
+out=$(run_hook "$PROJ" 'bd close liza_base-b33' "$SHORT_DIARY_NOWING" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "short-form diary WITHOUT wing-name → blocks (loom-b20 wing guard)"
+else
+  fail "short-form diary leaked without wing-name (exit=$rc)" "$out"
+fi
+rm -rf "$SHORT_DIARY_NOWING"
 
 # ---------------------------------------------------------------------------
 # 7. Matcher 4 — bd memory referencing the bead → allows
