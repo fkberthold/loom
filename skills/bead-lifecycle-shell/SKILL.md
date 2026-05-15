@@ -332,6 +332,16 @@ work is missing — bypass with `--force` or `BD_CLOSE_FORCE=1` only
 for trivial fixes that genuinely don't warrant a drawer. The hook
 writes `stage=close`.
 
+**Flag gotcha (loom-b20, sub-issue 1):** `bd close` accepts `--reason
+"..."`, NOT `--notes`. The `--notes` flag exists on `bd update` and
+is easy to pattern-match into a close command. When you pass an
+unknown flag, bd's Cobra parser prints `Error: unknown flag: --notes`
+followed by the full help text, **but exits 0** — the close was not
+performed and the failure can look like a successful close-with-help
+in a busy terminal scrollback. Always use `--reason` on close. If you
+need richer post-close notes, run `bd update <id> --append-notes "..."`
+*after* the close.
+
 The `bd dolt push` guard exists because solo bd workspaces (no Dolt
 remote configured) have `bd dolt push` exit 1 with a "remote 'origin'
 not found" error that is benign — issues are still versioned locally
