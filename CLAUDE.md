@@ -130,20 +130,23 @@ slash commands.
   from earlier in the session, missing intervening merges that the
   new bead depends on. Observed in liza_base 2026-05-06 across
   bqo/9uo/982 agents. Mitigation is convention-only — the Agent
-  harness's base-ref behavior is opaque to loom. Each worker brief
-  should include a step-0 rebase:
+  harness's base-ref behavior is opaque to loom. Worker briefs
+  should run the pre-flight smoke battery in
+  `.claude/rules/dispatched-agents.md` as the first bash call;
+  step 4 of that battery compares `git merge-base HEAD main`
+  against `git rev-parse main` and auto-rebases when stale.
 
-  ```
-  Step 0: cd into the worktree and rebase onto current main
-  before doing anything else:
-      git rebase main
-  or, if untracked WIP from a prior crash needs preserving:
-      scripts/loom-rebase-worktree main
-  ```
+  `git rebase main` alone is NOT sufficient — on an empty-branch
+  worker (no commits yet) it returns rc=0 as a no-op even when the
+  base trails main, and the staleness only surfaces post-commit as
+  unrelated files in `git diff --stat main HEAD`. Surfaced by
+  loom-b1l worker 2026-05-15, fixed in loom-6zi. The smoke battery's
+  step 4 does the explicit merge-base check + conditional rebase
+  that catches this.
 
-  The `loom-rebase-worktree` wrapper (loom-azt, shipped 2026-05-12)
-  is the safer choice when WIP-preservation matters; for green-field
-  worker dispatch a plain `git rebase main` is fine. See
+  For WIP preservation across the rebase (mid-flight crashes that
+  left untracked files), use `scripts/loom-rebase-worktree main`
+  (loom-azt) instead of plain `git rebase main`. See
   `drawer_loom_decisions_ae64101e954f38d533d02466` (loom-azt closing
   drawer) and `drawer_loom_decisions_d09f9f243008f5a6731542e3`
   (loom-x4m closing drawer) for cluster context.
