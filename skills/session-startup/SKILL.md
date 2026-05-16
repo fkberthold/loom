@@ -20,9 +20,9 @@ override):
 
 - **full** — run all 9 steps below. Default.
 - **light** — run an abbreviated routine: `bd stats` + `bd ready -n 10` +
-  `bd list --status=in_progress` + reconcile + pick. Skip palace
-  status/KG-stats/diary-deep-dive (steps 3-4) unless the user asks.
-  Tell the user: "workflow mode is light; abbreviated startup."
+  `bd list --status=in_progress` + CI health (step 1a) + reconcile + pick.
+  Skip palace status/KG-stats/diary-deep-dive (steps 3-4) unless the user
+  asks. Tell the user: "workflow mode is light; abbreviated startup."
 - **off** — skip the skill entirely. Acknowledge: "workflow mode is off;
   startup skill disabled. Use `bd ready` directly if needed." Don't
   prime the palace or pick a bead unless the user asks explicitly.
@@ -34,6 +34,8 @@ it before running the rest of this skill.
 ## Steps
 
 1. **Prime beads.** Run `bd prime` (auto-fires on session start in Claude Code, but explicit fallback never hurts). Then `bd stats` for health and `bd ready -n 10` for unblocked work.
+
+1a. **Check CI health.** Run `gh run list --limit 3 --branch main --json status,conclusion,name,headSha,createdAt` (or the equivalent for the project's default branch). If any of the last 3 runs has `conclusion: failure`, surface to the user as a single warning line: workflow name, short commit SHA, age. A red workflow from a prior session that sat unnoticed is the failure mode this step exists to prevent (loom-59w: Deploy docs sat red for 2 days before being noticed). Tolerance: if `gh` is not installed, not authenticated, or the call errors for any reason, emit `(gh unavailable — CI check skipped)` and continue. **Never fail the skill on this step.** The check stays in `light` mode too (cheap, high-signal); `off` mode skips it along with the rest of the skill.
 2. **Check in-progress.** Run `bd list --status=in_progress`. Anything there outranks the ready queue — finish what was started.
 3. **Prime palace.** Call `mempalace_status` and `mempalace_kg_stats`. Note wing/room shape; flag anything weird (zero drawers, zero current facts).
 4. **Recover recent context.** Three sub-steps:
