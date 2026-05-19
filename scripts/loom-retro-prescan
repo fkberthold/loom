@@ -1,0 +1,327 @@
+#!/usr/bin/env bash
+# loom-retro-prescan — Phase 1 T1 of loom-z3m retrospective dig.
+#
+# Scans Claude Code transcripts for one project (loom | hundred-acre-woods |
+# liza-base) and emits a JSONL hit-list at $LOOM_RETRO_OUTPUT_DIR/<project>-hits.jsonl.
+# Each row pins a single struggle-signal observation:
+#   {session_id, ts, signal_class, evidence_offset_start, evidence_offset_end,
+#    raw_excerpt, upgrade_weight}
+#
+# Signal classes (transcript-only — diary-LESSON harvesting deferred to T2):
+#   A_steering    user turn ≤200 chars matching steering regex AND ≥3 preceding
+#                 assistant tool calls in current session
+#   A_diagnostic  user turn matching diagnostic regex (no length filter)
+#   B_abandon     ≥20 consecutive assistant turns, then user turn with Jaccard
+#                 distance >0.7 vs concatenated last 5 assistant texts
+#   B_reversion   user turn matching explicit-reversion regex
+#
+# Per-hit annotation: upgrade_weight=1 if the assistant turn immediately
+# following the hit matches the upgrade regex (you're right / apologies /
+# let me redo / let me back up). Otherwise 0.
+#
+# Defensive filters: isMeta=true, isSidechain=true, and <command-name>... or
+# <local-command-caveat> user turns are skipped (not Frank's typing).
+#
+# Env overrides (primarily for tests):
+#   LOOM_RETRO_TRANSCRIPT_DIR   override transcript root
+#   LOOM_RETRO_OUTPUT_DIR       override output dir (default ~/.loom-retro)
+#   LOOM_RETRO_DAYS             override 14-day mtime filter
+
+set -uo pipefail
+
+PROJECT="${1:-}"
+case "$PROJECT" in
+  loom)
+    DEFAULT_DIR="$HOME/.claude/projects/-home-frank-repos-loom"
+    ;;
+  hundred-acre-woods|haw)
+    DEFAULT_DIR="$HOME/.claude/projects/-home-frank-Working-hundred-acre-woods"
+    PROJECT=hundred-acre-woods
+    ;;
+  liza-base|liza_base)
+    DEFAULT_DIR="$HOME/.claude/projects/-home-frank-repos-liza-base"
+    PROJECT=liza-base
+    ;;
+  *)
+    cat >&2 <<EOF
+usage: loom-retro-prescan <loom|hundred-acre-woods|liza-base>
+
+Emits \$LOOM_RETRO_OUTPUT_DIR/<project>-hits.jsonl with one row per detected
+struggle-signal (A_steering | A_diagnostic | B_abandon | B_reversion).
+
+Env: LOOM_RETRO_TRANSCRIPT_DIR, LOOM_RETRO_OUTPUT_DIR, LOOM_RETRO_DAYS
+EOF
+    exit 2
+    ;;
+esac
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "loom-retro-prescan: jq is required but not found in PATH" >&2
+  exit 3
+fi
+
+TRANSCRIPT_DIR="${LOOM_RETRO_TRANSCRIPT_DIR:-$DEFAULT_DIR}"
+OUTPUT_DIR="${LOOM_RETRO_OUTPUT_DIR:-$HOME/.loom-retro}"
+DAYS="${LOOM_RETRO_DAYS:-14}"
+
+if [ ! -d "$TRANSCRIPT_DIR" ]; then
+  echo "loom-retro-prescan: transcript dir not found: $TRANSCRIPT_DIR" >&2
+  exit 4
+fi
+
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_FILE="$OUTPUT_DIR/${PROJECT}-hits.jsonl"
+: > "$OUTPUT_FILE"
+
+# ----------------------------------------------------------------------
+# Per-file processing.
+#
+# For each .jsonl file we run two passes:
+#   1. awk computes per-line byte offsets (cumulative).
+#   2. jq -R/fromjson extracts event metadata per line.
+# Both passes emit one row per line, keyed by line number, so paste(1)
+# aligns them row-for-row. The merged stream feeds a single awk signal
+# detector that maintains per-session state.
+# ----------------------------------------------------------------------
+
+EVENT_JQ='
+  . as $line |
+  try (
+    ($line | fromjson) as $r |
+    [(input_line_number),
+     ($r.type // ""),
+     ($r.sessionId // ""),
+     ($r.timestamp // ""),
+     (if ($r.isMeta // false) then "1" else "0" end),
+     (if ($r.isSidechain // false) then "1" else "0" end),
+     ($r.message.role // ""),
+     ((($r.message.content | type) as $t |
+       if $t == "array" then
+         ([$r.message.content[] | select(.type=="tool_use")] | length)
+       else 0 end) | tostring),
+     ((($r.message.content | type) as $t |
+       if $t == "string" then $r.message.content
+       elif $t == "array" then
+         ([$r.message.content[] | select(.type=="text") | .text] | join(" "))
+       else "" end)
+      | gsub("\t"; " ")
+      | gsub("\n"; " ")
+      | gsub("\r"; " "))
+    ] | @tsv
+  ) catch (
+    [(input_line_number), "", "", "", "0", "0", "", "0", ""] | @tsv
+  )
+'
+
+SIGNAL_AWK='
+BEGIN {
+  FS = "\t"
+  consec_asst = 0
+  tool_calls = 0
+  ring_n = 0
+  pending = 0
+}
+
+function json_escape(s,    r) {
+  r = s
+  gsub(/\\/, "\\\\", r)
+  gsub(/"/, "\\\"", r)
+  return r
+}
+
+function tokenize(s, arr,    i, n, toks, t, lower) {
+  lower = tolower(s)
+  gsub(/[^a-z0-9 ]/, " ", lower)
+  n = split(lower, toks, /[ ]+/)
+  for (i = 1; i <= n; i++) {
+    t = toks[i]
+    if (length(t) >= 3) arr[t] = 1
+  }
+}
+
+function jaccard_distance(user_text,    user_tok, asst_tok, i, k,
+                          inter, uni, asst_text, sim) {
+  delete user_tok
+  delete asst_tok
+  tokenize(user_text, user_tok)
+  asst_text = ""
+  for (i = 0; i < 5 && i < ring_n; i++) {
+    asst_text = asst_text " " ring[i]
+  }
+  tokenize(asst_text, asst_tok)
+  inter = 0
+  for (k in user_tok) if (k in asst_tok) inter++
+  uni = 0
+  for (k in user_tok) uni++
+  for (k in asst_tok) if (!(k in user_tok)) uni++
+  if (uni == 0) return 0
+  sim = inter / uni
+  return 1 - sim
+}
+
+function emit_pending() {
+  if (!pending) return
+  printf "{\"session_id\":\"%s\",\"ts\":\"%s\",\"signal_class\":\"%s\",\"evidence_offset_start\":%d,\"evidence_offset_end\":%d,\"raw_excerpt\":\"%s\",\"upgrade_weight\":%d}\n",
+    p_sid, p_ts, p_cls, p_off_s, p_off_e, p_excerpt, p_upgrade
+  pending = 0
+  p_upgrade = 0
+}
+
+{
+  # Fields after paste of <offsets> <events>:
+  #   1=ln_off  2=off_s  3=off_e
+  #   4=ln_ev   5=type   6=session  7=ts  8=isMeta  9=isSidechain
+  #   10=role  11=n_tool  12=text
+  off_s = $2 + 0
+  off_e = $3 + 0
+  type_ = $5
+  sid   = $6
+  ts    = $7
+  meta  = $8
+  sc    = $9
+  role  = $10
+  ntool = $11 + 0
+  text  = $12
+  # paste collapsed trailing tab-fields onto $12 if text had embedded tabs;
+  # the jq extractor strips tabs so this is safe.
+
+  if (sc == "1" || meta == "1") next
+  if (role == "") next
+
+  if (role == "assistant") {
+    if (pending) {
+      if (text ~ /(you'\''re right|youre right|apologies|let me redo|let me back up)/) {
+        p_upgrade = 1
+      }
+      emit_pending()
+    }
+    consec_asst++
+    if (ntool > 0) tool_calls++
+    ring[ring_n % 5] = text
+    ring_n++
+    next
+  }
+
+  if (role == "user") {
+    # role=user records with empty text are tool_result wrappers
+    # (content is an array of tool_result blocks, no text). These are
+    # part of the agent execution stream, NOT Frank typing. Skip them
+    # without resetting state — otherwise B_abandon falsely fires (empty
+    # text yields Jaccard distance=1.0 vs the assistant ring), and the
+    # tool-call counters reset between every assistant message.
+    if (length(text) == 0) next
+
+    emit_pending()
+
+    # Skip any user turn that opens with an XML/markup tag. CC wraps
+    # slash commands (<command-message>...), local-command-caveats, and
+    # injected context blocks (<voice_anchor>, <system-reminder>, etc.)
+    # all in tag-prefixed user-role records. None of these are Frank
+    # typing; rejecting all "^<" is broader than the original
+    # <command-name>/<local-command-caveat> filter but catches several
+    # XML-wrapped injection shapes observed in liza-base spot-check.
+    if (text ~ /^</) {
+      next
+    }
+    # System-injected request-interrupt notices also aren'\''t Frank.
+    if (text ~ /^\[Request interrupted/) {
+      next
+    }
+
+    cls = ""
+    text_len = length(text)
+    lower_text = tolower(text)
+
+    # A_diagnostic (no length filter)
+    if (lower_text ~ /you should have|you missed|you didn'\''t|you didnt|you forgot|you misread|why did you|why didn'\''t you|why didnt you|that'\''s wrong|thats wrong|that'\''s not right|thats not right|that'\''s backwards|thats backwards|going down the wrong path|dead end/) {
+      cls = "A_diagnostic"
+    }
+    # A_steering (only if not diagnostic).
+    # Position-constrained: the steering word MUST follow a sentence boundary
+    # (start-of-turn, period, exclaim, question, or comma). The brainstorm
+    # draft regex (after any space) drops precision below 40 percent because
+    # stop-as-noun (first stop), apostrophe-don-t mid-sentence, and the word
+    # but as a conjunction all fire spuriously. The word but is dropped
+    # entirely; it is overwhelmingly a conjunction in real usage.
+    else if (text_len <= 200 && tool_calls >= 3) {
+      if (lower_text ~ /(^|[,.!?][")]?[[:space:]]*)(no|stop|wait|actually|don'\''t|dont|instead)([ ,.!?]|$)/) {
+        cls = "A_steering"
+      }
+    }
+
+    # B_reversion
+    if (cls == "" && lower_text ~ /let me back up|restart this|wrong approach|let me try a different/) {
+      cls = "B_reversion"
+    }
+
+    # B_abandon — 20+ consecutive assistant turns and topic shift.
+    # Guard against short continuation turns ("yes", "grab the next") that
+    # trivially have ~0 token overlap with the assistant ring and would
+    # fire 100% false-positives. Require the user turn to carry >=10
+    # distinct tokens before computing Jaccard distance — that filters out
+    # "proceed/agree" shapes that are continuations, not abandonment.
+    if (cls == "" && consec_asst >= 20) {
+      delete _user_tok
+      tokenize(text, _user_tok)
+      _user_token_count = 0
+      for (_k in _user_tok) _user_token_count++
+      if (_user_token_count >= 10 && jaccard_distance(text) > 0.7) cls = "B_abandon"
+    }
+
+    if (cls != "") {
+      pending = 1
+      p_sid = json_escape(sid)
+      p_ts = json_escape(ts)
+      p_cls = cls
+      p_off_s = off_s
+      p_off_e = off_e
+      p_excerpt = json_escape(substr(text, 1, 500))
+      p_upgrade = 0
+    }
+
+    consec_asst = 0
+    # Note: tool_calls is a session running total ("agent has been active
+    # in this session at least N times") — do NOT reset per user turn,
+    # otherwise short back-and-forths like "yes/no" exchanges between
+    # tool calls clear the gate that the heuristic is supposed to use
+    # for "this is a session with real activity, not a fresh ask".
+    ring_n = 0
+    delete ring
+    next
+  }
+}
+
+END { emit_pending() }
+'
+
+process_file() {
+  local file="$1"
+
+  # Pass 1 — offsets
+  local offsets
+  offsets=$(awk 'BEGIN{cum=0} {print NR"\t"cum"\t"(cum+length($0)); cum+=length($0)+1}' "$file")
+
+  # Pass 2 — events (jq line-by-line in raw mode)
+  local events
+  events=$(jq -R -r "$EVENT_JQ" "$file" 2>/dev/null)
+
+  # Paste row-by-row (both passes emit N rows for N lines, in order).
+  paste <(printf '%s\n' "$offsets") <(printf '%s\n' "$events") \
+    | awk "$SIGNAL_AWK"
+}
+
+# ----------------------------------------------------------------------
+# Walk transcripts in mtime window. find -mtime -N gives "modified within
+# last N days." -maxdepth 1 keeps us at the top-level conversation files;
+# UUID-named subdirs hold dispatched-worker JSONLs that aren't Frank's
+# turns (separate scope per the bead's deferred-to-Phase-3 list).
+# ----------------------------------------------------------------------
+
+count=0
+while IFS= read -r -d '' file; do
+  process_file "$file" >> "$OUTPUT_FILE"
+  count=$((count + 1))
+done < <(find "$TRANSCRIPT_DIR" -maxdepth 1 -name '*.jsonl' -mtime -"$DAYS" -print0 2>/dev/null)
+
+hits=$(wc -l < "$OUTPUT_FILE" | tr -d ' ')
+echo "loom-retro-prescan: scanned $count sessions in $TRANSCRIPT_DIR, emitted $hits hits to $OUTPUT_FILE"
