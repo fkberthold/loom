@@ -20,9 +20,11 @@ override):
 
 - **full** — run all 9 steps below. Default.
 - **light** — run an abbreviated routine: `bd stats` + `bd ready -n 10` +
-  `bd list --status=in_progress` + CI health (step 1a) + reconcile + pick.
-  Skip palace status/KG-stats/diary-deep-dive (steps 3-4) unless the user
-  asks. Tell the user: "workflow mode is light; abbreviated startup."
+  in-progress RESUME header (step 1a) + since-last-session digest (step 1b,
+  only fires on >3-day gap) + CI health (step 1c) + `bd list --status=in_progress`
+  + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
+  unless the user asks. Tell the user: "workflow mode is light; abbreviated
+  startup."
 - **off** — skip the skill entirely. Acknowledge: "workflow mode is off;
   startup skill disabled. Use `bd ready` directly if needed." Don't
   prime the palace or pick a bead unless the user asks explicitly.
@@ -35,7 +37,24 @@ it before running the rest of this skill.
 
 1. **Prime beads.** Run `bd prime` (auto-fires on session start in Claude Code, but explicit fallback never hurts). Then `bd stats` for health and `bd ready -n 10` for unblocked work.
 
-1a. **Check CI health.** Run `gh run list --limit 3 --branch main --json status,conclusion,name,headSha,createdAt` (or the equivalent for the project's default branch). If any of the last 3 runs has `conclusion: failure`, surface to the user as a single warning line: workflow name, short commit SHA, age. A red workflow from a prior session that sat unnoticed is the failure mode this step exists to prevent (loom-59w: Deploy docs sat red for 2 days before being noticed). Tolerance: if `gh` is not installed, not authenticated, or the call errors for any reason, emit `(gh unavailable — CI check skipped)` and continue. **Never fail the skill on this step.** The check stays in `light` mode too (cheap, high-signal); `off` mode skips it along with the rest of the skill.
+1a. **Surface in-progress work first — "RESUME?" header.** Run `bd list --status=in_progress --json` and parse each entry's id, title, and updated/last-touched timestamp. For each in_progress bead, also surface a recency cue from the last diary entry (via `mempalace_diary_read("claude-opus", 3)` or project-agent-wing equivalent) when the diary timestamp lines up with the bead's last_touched window. Print a single block:
+
+   ```
+   RESUME? In-progress beads outrank fresh-ready work:
+     - <id> "<title>" — last touched <age> · diary: "<one-line summary>"
+   ```
+
+   Resume cues outrank ready-bead selection — a half-finished bead is almost always the right next move (loom-z3m.1 f4: liza_base-n7pb sat in_progress unnoticed across sessions until the user surfaced it manually). **Skip the header entirely if `bd list --status=in_progress --json` returns an empty array** — no in_progress means nothing to resume; emitting an empty "RESUME?" block on every cold-start is just noise. Tolerance: if `bd list` errors, emit `(bd in_progress check skipped)` and continue. **Never fail the skill on this step.**
+
+1b. **Since you were last here — long-gap digest.** Detect time since the last user prompt: prefer the mtime of the latest `~/.claude/projects/<slug>/*.jsonl` transcript file; fall back to message-timestamp parsing inside that file. If the gap is **>3 days**, emit a "Since you were last here:" digest combining:
+
+   - `bd list --status=closed --since="<gap_start>"` — what shipped while away
+   - `mempalace_diary_read("claude-opus", 3)` — recent introspective notes (substitute your own agent wing)
+   - `git log --oneline --since="<gap_start>" main` — last N main commits
+
+   Print as one block under a "Since you were last here:" header. Threshold rationale: 3-day gaps are where the user reliably loses local state ("get me up to speed" — loom-z3m.1 f2, HAW user away >1 week). **Skip the digest entirely when the gap is <=3 days** — recent sessions don't need a digest, the user still has the context. Tolerance: if any sub-call errors (no transcript dir, mempalace offline, git log fails), degrade that sub-line to `(<tool> unavailable)` and continue. **Never fail the skill on this step.** Stays in `light` mode (cheap when triggered, silent when not).
+
+1c. **Check CI health.** Run `gh run list --limit 3 --branch main --json status,conclusion,name,headSha,createdAt,databaseId` (or the equivalent for the project's default branch). If any of the last 3 runs has `conclusion: failure`, surface to the user as a single warning line: workflow name, short commit SHA, age. **Only when a failure is detected**, additionally run `gh run view <databaseId> --json conclusion,jobs` for the latest failing run and print the first non-success job's name plus a one-line failure summary (failure line / failing step name) inline with the warning. Skip the `gh run view` call when CI is green (don't burn API calls on healthy state). A red workflow from a prior session that sat unnoticed is the failure mode this step exists to prevent (loom-59w: Deploy docs sat red for 2 days before being noticed); the inline job-name + summary keeps the user from a follow-up roundtrip (loom-z3m.1 f1: "the build keeps failing in GHA. Building docs I believe."). Tolerance: if `gh` is not installed, not authenticated, or the call errors for any reason, emit `(gh unavailable — CI check skipped)` and continue. **Never fail the skill on this step.** The check stays in `light` mode too (cheap, high-signal); `off` mode skips it along with the rest of the skill.
 2. **Check in-progress.** Run `bd list --status=in_progress`. Anything there outranks the ready queue — finish what was started.
 3. **Prime palace.** Call `mempalace_status` and `mempalace_kg_stats`. Note wing/room shape; flag anything weird (zero drawers, zero current facts).
 4. **Recover recent context.** Three sub-steps:
