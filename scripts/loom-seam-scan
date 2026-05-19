@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# loom-seam-scan — claim-phase parallelizability scan (loom-z3m.5).
+#
+# Run at phase A2 of `bead-lifecycle-shell` right after the bead is
+# claimed. Scans `bd ready --json` for SIBLING beads (same parent
+# epic) whose extracted file-path sets are disjoint from the claimed
+# bead's path set and from each other. Emits one of:
+#
+#   Parallelizable: none.
+#   Parallelizable: N candidates (loom-foo, loom-bar).
+#
+# And writes `parallel_candidates: N` to the project's
+# workflow-state.json so the statusline can surface "PAR:N".
+#
+# Heuristic — disjoint-file derivation
+# ------------------------------------
+# Bead JSON has no structured `files` field, so we approximate by
+# regex-extracting path-shaped tokens from each bead's
+# `design + description + notes` text. A token is path-shaped when
+# it matches:
+#
+#   [A-Za-z0-9_.][A-Za-z0-9_./-]*\.(md|sh|py|yml|yaml|json|js|ts|go|toml|bash)
+#
+# Two beads are "disjoint" iff the intersection of their extracted
+# token sets is empty. The heuristic is conservative — a bead that
+# fails to mention any file (or that mentions a directory only) will
+# extract an empty path set, which intersects with everything as
+# disjoint. False positives are absorbed downstream by the agent's
+# own judgment when reading the candidate list; the value of this
+# script is the ritualized prompt, not a hard gate.
+#
+# Usage
+# -----
+#   scripts/loom-seam-scan <claimed-bead-id> [project-path]
+#
+# Env overrides (test sidedoors):
+#   LOOM_SEAM_SCAN_READY_JSON   path to pre-built bd-ready JSON
+#                               (skip live `bd ready` call)
+#   LOOM_SEAM_SCAN_PROJECT      project root for workflow-state
+#                               (default: $PWD)
+#
+# Exit 0 always — informational. Errors fall through to a graceful
+# "Parallelizable: none." emission.
+
+set -uo pipefail
+
+CLAIMED_ID="${1:-}"
+PROJECT="${2:-${LOOM_SEAM_SCAN_PROJECT:-$PWD}}"
+
+if [ -z "$CLAIMED_ID" ]; then
+  echo "loom-seam-scan: usage: loom-seam-scan <bead-id> [project-path]" >&2
+  exit 2
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Parallelizable: none. (jq unavailable; seam-scan skipped)"
+  exit 0
+fi
+
+# Resolve project root + the workflow-state CLI.
+__SS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+__SS_WORKFLOW_STATE="$__SS_SCRIPT_DIR/workflow-state"
+
+# Fetch ready JSON: env-override sidedoor wins for tests.
+if [ -n "${LOOM_SEAM_SCAN_READY_JSON:-}" ]; then
+  if [ ! -f "$LOOM_SEAM_SCAN_READY_JSON" ]; then
+    echo "Parallelizable: none. (test-fixture missing)"
+    exit 0
+  fi
+  READY_JSON=$(cat "$LOOM_SEAM_SCAN_READY_JSON")
+else
+  READY_JSON=$(bd ready --json 2>/dev/null || echo '[]')
+fi
+
+# Empty / malformed → graceful exit.
+if ! printf '%s' "$READY_JSON" | jq empty 2>/dev/null; then
+  echo "Parallelizable: none. (bd ready returned invalid JSON)"
+  bash "$__SS_WORKFLOW_STATE" set "--start-dir=$PROJECT" "parallel_candidates=0" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+# Helper: extract path-shaped tokens from a bead's text-fields.
+# Reads JSON from stdin, prints one path-token per line, sorted unique.
+__ss_extract_paths() {
+  jq -r '[(.design // ""), (.description // ""), (.notes // "")]
+         | join(" ")' \
+  | grep -oE '[A-Za-z0-9_.][A-Za-z0-9_./-]*\.(md|sh|py|yml|yaml|json|js|ts|go|toml|bash)' \
+  | sort -u
+}
+
+# Pull the claimed bead's JSON object out of the ready list.
+CLAIMED_OBJ=$(printf '%s' "$READY_JSON" \
+              | jq --arg id "$CLAIMED_ID" '.[] | select(.id == $id)')
+
+if [ -z "$CLAIMED_OBJ" ]; then
+  # Bead not in ready list — likely already moved to in_progress by the
+  # claim itself (bd ready filters by status). That's a normal state.
+  # We can't do a parent-based sibling search without the claimed bead,
+  # so emit none and persist 0.
+  echo "Parallelizable: none."
+  bash "$__SS_WORKFLOW_STATE" set "--start-dir=$PROJECT" "parallel_candidates=0" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+CLAIMED_PARENT=$(printf '%s' "$CLAIMED_OBJ" | jq -r '.parent // ""')
+CLAIMED_PATHS=$(printf '%s' "$CLAIMED_OBJ" | __ss_extract_paths)
+
+# No parent → no sibling-set defined under this heuristic. Emit none.
+if [ -z "$CLAIMED_PARENT" ] || [ "$CLAIMED_PARENT" = "null" ]; then
+  echo "Parallelizable: none. (no parent epic; sibling-scan skipped)"
+  bash "$__SS_WORKFLOW_STATE" set "--start-dir=$PROJECT" "parallel_candidates=0" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+# Enumerate siblings: same parent, not the claimed bead itself.
+SIBLING_IDS=$(printf '%s' "$READY_JSON" \
+              | jq -r --arg parent "$CLAIMED_PARENT" \
+                       --arg claimed "$CLAIMED_ID" \
+                  '.[] | select(.parent == $parent and .id != $claimed) | .id')
+
+# Build accumulating union path-set, starting with the claimed bead.
+# A sibling is a candidate iff its extracted path-set is disjoint with
+# the running union. (Order matters: greedy left-to-right per the
+# bd-ready ordering, which is priority-then-recency.)
+UNION_FILE=$(mktemp)
+printf '%s\n' "$CLAIMED_PATHS" | grep -v '^$' | sort -u > "$UNION_FILE" || true
+
+CANDIDATES=()
+while IFS= read -r sid; do
+  [ -z "$sid" ] && continue
+  SIB_OBJ=$(printf '%s' "$READY_JSON" | jq --arg id "$sid" '.[] | select(.id == $id)')
+  SIB_PATHS=$(printf '%s' "$SIB_OBJ" | __ss_extract_paths)
+  # If sibling has NO extracted paths, treat as disjoint (vacuously).
+  if [ -z "$SIB_PATHS" ]; then
+    CANDIDATES+=("$sid")
+    continue
+  fi
+  # Disjoint iff intersection with union is empty.
+  INTERSECT=$(printf '%s\n' "$SIB_PATHS" | sort -u \
+              | comm -12 - "$UNION_FILE" | head -1)
+  if [ -z "$INTERSECT" ]; then
+    CANDIDATES+=("$sid")
+    # Add sibling's paths to the running union so later siblings must
+    # also be disjoint from THIS one.
+    {
+      cat "$UNION_FILE"
+      printf '%s\n' "$SIB_PATHS"
+    } | sort -u > "${UNION_FILE}.new"
+    mv "${UNION_FILE}.new" "$UNION_FILE"
+  fi
+done <<< "$SIBLING_IDS"
+
+rm -f "$UNION_FILE"
+
+N=${#CANDIDATES[@]}
+
+if [ "$N" -eq 0 ]; then
+  echo "Parallelizable: none."
+elif [ "$N" -eq 1 ]; then
+  echo "Parallelizable: 1 candidate (${CANDIDATES[0]})."
+else
+  # join with comma-space
+  joined=$(IFS=', '; printf '%s' "${CANDIDATES[*]}")
+  echo "Parallelizable: $N candidates ($joined)."
+fi
+
+bash "$__SS_WORKFLOW_STATE" set "--start-dir=$PROJECT" "parallel_candidates=$N" \
+  >/dev/null 2>&1 || true
+
+exit 0

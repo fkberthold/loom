@@ -131,6 +131,16 @@ workflow_state_set() {
             jq_args+=(--arg bead "$v")
           fi
           ;;
+        parallel_candidates)
+          # Integer-typed field (loom-z3m.5). Default to 0 when not
+          # a valid non-negative integer.
+          if [[ "$v" =~ ^[0-9]+$ ]]; then
+            jq_filter="$jq_filter | .parallel_candidates = (\$parallel_candidates | tonumber)"
+            jq_args+=(--arg parallel_candidates "$v")
+          else
+            jq_filter="$jq_filter | .parallel_candidates = 0"
+          fi
+          ;;
         *) ;;
       esac
     done
@@ -138,16 +148,18 @@ workflow_state_set() {
       && mv "$path.tmp.$$" "$path"
   else
     # No jq fallback: read current values, apply overrides, rewrite.
-    local cur_v cur_mode cur_activity cur_bead cur_stage
+    local cur_v cur_mode cur_activity cur_bead cur_stage cur_pc
     cur_v=$(workflow_state_get v "$start_dir")
     cur_mode=$(workflow_state_get mode "$start_dir")
     cur_activity=$(workflow_state_get activity "$start_dir")
     cur_bead=$(workflow_state_get bead "$start_dir")
     cur_stage=$(workflow_state_get stage "$start_dir")
+    cur_pc=$(workflow_state_get parallel_candidates "$start_dir")
     [ -z "$cur_v" ] && cur_v=1
     [ -z "$cur_mode" ] && cur_mode=full
     [ -z "$cur_activity" ] && cur_activity=idle
     [ -z "$cur_stage" ] && cur_stage=idle
+    [ -z "$cur_pc" ] && cur_pc=0
 
     local kv k v
     for kv in "${pairs[@]}"; do
@@ -159,6 +171,13 @@ workflow_state_set() {
         activity) cur_activity="$v" ;;
         bead) cur_bead="$v" ;;
         stage) cur_stage="$v" ;;
+        parallel_candidates)
+          if [[ "$v" =~ ^[0-9]+$ ]]; then
+            cur_pc="$v"
+          else
+            cur_pc=0
+          fi
+          ;;
       esac
     done
 
@@ -169,8 +188,8 @@ workflow_state_set() {
       bead_json="\"$cur_bead\""
     fi
 
-    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","updated":"%s"}\n' \
-      "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$now" \
+    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"updated":"%s"}\n' \
+      "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$cur_pc" "$now" \
       > "$path.tmp.$$"
     mv "$path.tmp.$$" "$path"
   fi

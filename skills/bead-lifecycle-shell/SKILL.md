@@ -196,6 +196,42 @@ branch.
 
 If you skip A2, note the reason in the closing decision drawer.
 
+### A2.5 Seam scan — parallelizable siblings? (loom-z3m.5)
+
+After the claim resolves (and after the optional worktree is set
+up), run the seam scan as a one-line sanity check:
+
+```bash
+~/.claude/scripts/loom-seam-scan <claimed-bead-id>
+```
+
+The script reads `bd ready --json`, finds sibling beads (same parent
+epic) whose extracted file-paths are disjoint from the claimed bead
+and from each other, writes the count to `workflow-state.json`
+under `parallel_candidates`, and emits one of:
+
+```
+Parallelizable: none.
+Parallelizable: N candidates (loom-foo, loom-bar).
+```
+
+The statusline picks the count up and shows `PAR:N` when `N > 0`.
+**When N > 0, mandatorily invoke `superpowers:dispatching-parallel-
+agents` before the variable middle begins** — the recipe's middle
+then runs once per dispatched bead in parallel. When N = 0, proceed
+sequentially through the variable middle as usual.
+
+The heuristic is conservative — it extracts path-shaped tokens
+(`*.md`, `*.sh`, `*.py`, etc.) from each bead's design + description
++ notes text because `bd show` exposes no structured file list. A
+bead that mentions only directories will look "disjoint" against
+everything; trust your judgment when reading the candidate list,
+the value of the scan is the ritualized prompt, not a hard gate.
+
+Skip the scan when phase A2 was skipped entirely (the trivial-fix
+and user-global precedents above). Document the skip in the closing
+drawer if it shaped the integration plan.
+
 ## VARIABLE MIDDLE — return to the activity recipe
 
 Hand control back to the activity recipe that pointed you here. The
