@@ -31,7 +31,7 @@ to pin the symptom with a RED test first. The hook fires on the
 Edit, refuses, and reminds the agent to write the test first.
 
 This is the mechanical backstop for the
-[`bead-lifecycle-shell` mid-recipe branchpoint](../../../skills/bead-lifecycle-shell/SKILL.md)
+[`bead-lifecycle-shell` mid-recipe branchpoint](../skills/all-skills.md#bead-lifecycle-shell-cross-activity-scaffolding)
 shipped in the same bead.
 
 ## What the hook checks
