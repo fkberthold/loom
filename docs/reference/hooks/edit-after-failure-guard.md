@@ -45,17 +45,28 @@ For each Edit/Write/MultiEdit tool call:
    test-file conventions matched: `tests/`, `test/`, `__tests__/`,
    `*.test.{sh,bash,py,js,ts,jsx,tsx}`, `*_test.{sh,bash,py,go}`,
    `test_*.{sh,py}`, `*.spec.{js,ts,jsx,tsx}`, `conftest.py`.
-3. Tail the last 80 JSONL records of the transcript. Find the
-   most-recent `tool_result` block whose text matches any
+3. Tail the last 80 JSONL records of the transcript. Build a
+   `tool_use_id → name` map from every `tool_use` block seen, so
+   each `tool_result` can be source-discriminated (loom-7j5 fix
+   #1). Find the most-recent `tool_result` block whose
+   **issuing tool was `Bash`** and whose text matches any
    failure-marker regex:
-   - `\bFAIL(?:ED|URE)?\b`
    - `^FAIL\s`
+   - `^FAIL:\s`
+   - `\bFAILED\s+\S+(?:::|/)` (pytest brief, e.g. `FAILED tests/foo.py::test_bar`)
+   - `^--- FAIL:` (Go test verbose)
+   - `\b\d+\s+(?:tests?\s+)?failed\b` (pytest summary, e.g. `1 failed`)
    - `\bassertion\s+(?:failed|error)\b`
    - `^Error:\s`
    - `\bTraceback \(most recent call last\)`
-   - `^panic:\s`
+   - `^panic:\s` (Go panic)
    - `\bTests?:.*\bfailed\b`
    - `\bexit code:\s*[1-9]`
+
+   Texts containing the literal substring `edit-after-failure-guard`
+   are skipped before the regex check (loom-7j5 fix #3: hook
+   self-reference whitelist, prevents recursive self-trigger when
+   a prior BLOCKED message lands in the tail).
 4. After the most-recent failure, scan forward for a `tool_use`
    of `Edit`/`Write`/`MultiEdit` whose `file_path` matches the
    test-file conventions above. If found → exit 0 (RED captured;
@@ -121,10 +132,19 @@ middle.
 
 ## Detection heuristic notes
 
-The failure-marker regex is intentionally lenient on false positives
-in the *blocking* direction — better one extra TDD prompt than one
-missed slip. The auto-clear (a test edit after the failure) is the
-relief valve; the bypass env var is the safety net.
+The failure-marker regex aims to match real test/build framing
+(pytest brief and summary, Go test verbose and panic, assertion
+errors, Python tracebacks, generic `^Error:`/`^FAIL:` lines, and
+non-zero `exit code:` reports) while skipping prose that merely
+mentions "fail" / "failure" / "failed". Before loom-7j5 the regex
+included a lax `\bFAIL(?:ED|URE)?\b` substring match that fired
+on doc / drawer / source / bead-description text containing those
+words; that case is now handled by source-discrimination (only
+Bash-originated `tool_result` blocks are scanned) plus tighter
+framing patterns.
+
+The auto-clear (a test edit after the failure) is the relief valve;
+the bypass env var is the safety net.
 
 The 80-record transcript tail balances "catch recent failures" with
 "don't pay reading cost on every Edit". Multi-failure sessions
@@ -148,13 +168,16 @@ False-positive seams worth watching:
 ## Files
 
 - Hook: `hooks/edit-after-failure-guard.sh`
-- Tests: `lib/tests/edit-after-failure-guard.test.sh` (19 fixture cases)
+- Tests: `lib/tests/edit-after-failure-guard.test.sh` (35 fixture cases)
 - Skill mid-recipe branchpoint: `skills/bead-lifecycle-shell/SKILL.md`
   (Variable middle → Mid-recipe branchpoint subsection)
 
 ## Lineage
 
-- Closes loom-z3m.6 (P1 feature, 2026-05-19)
+- Closes loom-z3m.6 (P1 feature, 2026-05-19) — initial hook ship
+- Bug-class follow-up: loom-7j5 (P2 bug, 2026-05-19) — three-axis
+  refinement (tool_use_id source-discrimination, tighter framing,
+  hook self-reference whitelist)
 - Origin: loom-z3m retrospective dig (Phase 1, 14 improvement beads
   filed)
 - Companion (out of scope for loom; upstream PRs in loom-ki5):
