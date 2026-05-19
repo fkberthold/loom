@@ -93,18 +93,19 @@ fi
 #
 # If (1) is true AND (2) is false → refuse.
 #
-# Failure markers (case-insensitive substrings on result/output):
-#   - "FAIL " / "FAILED" / "FAILURE"
-#   - "Error:" / "error:"
-#   - "assertion" + ("failed"|"error")
-#   - "Tests:" line with " failed"
-#   - "Traceback (most recent call last)"
-#   - "panic:" (Go)
-#   - explicit non-zero exit indication: "exit code: <nonzero>"
-#
 # We only care about Bash tool results — test/build runners are
 # invoked via Bash. Edit/Write tool results don't carry failure
-# semantics relevant here.
+# semantics relevant here. tool_result blocks pair with their
+# preceding tool_use via tool_use_id, so the python below builds an
+# id→name map and ignores tool_results whose issuing tool was not
+# Bash (loom-7j5 fix #1). Doc / drawer / source text returned by
+# Read / mempalace_* / bd / etc. with "fail" prose no longer trips.
+#
+# Failure markers (after loom-7j5 fix #2 tightening): start-of-line
+# anchors and known framing patterns (pytest, go test, panic, npm),
+# plus existing assertion / Error / Traceback matchers. The lax
+# \bFAIL(?:ED|URE)?\b substring match was dropped — prose containing
+# "Failure" / "failed" no longer counts as a marker.
 
 RESULT=$(python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null
 import json, re, sys
@@ -114,8 +115,11 @@ TAIL = 80   # last N transcript entries to consider
 
 FAIL_RE = re.compile(
     r"("
-    r"\bFAIL(?:ED|URE)?\b"
-    r"|^FAIL\s"
+    r"^FAIL\s"
+    r"|^FAIL:\s"
+    r"|\bFAILED\s+\S+(?:::|/)"
+    r"|^--- FAIL:"
+    r"|\b\d+\s+(?:tests?\s+)?failed\b"
     r"|\bassertion\s+(?:failed|error)\b"
     r"|^Error:\s"
     r"|\bTraceback \(most recent call last\)"
@@ -126,6 +130,14 @@ FAIL_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+# loom-7j5 fix #3: hook self-reference whitelist. The hook's own
+# BLOCKED stderr contains failure-marker substrings. When the prior
+# BLOCKED message lands in the transcript tail it would otherwise
+# become a fresh failure marker for the next Edit/Write attempt
+# (recursive self-trigger). Skip any tool_result text containing
+# this sentinel before scanning for markers.
+SELF_REF = "edit-after-failure-guard"
+
 try:
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         lines = fh.readlines()
@@ -135,10 +147,13 @@ except OSError:
 # Keep only the tail.
 lines = lines[-TAIL:]
 
-# Walk forward. Track (a) most-recent-failure index, (b) any test-file
-# edit AFTER (a).
+# Walk forward. Track:
+#   - most-recent-failure index (failure_idx)
+#   - any test-file edit AFTER that failure (test_edit_after_failure)
+#   - tool_use_id → issuing tool name map (loom-7j5 fix #1)
 failure_idx = -1
 test_edit_after_failure = False
+tool_use_by_id = {}
 
 TEST_PATH_RE = re.compile(
     r"(/tests?/|/__tests__/"
@@ -164,20 +179,40 @@ for i, raw in enumerate(lines):
     except Exception:
         continue
 
-    # Tool-result records (user role w/ tool_result content) — scan
-    # bash outputs for failure markers.
+    # Anthropic transcript shape: content is a list of blocks. tool_use
+    # blocks (assistant role) and tool_result blocks (user role) share
+    # the list. The id→name map is built from tool_use blocks; each
+    # tool_result block looks up its issuing tool via tool_use_id.
     role = rec.get("role") or rec.get("type") or ""
     msg = rec.get("message") or rec
     content = msg.get("content") if isinstance(msg, dict) else None
 
-    # Anthropic transcript shape: content is a list of blocks.
     blocks = content if isinstance(content, list) else []
     for blk in blocks:
         if not isinstance(blk, dict):
             continue
         btype = blk.get("type", "")
-        if btype == "tool_result":
-            # tool_result content can be string or list-of-text-blocks
+        if btype == "tool_use":
+            tu_id = blk.get("id", "")
+            tu_name = blk.get("name", "")
+            if tu_id:
+                tool_use_by_id[tu_id] = tu_name
+            if tu_name in ("Edit", "Write", "MultiEdit"):
+                inp = blk.get("input", {}) or {}
+                fp = inp.get("file_path", "") if isinstance(inp, dict) else ""
+                if failure_idx >= 0 and is_test_path(fp):
+                    test_edit_after_failure = True
+        elif btype == "tool_result":
+            # loom-7j5 fix #1: only Bash-originated tool_results count
+            # as failure markers. tool_result blocks pair with their
+            # preceding tool_use via tool_use_id; look up the issuing
+            # tool's name. An orphaned tool_use_id (preceding tool_use
+            # outside the tail window) resolves to "" — fail-safe (no
+            # false block).
+            tu_id = blk.get("tool_use_id", "")
+            if tool_use_by_id.get(tu_id, "") != "Bash":
+                continue
+
             inner = blk.get("content", "")
             if isinstance(inner, list):
                 texts = []
@@ -191,23 +226,16 @@ for i, raw in enumerate(lines):
                 text = inner
             else:
                 text = ""
-            # Heuristic: only treat as failure marker if substantial output.
-            # Reduce false positives on incidental "error:" mentions.
+
+            # loom-7j5 fix #3: skip texts that reference the hook
+            # itself (recursive self-trigger sub-bug).
+            if SELF_REF in text:
+                continue
+
             if text and FAIL_RE.search(text):
-                # Distinguish bash-class results from other tools by
-                # looking at the preceding tool_use's name (if known).
-                # Conservative: any tool_result with failure markers
-                # counts. Tool-name disambiguation is best-effort below.
                 failure_idx = i
                 # Reset the test-edit tracker — the failure is fresh.
                 test_edit_after_failure = False
-        elif btype == "tool_use":
-            name = blk.get("name", "")
-            if name in ("Edit", "Write", "MultiEdit"):
-                inp = blk.get("input", {}) or {}
-                fp = inp.get("file_path", "") if isinstance(inp, dict) else ""
-                if failure_idx >= 0 and is_test_path(fp):
-                    test_edit_after_failure = True
 
 # Emit result on stdout: "BLOCK" if failure observed and no test edit
 # since; "ALLOW" otherwise.

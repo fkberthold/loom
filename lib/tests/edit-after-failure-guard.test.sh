@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Fixture tests for hooks/edit-after-failure-guard.sh.
 #
-# Closes loom-z3m.6: the recurring TDD-discipline-slip where the
-# agent's first move after a test/build failure is to Edit the
-# source file (writing the fix before pinning the failure with a
-# RED test).
+# Closes loom-z3m.6 (introduces hook). Extended by loom-7j5 with
+# sections 11-13 covering the three bug-class fixes: tool_use_id
+# source-discrimination, tighter failure-marker framing, and hook
+# self-reference whitelist.
+#
+# The recurring TDD-discipline-slip the hook addresses: an agent's
+# first move after a test/build failure is to Edit the source file
+# (writing the fix before pinning the failure with a RED test).
 #
 # Hook is PreToolUse on Edit/Write/MultiEdit. It:
 #   1. Tails the session transcript JSONL.
@@ -56,43 +60,48 @@ print(json.dumps({
 
 # Transcript helpers — produce JSONL lines matching Anthropic shape.
 tool_use_block() {
-  # $1 = tool name, $2 = file_path (Edit/Write/MultiEdit) or empty
-  local tool="$1" fp="${2:-}"
+  # $1 = tool name, $2 = file_path (Edit/Write/MultiEdit) or empty,
+  # $3 = tool_use id (default "x"). Pass an explicit id when a section
+  # needs to pair a tool_use with a non-default tool_use_id on a
+  # following tool_result block.
+  local tool="$1" fp="${2:-}" id="${3:-x}"
   python3 -c '
 import json, sys
 tool = sys.argv[1]
 fp = sys.argv[2]
+id_ = sys.argv[3]
 inp = {"file_path": fp} if fp else {}
 rec = {
     "type": "assistant",
     "message": {
         "role": "assistant",
         "content": [
-            {"type": "tool_use", "id": "x", "name": tool, "input": inp}
+            {"type": "tool_use", "id": id_, "name": tool, "input": inp}
         ],
     },
 }
 print(json.dumps(rec))
-' "$tool" "$fp"
+' "$tool" "$fp" "$id"
 }
 
 tool_result_block() {
-  # $1 = output text (the bash result body)
-  local out="$1"
+  # $1 = output text (the result body), $2 = tool_use_id (default "x").
+  local out="$1" id="${2:-x}"
   python3 -c '
 import json, sys
 text = sys.argv[1]
+id_ = sys.argv[2]
 rec = {
     "type": "user",
     "message": {
         "role": "user",
         "content": [
-            {"type": "tool_result", "tool_use_id": "x", "content": text}
+            {"type": "tool_result", "tool_use_id": id_, "content": text}
         ],
     },
 }
 print(json.dumps(rec))
-' "$out"
+' "$out" "$id"
 }
 
 # -------------------------------------------------------------------
@@ -337,6 +346,229 @@ if [ "$rc" -eq 2 ]; then
   pass "new failure after test edit resets guard: source Edit blocked"
 else
   fail "guard did not re-fire on new failure. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
+# 11. Non-Bash tool_result with FAIL substring → allowed (loom-7j5
+#     fix #1: source-discriminate via tool_use_id pairing).
+#
+#     The hook scans only Bash-originated tool_results for failure
+#     markers. Reading docs / drawers / source / bead descriptions
+#     via Read or MCP tools must not trip the guard, even when the
+#     returned text contains "fail" / "failed" / "failure" prose.
+# -------------------------------------------------------------------
+
+echo "==> 11. Non-Bash tool_result with FAIL substring → allowed (fix #1)"
+
+# 11a. mempalace_search returning a drawer body with "Failure mode:".
+T=$(mk_transcript "$(tool_use_block mcp__plugin_mempalace_mempalace__mempalace_search '' a1)
+$(tool_result_block 'Failure mode: arbiter down — partial recovery.' a1)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "mempalace_search FAIL-prose result: allowed"
+else
+  fail "mempalace_search result tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 11b. Read tool returning source with FAILED identifier.
+T=$(mk_transcript "$(tool_use_block Read '' a2)
+$(tool_result_block 'TestGroupSetupFailed --> TestGroupTestsDone : remaining tests force-failed' a2)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "Read tool result with FAILED identifier: allowed"
+else
+  fail "Read result with FAILED identifier tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 11c. mempalace_get_drawer with Go source containing log.Fatalf.
+T=$(mk_transcript "$(tool_use_block mcp__plugin_mempalace_mempalace__mempalace_get_drawer '' a3)
+$(tool_result_block 'log.Fatalf(ctx, err, \"failed to connect to upstream\")' a3)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "mempalace_get_drawer with Go source quote: allowed"
+else
+  fail "mempalace_get_drawer source quote tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 11d. Positive control — Bash tool_result with real pytest failure
+#      still blocks (fix #1 doesn't loosen real detection).
+T=$(mk_transcript "$(tool_use_block Bash '' b1)
+$(tool_result_block 'Running tests...
+test_foo.py::test_bar FAILED
+======= 1 failed, 0 passed =======' b1)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "Bash + real pytest failure: still blocks (positive control)"
+else
+  fail "real Bash failure no longer blocks. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 11e. Mixed — non-Bash FAIL prose + Bash success → allowed.
+T=$(mk_transcript "$(tool_use_block Read '' a5)
+$(tool_result_block 'Page contains: Failure mode: arbiter down — partial' a5)
+$(tool_use_block Bash '' b2)
+$(tool_result_block 'OK: all 50 tests passed' b2)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "non-Bash FAIL prose + Bash success: allowed"
+else
+  fail "mixed transcript blocked. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 11f. Orphaned tool_use_id (tool_result whose preceding tool_use
+#      fell outside the tail window) → allowed (fail-safe).
+T=$(mk_transcript "$(tool_result_block 'FAILED tests/foo.py::test_bar' orphan)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "orphaned tool_use_id: allowed (fail-safe)"
+else
+  fail "orphan tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
+# 12. Bash output with prose "fail" only → allowed (loom-7j5 fix #2:
+#     tighter failure-marker framing). The lax \bFAIL(?:ED|URE)?\b
+#     substring match is replaced with start-of-line and known-framing
+#     patterns. Real pytest / go test / panic / npm output still blocks.
+# -------------------------------------------------------------------
+
+echo "==> 12. Bash prose 'fail' without test framing → allowed (fix #2)"
+
+# 12a. Bash cat of a doc file containing "Failure mode" prose.
+T=$(mk_transcript "$(tool_use_block Bash '' c1)
+$(tool_result_block 'NOTES.md content:
+This section discusses Failure mode handling for the arbiter.
+The component recovers gracefully.' c1)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "Bash cat of doc with 'Failure mode' prose: allowed"
+else
+  fail "Bash doc prose tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 12b. Bash curl response body with "failed to respond" prose.
+T=$(mk_transcript "$(tool_use_block Bash '' c2)
+$(tool_result_block 'response: {\"message\": \"upstream temporarily failed to respond\"}' c2)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "Bash curl 'failed to respond' prose: allowed"
+else
+  fail "Bash response prose tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 12c. bd show description text containing "Hard-failure detection".
+T=$(mk_transcript "$(tool_use_block Bash '' c3)
+$(tool_result_block 'DESCRIPTION
+Hard-failure detection (mark-failed, do not re-queue) on backend' c3)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "bd show 'Hard-failure detection' prose: allowed"
+else
+  fail "bd show prose tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 12d. Positive control — pytest brief "FAILED tests/foo.py::test_bar".
+T=$(mk_transcript "$(tool_use_block Bash '' c4)
+$(tool_result_block 'FAILED tests/foo.py::test_bar - AssertionError: 1 != 2' c4)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "pytest brief 'FAILED <path>::<test>': blocks (positive control)"
+else
+  fail "pytest brief no longer blocks. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 12e. Positive control — Go test verbose "--- FAIL: TestFoo".
+T=$(mk_transcript "$(tool_use_block Bash '' c5)
+$(tool_result_block '=== RUN TestFoo
+--- FAIL: TestFoo (0.00s)' c5)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "go test '--- FAIL: TestFoo': blocks (positive control)"
+else
+  fail "go test verbose no longer blocks. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 12f. Positive control — Go panic "panic: runtime error".
+T=$(mk_transcript "$(tool_use_block Bash '' c6)
+$(tool_result_block 'panic: runtime error: index out of range
+goroutine 1 [running]:' c6)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "go panic 'panic: ...': blocks (positive control)"
+else
+  fail "go panic no longer blocks. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 12g. Positive control — pytest summary "1 failed, 2 passed".
+T=$(mk_transcript "$(tool_use_block Bash '' c7)
+$(tool_result_block '===== 1 failed, 2 passed in 0.42s =====' c7)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "pytest summary 'N failed, M passed': blocks (positive control)"
+else
+  fail "pytest summary no longer blocks. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
+# 13. Bash result containing 'edit-after-failure-guard' → allowed
+#     (loom-7j5 fix #3: self-reference whitelist). Prevents the
+#     recursive-self-trigger sub-bug where the hook's BLOCKED output
+#     becomes a failure marker for the next Edit/Write attempt.
+# -------------------------------------------------------------------
+
+echo "==> 13. Bash result with hook self-reference → allowed (fix #3)"
+
+# 13a. Bash cat of the hook source itself (debugging the hook).
+T=$(mk_transcript "$(tool_use_block Bash '' d1)
+$(tool_result_block '#!/usr/bin/env bash
+# PreToolUse hook edit-after-failure-guard.sh
+# Detects test/build FAILURE markers in transcript tail.
+# Refuses Edit when assertion failed was seen recently.' d1)")
+out=$(run_hook Edit "/tmp/proj/hooks/edit-after-failure-guard.sh" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "Bash cat of hook source with self-reference: allowed"
+else
+  fail "hook self-reference tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 13b. Previous hook invocation's own BLOCKED message in transcript.
+T=$(mk_transcript "$(tool_use_block Bash '' d2)
+$(tool_result_block '[edit-after-failure-guard] BLOCKED: Edit refused.
+A test or build failure was observed in recent Bash output' d2)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "previous hook BLOCKED message: allowed (no recursive trigger)"
+else
+  fail "hook BLOCKED self-message tripped guard. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 13c. Positive control — hook self-ref + later real Bash failure
+#      → still blocks (the new failure resets the gate).
+T=$(mk_transcript "$(tool_use_block Bash '' d3)
+$(tool_result_block '[edit-after-failure-guard] BLOCKED: Edit refused.' d3)
+$(tool_use_block Bash '' d4)
+$(tool_result_block 'FAILED tests/foo.py::test_bar - AssertionError' d4)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "hook self-ref + later real failure: still blocks (positive control)"
+else
+  fail "real failure after hook self-ref didn't block. rc=$rc" "$out"
 fi
 rm -f "$T"
 
