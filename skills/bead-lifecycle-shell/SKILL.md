@@ -202,6 +202,54 @@ Hand control back to the activity recipe that pointed you here. The
 recipe specifies the steps and stages between phase A and phase B.
 When the recipe finishes its middle, return here for phase B.
 
+### Mid-recipe branchpoint — NEW failure mode → TDD detour (loom-z3m.6)
+
+While the activity recipe owns the variable middle, the shell
+mandates one cross-cutting reflex inside it: **when a bash tool call
+exits non-zero with a failure mode you have NOT yet seen in this
+bead, suspend the recipe's current step and invoke
+`superpowers:test-driven-development` BEFORE the next Edit / Write /
+MultiEdit on a non-test file.**
+
+"NEW" means: a test failure, build failure, lint failure, or
+exception surface that wasn't already represented by an existing
+failing test (or characterization test) in this bead. The first
+sighting of a failure mode is the moment to pin it with a RED test;
+each successive sighting then just re-runs the existing test. This
+applies inside ALL six activity middles — bug, feature, refactor,
+research, cleanup, docs — because the failure-then-quick-fix slip
+isn't recipe-specific.
+
+Concrete sequence at the branchpoint:
+
+1. Note the new failure (symptom + reproducer).
+2. Invoke `superpowers:test-driven-development`. Write the minimal
+   test that captures the symptom and confirm it goes RED.
+3. Resume the activity recipe's middle. The Edit that produces the
+   fix or the design change goes GREEN against the just-written
+   test.
+4. If the failure was actually unrelated to the current bead's
+   scope (e.g. a pre-existing flake the work surfaced incidentally),
+   file a follow-up bead and bypass the guard for this edit. Do not
+   let scope-creep absorb unrelated failures.
+
+**Mechanical backstop.** The `hooks/edit-after-failure-guard.sh`
+PreToolUse hook (loom-z3m.6) intercepts Edit/Write/MultiEdit when a
+recent Bash tool_result contained test-failure markers AND no test
+file has been touched since. It refuses with a TDD reminder; bypass
+via `LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1` in the rare case where
+the failure is unrelated. The hook is convention-aligned, not
+convention-creating — the branchpoint above is the rule it
+enforces. See
+[`docs/reference/hooks/edit-after-failure-guard.md`](../../docs/reference/hooks/edit-after-failure-guard.md).
+
+**Activity-recipe note.** Activity recipes do not need to restate
+this branchpoint in their own bodies; the shell owns it. Recipes
+MAY add activity-specific extensions (e.g. `bugfix-a-bead` already
+has a "RED before GREEN" prescription in its variable middle —
+that's compatible; the branchpoint just extends the same discipline
+to mid-recipe surprises).
+
 ## Phase B — VERIFICATION
 
 Set stage `verify` at the start of B1.
