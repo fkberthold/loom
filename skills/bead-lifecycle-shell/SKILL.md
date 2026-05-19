@@ -397,6 +397,16 @@ bd preflight
 PR-readiness checks (lint, stale, orphans). Address any output before
 closing.
 
+**For docs-bearing projects (mkdocs.yml present):** the
+`bd-preflight-docs-strict` PreToolUse hook (loom-cya) auto-fires on
+both `bd preflight` and `bd close` and refuses (`exit 2` in full
+mode) if the branch's diff vs `main` touches docs-relevant paths
+(`docs/`, `mkdocs.yml`, `requirements.txt`, `skills/`, `commands/`,
+`agents/`, `hooks/`) AND `mkdocs build --strict` fails. Mode-aware:
+full blocks, light warns, off silent. Bypass for emergencies via
+`LOOM_BD_PRECLOSE_STRICT_SKIP=1`. Companion to sibling loom-kbo
+(pre-push hook) — close-time + push-time + CI = defense-in-depth.
+
 ### D2. Close + push
 
 ```bash
