@@ -71,6 +71,7 @@ ACTIVITY=$(workflow_state_get activity "$CWD")
 BEAD=$(workflow_state_get bead "$CWD")
 STAGE=$(workflow_state_get stage "$CWD")
 UPDATED=$(workflow_state_get updated "$CWD")
+PAR=$(workflow_state_get parallel_candidates "$CWD")
 ACTIVITY="${ACTIVITY:-idle}"
 STAGE="${STAGE:-idle}"
 
@@ -104,5 +105,11 @@ else
 fi
 
 [ -n "$AGE" ] && printf ' | %s' "$AGE"
+
+# Parallel-dispatch cue (loom-z3m.5): surface "PAR:N" when seam-scan
+# found N>0 parallelizable siblings at claim time.
+if [ -n "$PAR" ] && [ "$PAR" != "0" ] && [ "$PAR" != "null" ]; then
+  printf ' | PAR:%s' "$PAR"
+fi
 
 printf '\n'
