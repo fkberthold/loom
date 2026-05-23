@@ -66,10 +66,11 @@ and phase B:
 | Step boundary | Stage to write |
 |---|---|
 | Entering step M1 (verify bug's read) | `debugging` |
-| Entering step M2 (RED test) | `tdd-red` |
-| Entering step M3 (GREEN fix) | `tdd-green` |
-| Entering step M4 (bug-class coverage) | `bug-class` |
-| Entering step M5 (full-suite sweep) | `enshrined-sweep` |
+| Entering step M2 (bead-assumption audit) | `assumption-audit` |
+| Entering step M3 (RED test) | `tdd-red` |
+| Entering step M4 (GREEN fix) | `tdd-green` |
+| Entering step M5 (bug-class coverage) | `bug-class` |
+| Entering step M6 (full-suite sweep) | `enshrined-sweep` |
 
 Write each via `~/.claude/scripts/workflow-state set stage=<stage>` at
 the moment the step starts. The status line surfaces these so future
@@ -93,7 +94,7 @@ of that lineage BEFORE writing tests. The 2026-05-02 huu.15.2 → 0qw
 pivot is the canonical example: defensive coercion → convention
 alignment after the search caught the family.
 
-### Variable middle — M1 → M5 (recipe owns)
+### Variable middle — M1 → M6 (recipe owns)
 
 #### M1. Verify the bug's read
 
@@ -103,7 +104,18 @@ hypothesis BEFORE writing any test or fix code. Bug fixes drift from
 filing date to claim date; the bead's symptom may now reproduce
 differently or come from a different layer.
 
-#### M2. TDD — RED first
+#### M2. Bead-assumption audit
+
+Set stage `assumption-audit`. With M1's diagnosis in hand, compare the
+root cause you found against the bead description's stated cause
+before writing the RED test. If they materially diverge, run
+`bd update <id> --description "<corrected framing>"` (preferred —
+overwrites the stale framing). If you want to preserve the original
+hypothesis as history, run `bd comment <id> "<correction>"` as the
+minimum. Future sessions read the bead, not the transcript; stale
+descriptions become load-bearing-but-wrong (HAW yho, 2026-05).
+
+#### M3. TDD — RED first
 
 Set stage `tdd-red`. Invoke `superpowers:test-driven-development`.
 Write the failing test that reproduces the symptom. Use a verbatim
@@ -112,14 +124,14 @@ most stable regression tests. Run it, watch it fail with the expected
 message, paste the failure to user-facing output BEFORE any
 implementation lands.
 
-#### M3. GREEN — minimal fix
+#### M4. GREEN — minimal fix
 
 Set stage `tdd-green`. Smallest change that makes the test pass.
 Re-run just the new test to confirm GREEN. Resist the urge to clean up
 adjacent code — keep the diff focused so the bug-fix lineage stays
 legible.
 
-#### M4. Bug-class coverage
+#### M5. Bug-class coverage
 
 Set stage `bug-class`. Add a second test exercising the bug *class*,
 not just the instance:
@@ -133,7 +145,7 @@ not just the instance:
 Frank's durable rule from HAW 13p.3.11 deploy day: *"write a test for
 the bug AND for the bug class."*
 
-#### M5. Full suite — find tests that enshrined the bug
+#### M6. Full suite — find tests that enshrined the bug
 
 Set stage `enshrined-sweep`. Run the full test suite. Failures here
 are usually tests that locked in the buggy contract — **update them,
@@ -183,8 +195,8 @@ and invoke:
 - **`superpowers:brainstorming`** — when the design will land as a
   spec or plan in `docs/`.
 
-Resume bugfix-a-bead at M2 once the design lands, or hand off to
-`feature-a-bead` if the work is now feature-shaped.
+Resume bugfix-a-bead at M2 (assumption audit) once the design lands,
+or hand off to `feature-a-bead` if the work is now feature-shaped.
 
 ## Failure modes (concrete)
 
@@ -196,11 +208,17 @@ Resume bugfix-a-bead at M2 once the design lands, or hand off to
 - **Skip M1 (verify the read):** RED test reproduces an old symptom
   while the actual current bug has shifted; GREEN fixes the wrong
   thing; the original symptom returns under different conditions.
-- **Skip M4 (bug-class coverage):** fix passes the test you wrote but
+- **Skip M2 (bead-assumption audit):** bead description's stated root
+  cause stays stale even though M1 diagnosed something different;
+  future sessions read the bead, take the stale framing as truth,
+  and re-derive the wrong fix. HAW yho (2026-05) — filed as
+  "validator gap" but actually a prompt-tightening fix; staleness
+  caught only by user noticing mid-session.
+- **Skip M5 (bug-class coverage):** fix passes the test you wrote but
   the same class of bug returns 6 weeks later in a different symptom.
   Repeated through the huu.7.1 / huu.15.2 / huu.19.3 / 0qw family
   before the rule was articulated.
-- **Skip M5 (enshrined-test sweep):** legacy tests silently keep
+- **Skip M6 (enshrined-test sweep):** legacy tests silently keep
   passing because they pin the buggy contract; bug reappears under
   different conditions. Caught on 0qw via 14 such tests surfaced
   after the fix.
