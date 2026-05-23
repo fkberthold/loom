@@ -237,6 +237,48 @@ else
   log "  set merge.bd-export.driver → scripts/bd-merge-driver.sh"
 fi
 
+# Wire the pre-push mkdocs-strict hook into loom's own .git/hooks/
+# (loom-kbo). Git hooks are local-only state — like the merge driver
+# above, the repo carries the script but each clone must opt-in via
+# its own .git/hooks/ symlink. We do that wiring here for loom's own
+# checkout. Downstream projects that adopt loom set up an equivalent
+# .git/hooks/pre-push wiring via /audit-project, not this install.sh.
+#
+# If a pre-push hook already exists in .git/hooks/ as a non-symlink,
+# the loom hook is NOT installed (we'd need a chained dispatcher and
+# that's out of scope for loom-kbo). The install logs the skip and
+# the user can integrate manually.
+log ""
+log "Wiring pre-push mkdocs-strict hook in loom's .git/hooks/..."
+# Resolve the real .git/hooks/ dir — works from both the main
+# checkout and from a linked worktree (where .git is a file
+# pointing at the common dir's worktrees/<id>/ admin entry; the
+# hooks live in the COMMON git dir, not the per-worktree admin).
+GIT_COMMON_DIR=$(git -C "$LOOM_ROOT" rev-parse --git-common-dir 2>/dev/null)
+if [ -z "$GIT_COMMON_DIR" ]; then
+  log "  SKIP: $LOOM_ROOT is not inside a git checkout"
+  GIT_COMMON_DIR="$LOOM_ROOT/.git"
+fi
+# git-common-dir may be relative — anchor to LOOM_ROOT.
+case "$GIT_COMMON_DIR" in
+  /*) ;;
+  *) GIT_COMMON_DIR="$LOOM_ROOT/$GIT_COMMON_DIR" ;;
+esac
+PRE_PUSH_TARGET="$GIT_COMMON_DIR/hooks/pre-push"
+PRE_PUSH_SOURCE="$LOOM_ROOT/hooks/pre-push-mkdocs-strict.sh"
+if [ -e "$PRE_PUSH_TARGET" ] && [ ! -L "$PRE_PUSH_TARGET" ]; then
+  log "  SKIP: $PRE_PUSH_TARGET already exists (non-symlink) — integrate manually"
+elif [ -L "$PRE_PUSH_TARGET" ] && [ "$(readlink "$PRE_PUSH_TARGET")" = "$PRE_PUSH_SOURCE" ]; then
+  log "  already linked: $PRE_PUSH_TARGET -> $PRE_PUSH_SOURCE"
+else
+  if [ "$DRY_RUN" = "1" ]; then
+    log "  WOULD: ln -sf '$PRE_PUSH_SOURCE' '$PRE_PUSH_TARGET'"
+  else
+    ln -sf "$PRE_PUSH_SOURCE" "$PRE_PUSH_TARGET"
+    log "  linked $PRE_PUSH_TARGET -> $PRE_PUSH_SOURCE"
+  fi
+fi
+
 log ""
 log "Install complete."
 log ""
