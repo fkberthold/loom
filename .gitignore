@@ -43,3 +43,6 @@
 # MkDocs build output + local docs venv
 /site/
 /.venv-docs/
+
+# bd-worktree-preseed sentinel (loom-x4m hook memoization, ephemeral per worktree).
+.beads/.loom-preseeded
