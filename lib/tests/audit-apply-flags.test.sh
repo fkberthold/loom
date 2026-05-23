@@ -505,6 +505,398 @@ assert_contains "script documents LOOM_FIND_HOOK_DUPS_PLUGIN_BASE override" \
   "$SCRIPT_FILE" 'LOOM_FIND_HOOK_DUPS_PLUGIN_BASE'
 
 # =====================================================================
+# 9. loom-r6g: preflight-language-match check (item 13)
+# =====================================================================
+#
+# /audit-project gained a 13th check: detect project language via canonical
+# markers (pyproject.toml/setup.py/etc; go.mod; Cargo.toml; package.json;
+# scripts/+*.sh fallback). When language is determinable AND the bd
+# preflight.template ships Go-shaped but the project isn't Go, emit a WARN
+# with offer-fix. When language is unknown AND preflight.template is unset
+# or bd-default, emit a PROMPT and let the user pick.
+#
+# Onboarder owns the detection prose (read-only). The audit-project skill
+# owns the prompt/write half (interactive caller).
+
+echo "==> loom-r6g: project-onboarder declares language detection (item 13)"
+assert_contains "onboarder item 13 heading" \
+  "$AGENT_FILE" '^13\. \*\*Language and preflight template'
+assert_contains "onboarder item 13 names detect_project_language" \
+  "$AGENT_FILE" 'detect_project_language'
+assert_contains "onboarder item 13 lists python marker (pyproject.toml)" \
+  "$AGENT_FILE" 'pyproject\.toml'
+assert_contains "onboarder item 13 lists go marker (go.mod)" \
+  "$AGENT_FILE" 'go\.mod'
+assert_contains "onboarder item 13 lists rust marker (Cargo.toml)" \
+  "$AGENT_FILE" 'Cargo\.toml'
+assert_contains "onboarder item 13 lists node marker (package.json)" \
+  "$AGENT_FILE" 'package\.json'
+assert_contains "onboarder item 13 lists shell fallback marker" \
+  "$AGENT_FILE" 'shell.*\*\.sh|\*\.sh.*shell|scripts/.*shell'
+assert_contains "onboarder item 13 documents 'unknown' tie-break (polyglot)" \
+  "$AGENT_FILE" 'polyglot.*unknown|unknown.*polyglot|never guess'
+assert_contains "onboarder item 13 cites loom-r6g lineage" \
+  "$AGENT_FILE" 'loom-r6g'
+assert_contains "onboarder item 13 PROMPT verdict when unknown + unset/default template" \
+  "$AGENT_FILE" 'PROMPT.*unknown|unknown.*PROMPT'
+assert_contains "onboarder item 13 WARN verdict on python|rust|node + go-shaped template" \
+  "$AGENT_FILE" 'WARN.*go|go-shaped|template starts with .go.'
+assert_contains "onboarder item 13 explicit No AUTOFIX (interactive)" \
+  "$AGENT_FILE" 'No AUTOFIX|not AUTOFIX|excluded.*AUTOFIX'
+
+echo "==> loom-r6g: SKILL.md describes the preflight-language-match check at Step 2"
+assert_contains "SKILL describes language detection (item 13)" \
+  "$SKILL_FILE" 'preflight-language-match|language detection|detect_project_language'
+assert_contains "SKILL names canonical language markers" \
+  "$SKILL_FILE" 'pyproject\.toml.*go\.mod|go\.mod.*pyproject\.toml|Cargo\.toml.*package\.json|language markers'
+assert_contains "SKILL describes PROMPT for unknown language" \
+  "$SKILL_FILE" 'unknown.*PROMPT|PROMPT.*unknown'
+assert_contains "SKILL describes WARN for python/rust/node + go preflight" \
+  "$SKILL_FILE" 'WARN.*preflight.*go|go-shaped|template starts with .go.'
+assert_contains "SKILL describes y/N/skip per-item gate for language fix" \
+  "$SKILL_FILE" 'y/N/skip|yes/skip/edit|y\\.N.*skip'
+assert_contains "SKILL describes .claude/loom-audit-state.json skip memo" \
+  "$SKILL_FILE" 'loom-audit-state\.json'
+assert_contains "SKILL cites loom-r6g (this bead)" \
+  "$SKILL_FILE" 'loom-r6g'
+
+echo "==> loom-r6g: LOOM_AUDIT_PROMPT_ANSWER env var test mocking surface documented"
+assert_contains "SKILL documents LOOM_AUDIT_PROMPT_ANSWER env var" \
+  "$SKILL_FILE" 'LOOM_AUDIT_PROMPT_ANSWER'
+
+# ---------------------------------------------------------------------
+# Behavior fixtures — language detection markers
+# ---------------------------------------------------------------------
+
+echo "==> loom-r6g: detect_project_language fixture round-trips"
+
+# We exercise the detection by mocking the same shell logic the agent
+# would follow. The agent's instructions describe the marker order; the
+# fixtures below assert that order produces the expected language per
+# project shape.
+
+detect_lang() {
+  local root="$1"
+  local found_py=false found_go=false found_rust=false found_node=false found_shell=false
+  [ -f "$root/pyproject.toml" ] || [ -f "$root/setup.py" ] || [ -f "$root/setup.cfg" ] \
+    || ls "$root"/requirements*.txt >/dev/null 2>&1 && found_py=true
+  [ -f "$root/go.mod" ] && found_go=true
+  [ -f "$root/Cargo.toml" ] && found_rust=true
+  [ -f "$root/package.json" ] && found_node=true
+  # node tie-break: package.json + pyproject.toml == polyglot
+  if $found_node && $found_py; then
+    echo "unknown"; return
+  fi
+  # multi-language polyglot detection (never guess)
+  local count=0
+  $found_py && count=$((count+1))
+  $found_go && count=$((count+1))
+  $found_rust && count=$((count+1))
+  $found_node && count=$((count+1))
+  if [ "$count" -gt 1 ]; then
+    echo "unknown"; return
+  fi
+  if $found_py; then echo "python"; return; fi
+  if $found_go; then echo "go"; return; fi
+  if $found_rust; then echo "rust"; return; fi
+  if $found_node; then echo "node"; return; fi
+  # shell fallback — scripts/ + *.sh present
+  if [ -d "$root/scripts" ] && ls "$root"/*.sh "$root/scripts"/*.sh >/dev/null 2>&1; then
+    echo "shell"; return
+  fi
+  echo "unknown"
+}
+
+TMP_LANG="$(mktemp -d)"
+trap 'rm -rf "$TMP_LANG" "$TMP_WF" "$TMP_GI" "$TMP_GI2" "$TMP_GI3" "$TMP_GI4" "$TMP_GI5" "$TMP_STATE" "$TMP_CMD" "$TMP_CMD2" "$TMP_CMD3"' EXIT
+
+# Case A: pyproject.toml only → python
+mkdir -p "$TMP_LANG/py"
+printf '[project]\nname="x"\n' >"$TMP_LANG/py/pyproject.toml"
+got=$(detect_lang "$TMP_LANG/py")
+if [ "$got" = "python" ]; then
+  pass "case A: pyproject.toml only → python"
+else
+  fail "case A: pyproject.toml → expected python, got '$got'"
+fi
+
+# Case B: go.mod only → go
+mkdir -p "$TMP_LANG/go"
+printf 'module x\ngo 1.21\n' >"$TMP_LANG/go/go.mod"
+got=$(detect_lang "$TMP_LANG/go")
+if [ "$got" = "go" ]; then
+  pass "case B: go.mod only → go"
+else
+  fail "case B: go.mod → expected go, got '$got'"
+fi
+
+# Case C: Cargo.toml only → rust
+mkdir -p "$TMP_LANG/rust"
+printf '[package]\nname="x"\n' >"$TMP_LANG/rust/Cargo.toml"
+got=$(detect_lang "$TMP_LANG/rust")
+if [ "$got" = "rust" ]; then
+  pass "case C: Cargo.toml only → rust"
+else
+  fail "case C: Cargo.toml → expected rust, got '$got'"
+fi
+
+# Case D: package.json only → node
+mkdir -p "$TMP_LANG/node"
+printf '{"name":"x"}\n' >"$TMP_LANG/node/package.json"
+got=$(detect_lang "$TMP_LANG/node")
+if [ "$got" = "node" ]; then
+  pass "case D: package.json only → node"
+else
+  fail "case D: package.json → expected node, got '$got'"
+fi
+
+# Case E: polyglot (pyproject + go.mod) → unknown (tie-break: never guess)
+mkdir -p "$TMP_LANG/poly"
+printf '[project]\n' >"$TMP_LANG/poly/pyproject.toml"
+printf 'module x\n' >"$TMP_LANG/poly/go.mod"
+got=$(detect_lang "$TMP_LANG/poly")
+if [ "$got" = "unknown" ]; then
+  pass "case E: polyglot py+go → unknown (tie-break)"
+else
+  fail "case E: polyglot py+go → expected unknown, got '$got'"
+fi
+
+# Case F: bare directory, no markers → unknown
+mkdir -p "$TMP_LANG/bare"
+got=$(detect_lang "$TMP_LANG/bare")
+if [ "$got" = "unknown" ]; then
+  pass "case F: bare dir → unknown"
+else
+  fail "case F: bare dir → expected unknown, got '$got'"
+fi
+
+# Case G: shell fallback — scripts/ + *.sh present, no language markers
+mkdir -p "$TMP_LANG/sh/scripts"
+printf '#!/usr/bin/env bash\necho hi\n' >"$TMP_LANG/sh/install.sh"
+printf '#!/usr/bin/env bash\necho run\n' >"$TMP_LANG/sh/scripts/run.sh"
+got=$(detect_lang "$TMP_LANG/sh")
+if [ "$got" = "shell" ]; then
+  pass "case G: scripts/+*.sh fallback → shell"
+else
+  fail "case G: shell fallback → expected shell, got '$got'"
+fi
+
+# =====================================================================
+# 10. loom-r6g: claude-md-solo-aware check (item 14)
+# =====================================================================
+#
+# /audit-project gains a 14th check: when bd dolt remote list --json
+# returns [] (solo workspace, no Dolt remote) AND the CLAUDE.md BEADS
+# INTEGRATION block contains an unguarded `bd dolt push` (not wrapped
+# in loom-hsb-style `if bd dolt remote list ...; then ... fi`), emit
+# a WARN with diff preview offer. Fix mechanically rewrites the
+# canonical block to loom-hsb shape; refuses on hand-edited blocks.
+
+echo "==> loom-r6g: project-onboarder declares solo-aware CLAUDE.md check (item 14)"
+assert_contains "onboarder item 14 heading" \
+  "$AGENT_FILE" '^14\. \*\*CLAUDE\.md solo-workspace bd dolt push guard'
+assert_contains "onboarder item 14 names is_solo_workspace" \
+  "$AGENT_FILE" 'is_solo_workspace'
+assert_contains "onboarder item 14 uses bd dolt remote list --json check" \
+  "$AGENT_FILE" 'bd dolt remote list --json'
+assert_contains "onboarder item 14 documents degrade-safe semantics" \
+  "$AGENT_FILE" 'degrade.safe|degrade safe'
+assert_contains "onboarder item 14 references unguarded bd dolt push detection" \
+  "$AGENT_FILE" 'unguarded.*bd dolt push|bd dolt push.*unguarded'
+assert_contains "onboarder item 14 cites loom-hsb canonical guard shape" \
+  "$AGENT_FILE" 'loom-hsb'
+assert_contains "onboarder item 14 cites loom-r6g lineage" \
+  "$AGENT_FILE" 'loom-r6g'
+assert_contains "onboarder item 14 explicit No AUTOFIX (content-aware)" \
+  "$AGENT_FILE" 'No AUTOFIX|not AUTOFIX|content[- ]aware|requires.*review'
+
+echo "==> loom-r6g: SKILL.md describes the solo-aware check"
+assert_contains "SKILL describes claude-md-solo-aware check" \
+  "$SKILL_FILE" 'claude-md-solo-aware|solo[- ]aware|solo workspace'
+assert_contains "SKILL describes loom-hsb guard rewrite" \
+  "$SKILL_FILE" 'loom-hsb'
+assert_contains "SKILL describes refusal on hand-edited blocks" \
+  "$SKILL_FILE" 'hand.edited|hand-edit|refuse.*unrecognized'
+
+# ---------------------------------------------------------------------
+# Behavior fixtures — is_solo_workspace mocking + loom-hsb guard regex
+# ---------------------------------------------------------------------
+
+echo "==> loom-r6g: is_solo_workspace mocking via BD_BIN-style PATH shim"
+
+TMP_CMD="$(mktemp -d)"
+mkdir -p "$TMP_CMD/bin"
+cat >"$TMP_CMD/bin/bd" <<'BD'
+#!/usr/bin/env bash
+# Fake bd: emits [] for solo (per BD_DOLT_REMOTE_MODE env var)
+if [ "${1:-}" = "dolt" ] && [ "${2:-}" = "remote" ] && [ "${3:-}" = "list" ]; then
+  case "${BD_DOLT_REMOTE_MODE:-solo}" in
+    solo)  echo '[]' ;;
+    remote) echo '[{"name":"origin","url":"https://example.com/x"}]' ;;
+    error) echo "bd error" >&2; exit 1 ;;
+  esac
+  exit 0
+fi
+exit 1
+BD
+chmod +x "$TMP_CMD/bin/bd"
+
+is_solo() {
+  # Mirrors the agent's instruction: solo if `bd dolt remote list --json`
+  # returns [] or errors (degrade-safe). Returns 0 = solo, 1 = has-remote.
+  local out
+  out=$(PATH="$TMP_CMD/bin:$PATH" bd dolt remote list --json 2>/dev/null)
+  if [ -z "$out" ] || [ "$out" = "[]" ]; then
+    return 0
+  fi
+  if echo "$out" | grep -q '"name"'; then
+    return 1
+  fi
+  # malformed/unknown → degrade-safe solo
+  return 0
+}
+
+# Case H: BD_DOLT_REMOTE_MODE=solo → is_solo returns 0
+BD_DOLT_REMOTE_MODE=solo
+export BD_DOLT_REMOTE_MODE
+if is_solo; then
+  pass "case H: bd returns [] → is_solo_workspace TRUE"
+else
+  fail "case H: bd returns [] → expected solo, got non-solo"
+fi
+
+# Case I: BD_DOLT_REMOTE_MODE=remote → is_solo returns 1
+BD_DOLT_REMOTE_MODE=remote
+export BD_DOLT_REMOTE_MODE
+if is_solo; then
+  fail "case I: bd returns remote → expected non-solo, got solo"
+else
+  pass "case I: bd returns remote → is_solo_workspace FALSE"
+fi
+
+# Case J: BD_DOLT_REMOTE_MODE=error → degrade-safe to solo
+BD_DOLT_REMOTE_MODE=error
+export BD_DOLT_REMOTE_MODE
+if is_solo; then
+  pass "case J: bd errors → is_solo_workspace degrades to TRUE"
+else
+  fail "case J: bd errors → expected degrade-safe solo, got non-solo"
+fi
+unset BD_DOLT_REMOTE_MODE
+
+echo "==> loom-r6g: loom-hsb guard regex detects unguarded vs guarded bd dolt push"
+
+# The loom-hsb canonical guard shape — copy VERBATIM from loom CLAUDE.md.
+# A CLAUDE.md is "unguarded" when it contains `bd dolt push` NOT wrapped
+# in this if-fi. Detection: search for `bd dolt push` not preceded by
+# `if bd dolt remote list ...; then` on the same nearby block.
+
+is_unguarded_dolt_push() {
+  local file="$1"
+  # Look for bd dolt push that is NOT inside a guard block.
+  # Strategy: extract lines containing `bd dolt push`; for each, check
+  # if the prior 5 lines contain `if bd dolt remote list`.
+  awk '
+    /bd dolt push/ {
+      if (!has_guard) print "UNGUARDED:" NR
+    }
+    /if bd dolt remote list/ { has_guard = 1; next }
+    /^[[:space:]]*fi[[:space:]]*$/ { has_guard = 0; next }
+  ' "$file" | head -1
+}
+
+TMP_CMD2="$(mktemp -d)"
+
+# Case K: unguarded CLAUDE.md → detected
+cat >"$TMP_CMD2/CLAUDE.md" <<'EOF'
+# Project
+
+## BEADS INTEGRATION
+Run these on session end:
+
+```bash
+bd dolt push
+git push
+```
+EOF
+detect=$(is_unguarded_dolt_push "$TMP_CMD2/CLAUDE.md")
+if [ -n "$detect" ]; then
+  pass "case K: unguarded bd dolt push → detected ($detect)"
+else
+  fail "case K: unguarded bd dolt push → expected detection, got nothing"
+fi
+
+# Case L: guarded CLAUDE.md (loom-hsb shape) → NOT detected
+TMP_CMD3="$(mktemp -d)"
+cat >"$TMP_CMD3/CLAUDE.md" <<'EOF'
+# Project
+
+## BEADS INTEGRATION
+
+```bash
+if bd dolt remote list --json 2>/dev/null | grep -q '"name"'; then
+  bd dolt push
+else
+  echo "(solo bd workspace; no Dolt remote — skipping bd dolt push)"
+fi
+git push
+```
+EOF
+detect=$(is_unguarded_dolt_push "$TMP_CMD3/CLAUDE.md")
+if [ -z "$detect" ]; then
+  pass "case L: loom-hsb-guarded bd dolt push → not flagged as unguarded"
+else
+  fail "case L: guarded block was flagged as unguarded ($detect)"
+fi
+
+# Case M: SKILL.md inline-quotes the canonical loom-hsb guard (verbatim copy)
+assert_contains "SKILL.md quotes the canonical 'if bd dolt remote list' guard form" \
+  "$SKILL_FILE" 'if bd dolt remote list --json'
+
+# ---------------------------------------------------------------------
+# State-file behavior — .claude/loom-audit-state.json memo
+# ---------------------------------------------------------------------
+
+echo "==> loom-r6g: state-file memo respected on re-run"
+
+# Skill writes per-check skip memo when user says "skip" on a PROMPT.
+# Subsequent runs read the memo and render the check as silent PASS.
+
+TMP_STATE="$(mktemp -d)"
+mkdir -p "$TMP_STATE/.claude"
+
+# Round 1: write skip memo
+cat >"$TMP_STATE/.claude/loom-audit-state.json" <<'EOF'
+{
+  "preflight-language-match": {
+    "skipped_at": "2026-05-23T00:00:00Z",
+    "reason": "user-skipped"
+  }
+}
+EOF
+
+# Verify the memo is structurally valid + has the right key
+if python3 -c "
+import json,sys
+d = json.load(open('$TMP_STATE/.claude/loom-audit-state.json'))
+sys.exit(0 if 'preflight-language-match' in d and d['preflight-language-match'].get('reason') == 'user-skipped' else 1)
+" 2>/dev/null; then
+  pass "state-file: skip memo round-trips through JSON parse"
+else
+  fail "state-file: skip memo malformed"
+fi
+
+# .gitignore must list .claude/loom-audit-state.json
+assert_contains ".gitignore lists .claude/loom-audit-state.json" \
+  "$LOOM_ROOT/.gitignore" '\.claude/loom-audit-state\.json'
+
+echo "==> loom-r6g: SKILL.md describes state-file schema"
+assert_contains "SKILL describes state-file schema (skipped_at field)" \
+  "$SKILL_FILE" 'skipped_at|skipped-at'
+assert_contains "SKILL describes per-check skip memo structure" \
+  "$SKILL_FILE" 'user-skipped|skip memo|per-check.*skip'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo

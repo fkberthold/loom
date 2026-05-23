@@ -293,7 +293,7 @@ search keyword and the wing slug the subagent reports against).
 Wait for its structured `PASS`/`WARN`/`MISS` checklist. Display
 the report verbatim before moving to step 3.
 
-The onboarder enumerates 12 items including git hygiene, bd init,
+The onboarder enumerates 14 items including git hygiene, bd init,
 bd hooks, workflow.json, MemPalace wing, CLAUDE.md, `.claude/rules/`,
 docs scaffold, `.claude/agents/+commands/`, `bd memories` tribal
 facts, `.gitignore` loom-ephemera entries, and — added by loom-ann —
@@ -307,6 +307,125 @@ canonical). Project-level dups surface as WARN; user-level dups as
 INFO (machine-specific config, advisory only). The check is NOT
 auto-fixable — JSON surgery is content-aware (multiple hook entries
 may share a stanza) and excluded by the Wave 2 contract.
+
+#### Items 13–14: language + solo-workspace checks (loom-r6g)
+
+The onboarder also runs two checks that surface defaults wrong for
+the project's shape but require interactive resolution. The skill
+(this file) owns the prompt loop and the write half; the onboarder
+only reports the verdict.
+
+##### Item 13 — `preflight-language-match`
+
+The onboarder describes `detect_project_language()` (canonical
+markers: pyproject.toml/setup.py/setup.cfg/requirements*.txt →
+python; go.mod → go; Cargo.toml → rust; package.json → node;
+scripts/+*.sh fallback → shell; otherwise / polyglot → unknown).
+Tie-break rule: never guess on polyglot. The onboarder reads
+`<root>/.beads/preflight.template` (or `config.yaml`'s
+`preflight.template` field) for the bd preflight shape.
+
+Verdicts the onboarder emits, and the skill's response:
+
+- **PROMPT** (language=unknown AND preflight.template unset / bd-default).
+  The skill prompts the user interactively:
+
+  ```
+  Item 13: project language is unknown and preflight.template is
+  unset / bd-default Go-shaped. Pick a language for the preflight
+  template: (python / go / rust / node / shell / skip)
+  ```
+
+  On a non-skip answer the skill writes the matching template into
+  `.beads/preflight.template` (or the equivalent field in
+  `config.yaml`). On `skip`, the skill writes a per-check memo into
+  `<root>/.claude/loom-audit-state.json` so future runs render this
+  row as a silent PASS.
+
+- **WARN** (language ∈ {python, rust, node, shell} AND
+  preflight.template starts with `go ` or is the bd-default
+  Go-shaped template). The skill offers a y/N/skip diff preview
+  showing the proposed template replacement. On `y` it writes; on
+  `N` it leaves the row in the queue; on `skip` it writes the
+  state-file memo. The skill does NOT add a new AUTOFIX recipe —
+  the choice of replacement template is content-aware and stays in
+  the per-item conversational gate.
+
+- **PASS** otherwise.
+
+Test mocking surface: the env var `LOOM_AUDIT_PROMPT_ANSWER` lets
+test fixtures inject the PROMPT/WARN answer non-interactively (e.g.
+`LOOM_AUDIT_PROMPT_ANSWER=python` or `LOOM_AUDIT_PROMPT_ANSWER=skip`).
+The skill checks this env var first when running under tests; in
+real interactive sessions it stays unset and the conversational
+gate fires normally.
+
+##### Item 14 — `claude-md-solo-aware`
+
+The onboarder describes `is_solo_workspace()`: run
+`bd dolt remote list --json`. `[]` → TRUE; non-empty (a `"name"`
+field present) → FALSE; error → degrade-safe TRUE. When solo, the
+onboarder scans `<root>/CLAUDE.md` for `bd dolt push` lines that
+are NOT wrapped in the canonical loom-hsb guard.
+
+The **canonical loom-hsb guard shape** (copy verbatim from loom's
+own CLAUDE.md — do NOT paraphrase):
+
+```bash
+if bd dolt remote list --json 2>/dev/null | grep -q '"name"'; then
+  bd dolt push
+else
+  echo "(solo bd workspace; no Dolt remote — skipping bd dolt push)"
+fi
+```
+
+Verdicts:
+
+- **WARN** (solo workspace AND unguarded `bd dolt push` present in
+  CLAUDE.md's BEADS INTEGRATION block). The skill offers a y/N/skip
+  diff preview that rewrites the canonical block to the loom-hsb
+  guard shape. If the surrounding block has been hand-edited
+  beyond pattern recognition (e.g., the surrounding `bd dolt push`
+  is part of a larger custom workflow, or the lines around it
+  don't match the canonical `bd init`-generated template), the
+  fix refuses with a one-line pointer to loom's own CLAUDE.md
+  ("Reference shape lives in loom/CLAUDE.md — copy by hand").
+  `skip` writes the state-file memo for `claude-md-solo-aware`.
+
+- **PASS** otherwise (no CLAUDE.md; no BEADS INTEGRATION block;
+  block already uses the guard; skip memo exists;
+  is_solo_workspace returned FALSE).
+
+##### State file: `<root>/.claude/loom-audit-state.json`
+
+Per-project, gitignored. Stores per-check skip memos so re-runs
+respect "user said no". Schema:
+
+```json
+{
+  "<check-name>": {
+    "skipped_at": "<ISO-8601 timestamp>",
+    "reason": "user-skipped"
+  }
+}
+```
+
+Recognised check-names: `preflight-language-match`,
+`claude-md-solo-aware`. The skill reads the file at the start of
+Step 2; for any check with a memo, the onboarder's verdict is
+silently downgraded to PASS in the rendered report. The skill
+writes the memo on `skip` answers from the per-item gate. The
+file is NOT a config file; it is never read outside `/audit-project`,
+and the `<root>/.gitignore` adds `.claude/loom-audit-state.json`
+on first audit so it stays out of the project's history.
+
+Lineage: loom-r6g (2026-05-21). Surfaced by /audit-project on
+fresh ~/repos/mforth: a Python solo project passed every existing
+check while inheriting a Go preflight template and an unguarded
+CLAUDE.md `bd dolt push`. The two checks are conceptually
+"workflow-infrastructure language fit" plus "workflow-infrastructure
+topology fit" — orthogonal to the existing 12 checks, hence two
+new rows rather than expanding one.
 
 ### Step 3 — docs drift detection (unless `--check=onboarding`)
 
