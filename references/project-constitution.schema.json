@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/fkberthold/loom/blob/main/references/project-constitution.schema.json",
+  "title": "Project Constitution Front-Matter",
+  "description": "YAML front-matter schema for .claude/project-constitution.md. Locks each project's tooling profile (shell, package manager, language runtime, canonical commands, forbidden patterns, bypass patterns) so dispatched workers, hooks, and skills observe consistent conventions. See docs/reference/project-constitution.md for narrative coverage and loom-vin / loom-6f8 for lineage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "shell",
+    "package_manager",
+    "language",
+    "canonical_commands"
+  ],
+  "properties": {
+    "shell": {
+      "type": "object",
+      "description": "Project shell envelope. Commands defined elsewhere in this file are expected to run inside this envelope. Use empty strings when the project has no shell wrapper (plain host shell).",
+      "additionalProperties": false,
+      "required": ["enter", "run_prefix"],
+      "properties": {
+        "enter": {
+          "type": "string",
+          "description": "Command an interactive operator runs once to drop into the project shell. Examples: 'devbox shell', 'nix-shell', 'poetry shell'. Empty string when no shell wrapper is used."
+        },
+        "run_prefix": {
+          "type": "string",
+          "description": "Prefix prepended to commands when invoking them non-interactively (CI, hooks, scripts). Examples: 'devbox run', 'poetry run', 'nix-shell --run'. Empty string when no prefix is needed."
+        }
+      }
+    },
+    "package_manager": {
+      "type": "string",
+      "description": "The single package manager that owns dependency resolution for this project. Mixing managers (e.g. pnpm and npm, uv and pip) is the canonical failure this field guards against.",
+      "enum": ["pnpm", "npm", "yarn", "uv", "poetry", "pip", "go", "cargo", "none"]
+    },
+    "language": {
+      "type": "object",
+      "description": "Primary language runtime for the project. Use 'polyglot' when no one runtime dominates and 'unknown' when the runtime has not yet been pinned.",
+      "additionalProperties": false,
+      "required": ["runtime", "version"],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": ["python", "go", "rust", "node", "bash", "polyglot", "unknown"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Semver-ish version pin (e.g. '3.13', '1.24', '20.11.0'). May be empty when language.runtime is 'bash', 'polyglot', or 'unknown'."
+        }
+      }
+    },
+    "forbidden": {
+      "type": "array",
+      "description": "Bash command patterns the agent must never run inside this project. Typically used to lock in the package_manager choice (e.g. 'npm install' on a pnpm-only project) or to forbid known-destructive operations. Patterns are matched as substrings of the bash invocation.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "canonical_commands": {
+      "type": "object",
+      "description": "The agreed command for each workflow verb. Skills, hooks, and dispatched workers read these instead of guessing. Empty string indicates the project has no such verb (e.g. lint='' on a project with no linter).",
+      "additionalProperties": false,
+      "required": ["build", "test", "lint", "gen", "dev"],
+      "properties": {
+        "build": {
+          "type": "string",
+          "description": "Build command. Multi-step builds may be a single line with '&&' or '; '."
+        },
+        "test": {
+          "type": "string",
+          "description": "Test command. Should run unit tests at minimum; integration suites typically live in a separate verb or as flagged variants of this command."
+        },
+        "lint": {
+          "type": "string",
+          "description": "Lint command. Empty string when the project has no linter."
+        },
+        "gen": {
+          "type": "string",
+          "description": "Code-generation command (e.g. './scripts/gen' for Goa projects). Empty string when there is no generation step."
+        },
+        "dev": {
+          "type": "string",
+          "description": "Dev-server / watch command. Empty string when not applicable (libraries, CLIs)."
+        }
+      }
+    },
+    "bypass_patterns": {
+      "type": "array",
+      "description": "Bash command patterns that should bypass constitution enforcement. Escape hatches for legitimate edge cases (e.g. running an ad-hoc 'python3 -c ...' on a uv project for diagnostics). Use sparingly — every bypass widens the agent's blast radius.",
+      "items": { "type": "string" },
+      "default": []
+    }
+  }
+}
