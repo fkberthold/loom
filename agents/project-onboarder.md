@@ -122,6 +122,20 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - **No AUTOFIX tag** — content-aware: only the canonical `bd init`-generated block shape is mechanically rewritable; hand-edited variants need user review.
     - Lineage: loom-r6g (2026-05-21). Same trial as item 13 (fresh ~/repos/mforth audit); loom-hsb shipped the guard in loom's own CLAUDE.md (2026-05-04) but downstream projects don't inherit it. Sibling: bd init's CLAUDE.md template generation is upstream-only (filed separately).
 
+15. **Upstream:loom label suggestion**
+    - Cross-tracker dependency hygiene. Enumerate the project's open beads via `bd list --status=open --json`. For each, test the description against the canonical loom-keyword regex:
+      ```
+      (^|[^a-zA-Z0-9_])(loom-hook|loom-script|loom-[a-z0-9]+)|hooks/|scripts/loom-
+      ```
+      The word-boundary anchor on `loom-` prefix prevents substring false-positives (`heirloom-data`, `gloomy-baz`). The five canonical signals are bare tokens `loom-hook` / `loom-script`, path prefixes `hooks/` / `scripts/loom-`, and direct bead-ID references `loom-<id>`.
+    - For each matching bead, check whether it already carries the `upstream:loom` label (run `bd label list <id>` or read the label field from the json). A matching bead lacking the label is a candidate for the suggestion.
+    - **Verdict matrix:**
+      - PASS = no matching beads, or every matching bead already carries `upstream:loom`, or a skip memo for `upstream-loom-label-suggest` exists in `.claude/loom-audit-state.json`.
+      - INFO = ≥1 matching bead lacks the label → the audit-project skill offers a y/N/skip gate per bead. On `y`, the skill runs `bd label add <id> upstream:loom`. On `N`, the row stays in the queue. On `skip`, the skill writes the state-file memo so the same row does not re-prompt.
+    - **No AUTOFIX tag** — informational-only and suggest-only. The regex catches both real workaround beads AND beads that mention loom in passing without being a workaround; the per-bead y/N/skip gate is essential. The skill never applies the label without explicit per-item user approval.
+    - Embed each matching bead's ID + one-line description snippet in the report so the user can verify the suggestion against the actual bead text.
+    - Lineage: loom-z3m.11 (2026-05-23). Surfaced by lingering HAW bead `7iz` that mirrored what loom-x4m fixed; cleared by inspection only because someone happened to remember the pairing. Companion infrastructure: the `upstream:loom` label reference doc (`docs/reference/upstream-loom-label.md`) and the `/check-loom-upstream` slash command (read-only sweep that pairs labeled beads against recently-closed loom beads).
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -138,7 +152,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 14 ...)
+(... continue through item 15 ...)
 
 ## Summary
 

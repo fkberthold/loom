@@ -396,6 +396,60 @@ Verdicts:
   block already uses the guard; skip memo exists;
   is_solo_workspace returned FALSE).
 
+##### Item 15 — `upstream-loom-label-suggest`
+
+Cross-tracker dependency hygiene. Project beads sometimes exist only
+because of an open loom-side bug — the bead's life ends when the
+loom fix lands, but there is no auto-clearing signal back to the
+project's tracker. The `upstream:loom` label is the cross-tracker
+handshake (see
+[`docs/reference/upstream-loom-label.md`](../../docs/reference/upstream-loom-label.md)),
+and this check surfaces candidate beads that should carry it.
+
+The onboarder enumerates open project beads whose description matches
+the canonical loom-keyword regex:
+
+```
+(^|[^a-zA-Z0-9_])(loom-hook|loom-script|loom-[a-z0-9]+)|hooks/|scripts/loom-
+```
+
+The word-boundary anchor on `loom-` prefix avoids matching substrings
+inside other words (heirloom-data, etc.). The five canonical signals:
+
+- `loom-hook` — bare token reference to a loom hook class
+- `hooks/` — path prefix referring to loom's `hooks/` directory
+- `loom-script` — bare token reference to a loom script class
+- `scripts/loom-` — path prefix referring to loom's installed scripts
+- `loom-<id>` — direct bead-ID reference (`loom-x4m`, `loom-z3m`, etc.)
+
+Verdicts:
+
+- **INFO** = at least one matching bead lacks the `upstream:loom`
+  label. The skill renders the matching beads in a y/N/skip gate per
+  bead — the user decides whether to apply the label. **Informational
+  only — never auto-applies.** On `y` the skill runs
+  `bd label add <id> upstream:loom`; on `N` it leaves the row in
+  the queue; on `skip` it writes a `upstream-loom-label-suggest` memo
+  to `.claude/loom-audit-state.json` so the same row does not re-prompt.
+- **PASS** otherwise (no matching beads; all matching beads already
+  carry the label; skip memo exists).
+
+**No AUTOFIX tag** — applying the label per-bead is a real human
+choice (the regex catches structural workaround beads, but also
+catches beads that mention loom in passing without being a workaround).
+The gate stays interactive.
+
+The companion `/check-loom-upstream` slash command runs the same
+sweep on-demand outside of an audit and additionally pairs labeled
+beads against recently-closed loom beads — its output is a
+suggestion-stream, never a write.
+
+Lineage: loom-z3m.11 (2026-05-23). Surfaced by lingering HAW bead
+`7iz` that mirrored what loom-x4m fixed; cleared by inspection only
+because someone happened to remember the pairing. The label +
+sweep + suggest-on-audit triad addresses the next sibling case
+structurally.
+
 ##### State file: `<root>/.claude/loom-audit-state.json`
 
 Per-project, gitignored. Stores per-check skip memos so re-runs
@@ -411,21 +465,24 @@ respect "user said no". Schema:
 ```
 
 Recognised check-names: `preflight-language-match`,
-`claude-md-solo-aware`. The skill reads the file at the start of
-Step 2; for any check with a memo, the onboarder's verdict is
-silently downgraded to PASS in the rendered report. The skill
-writes the memo on `skip` answers from the per-item gate. The
-file is NOT a config file; it is never read outside `/audit-project`,
-and the `<root>/.gitignore` adds `.claude/loom-audit-state.json`
-on first audit so it stays out of the project's history.
+`claude-md-solo-aware`, `upstream-loom-label-suggest`. The skill
+reads the file at the start of Step 2; for any check with a memo,
+the onboarder's verdict is silently downgraded to PASS in the
+rendered report. The skill writes the memo on `skip` answers from
+the per-item gate. The file is NOT a config file; it is never read
+outside `/audit-project`, and the `<root>/.gitignore` adds
+`.claude/loom-audit-state.json` on first audit so it stays out of
+the project's history.
 
-Lineage: loom-r6g (2026-05-21). Surfaced by /audit-project on
-fresh ~/repos/mforth: a Python solo project passed every existing
-check while inheriting a Go preflight template and an unguarded
-CLAUDE.md `bd dolt push`. The two checks are conceptually
-"workflow-infrastructure language fit" plus "workflow-infrastructure
-topology fit" — orthogonal to the existing 12 checks, hence two
-new rows rather than expanding one.
+Lineage: loom-r6g (2026-05-21) for items 13-14. Surfaced by
+/audit-project on fresh ~/repos/mforth: a Python solo project
+passed every existing check while inheriting a Go preflight template
+and an unguarded CLAUDE.md `bd dolt push`. The two checks are
+conceptually "workflow-infrastructure language fit" plus "workflow-
+infrastructure topology fit" — orthogonal to the existing 12 checks,
+hence two new rows rather than expanding one. Item 15
+(`upstream-loom-label-suggest`) added by loom-z3m.11 (2026-05-23)
+to address the orthogonal "cross-tracker dependency awareness" gap.
 
 ### Step 3 — docs drift detection (unless `--check=onboarding`)
 

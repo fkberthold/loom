@@ -897,6 +897,205 @@ assert_contains "SKILL describes per-check skip memo structure" \
   "$SKILL_FILE" 'user-skipped|skip memo|per-check.*skip'
 
 # =====================================================================
+# 11. loom-z3m.11: upstream:loom label + /check-loom-upstream (item 15)
+# =====================================================================
+#
+# Project beads filed as workarounds for loom-side bugs have no
+# auto-clearing signal when the loom fix lands. The locked design is
+# 3 pieces:
+#
+#   (a) Label convention `upstream:loom` — documented in
+#       docs/reference/upstream-loom-label.md.
+#   (b) /check-loom-upstream slash command — read-only sweep that
+#       suggests which downstream beads may be cleared by recently-
+#       closed loom beads.
+#   (c) Item 15 in audit-project skill / project-onboarder — when an
+#       audited bead's description matches loom-hook|hooks/|loom-script|
+#       scripts/loom-|loom-[a-z0-9]+, offer to apply upstream:loom
+#       label. Informational only; never auto-applies without prompt.
+#
+# Loom-repo-path is resolved via LOOM_REPO_PATH env var (default
+# $HOME/repos/loom). NOT hardcoded.
+
+UPSTREAM_REF_DOC="$LOOM_ROOT/docs/reference/upstream-loom-label.md"
+CHECK_CMD_FILE="$LOOM_ROOT/commands/check-loom-upstream.md"
+
+echo "==> loom-z3m.11: docs/reference/upstream-loom-label.md exists with the label convention"
+if [ -f "$UPSTREAM_REF_DOC" ]; then
+  pass "upstream-loom-label.md reference doc exists"
+else
+  fail "upstream-loom-label.md reference doc missing"
+fi
+assert_contains "reference doc names the upstream:loom label literal" \
+  "$UPSTREAM_REF_DOC" 'upstream:loom'
+assert_contains "reference doc explains the colon-form composes with bd labels" \
+  "$UPSTREAM_REF_DOC" 'colon|compose'
+assert_contains "reference doc rejects the loom-bug alternative naming" \
+  "$UPSTREAM_REF_DOC" 'loom-bug'
+assert_contains "reference doc cites loom-z3m lineage" \
+  "$UPSTREAM_REF_DOC" 'loom-z3m'
+assert_contains "reference doc documents LOOM_REPO_PATH env var" \
+  "$UPSTREAM_REF_DOC" 'LOOM_REPO_PATH'
+
+echo "==> loom-z3m.11: commands/check-loom-upstream.md slash command exists"
+if [ -f "$CHECK_CMD_FILE" ]; then
+  pass "check-loom-upstream.md slash command exists"
+else
+  fail "check-loom-upstream.md slash command missing"
+fi
+assert_contains "command has frontmatter description" \
+  "$CHECK_CMD_FILE" '^description:'
+assert_contains "command is disable-model-invocation (manual-only)" \
+  "$CHECK_CMD_FILE" 'disable-model-invocation: true'
+assert_contains "command scans for upstream:loom labeled beads" \
+  "$CHECK_CMD_FILE" 'upstream:loom'
+assert_contains "command queries closed loom beads" \
+  "$CHECK_CMD_FILE" 'closed|status=closed|--status'
+assert_contains "command honours LOOM_REPO_PATH env var" \
+  "$CHECK_CMD_FILE" 'LOOM_REPO_PATH'
+assert_contains "command states read-only / suggest-only contract" \
+  "$CHECK_CMD_FILE" 'read-only|suggest-only|never closes|does not close'
+assert_contains "command lists heuristic keyword set" \
+  "$CHECK_CMD_FILE" 'loom-hook|hooks/|scripts/loom-'
+
+echo "==> loom-z3m.11: SKILL.md item 15 — upstream-loom label suggestion"
+assert_contains "SKILL describes item 15 upstream-loom-label-suggest check" \
+  "$SKILL_FILE" 'upstream-loom-label|upstream:loom|upstream loom label'
+assert_contains "SKILL names the regex/keyword set for matching bead descriptions" \
+  "$SKILL_FILE" 'loom-hook|hooks/|scripts/loom-'
+assert_contains "SKILL describes y/N/skip gate for item 15 (no auto-apply)" \
+  "$SKILL_FILE" 'y/N/skip|informational only|never auto-app'
+assert_contains "SKILL cites loom-z3m lineage on item 15" \
+  "$SKILL_FILE" 'loom-z3m'
+
+# Negative assertion — item 15 must NOT introduce an AUTOFIX recipe.
+# Re-check the AUTOFIX inventory count (was 3 before this change).
+autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
+if [ "$autofix_recipe_count" = "3" ]; then
+  pass "SKILL AUTOFIX inventory still 3 (item 15 correctly informational-only)"
+else
+  fail "SKILL AUTOFIX inventory should be 3 not $autofix_recipe_count" \
+    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only)"
+fi
+
+echo "==> loom-z3m.11: agents/project-onboarder.md item 15 declaration"
+assert_contains "onboarder item 15 heading" \
+  "$AGENT_FILE" '^15\. \*\*Upstream:loom label'
+assert_contains "onboarder item 15 lists the keyword/regex set" \
+  "$AGENT_FILE" 'loom-hook|hooks/|scripts/loom-'
+assert_contains "onboarder item 15 explicit No AUTOFIX (informational-only)" \
+  "$AGENT_FILE" 'No AUTOFIX|informational[- ]only|suggest-only'
+assert_contains "onboarder item 15 cites loom-z3m lineage" \
+  "$AGENT_FILE" 'loom-z3m'
+
+# ---------------------------------------------------------------------
+# Behavior fixture — the loom-keyword regex matches the documented set
+# ---------------------------------------------------------------------
+
+echo "==> loom-z3m.11: loom-keyword regex catches all documented prefixes"
+
+# Mirror the regex the onboarder/skill describe. Match against fixture
+# bead descriptions. The canonical pattern: loom-hook | hooks/ |
+# loom-script | scripts/loom- | loom-[a-z0-9]+.
+matches_upstream() {
+  local desc="$1"
+  # Word-boundary anchor on 'loom-' prefix to avoid matching substrings
+  # inside other words (heirloom-foo, gloomy-baz). The five canonical
+  # signals are: bare token loom-hook, path prefix hooks/, bare token
+  # loom-script, path prefix scripts/loom-, or a loom-<id> bead-ref
+  # (loom- followed by alnum) at a word boundary.
+  if echo "$desc" | grep -qE '(^|[^a-zA-Z0-9_])(loom-hook|loom-script|loom-[a-z0-9]+)|hooks/|scripts/loom-'; then
+    return 0
+  fi
+  return 1
+}
+
+# Case N: "Workaround for loom-hook bd-close-capture mis-firing" → match
+if matches_upstream "Workaround for loom-hook bd-close-capture mis-firing"; then
+  pass "case N: 'loom-hook' keyword matches"
+else
+  fail "case N: 'loom-hook' should match"
+fi
+
+# Case O: "Patch around hooks/bd-worktree-preseed bug" → match
+if matches_upstream "Patch around hooks/bd-worktree-preseed bug"; then
+  pass "case O: 'hooks/' prefix matches"
+else
+  fail "case O: 'hooks/' should match"
+fi
+
+# Case P: "loom-script crashed mid-rebase" → match
+if matches_upstream "loom-script crashed mid-rebase"; then
+  pass "case P: 'loom-script' keyword matches"
+else
+  fail "case P: 'loom-script' should match"
+fi
+
+# Case Q: "scripts/loom-rebase-worktree leaked WIP" → match
+if matches_upstream "scripts/loom-rebase-worktree leaked WIP"; then
+  pass "case Q: 'scripts/loom-' prefix matches"
+else
+  fail "case Q: 'scripts/loom-' should match"
+fi
+
+# Case R: "Bug mirroring loom-x4m fix" → match (bead-ID pattern)
+if matches_upstream "Bug mirroring loom-x4m fix"; then
+  pass "case R: 'loom-<id>' bead-ref matches"
+else
+  fail "case R: 'loom-<id>' bead-ref should match"
+fi
+
+# Case S: non-matching project bead → no match (project-internal bug)
+if matches_upstream "Fix race condition in worker pool"; then
+  fail "case S: project-internal description should NOT match"
+else
+  pass "case S: project-internal description correctly does not match"
+fi
+
+# Case T: non-matching, even though it mentions 'loom' as a substring
+# of a different word → no match. The regex anchors on `loom-` prefix
+# only, not bare `loom`.
+if matches_upstream "Refactor heirloom-data ingest"; then
+  fail "case T: substring 'loom' inside another word should NOT match"
+else
+  pass "case T: bare-substring 'loom' correctly does not match"
+fi
+
+# ---------------------------------------------------------------------
+# Behavior fixture — skip memo respected on re-run (state-file reuse)
+# ---------------------------------------------------------------------
+
+echo "==> loom-z3m.11: state-file memo respected for upstream-loom-label-suggest"
+
+TMP_UP_STATE="$(mktemp -d)"
+trap 'rm -rf "$TMP_UP_STATE" "$TMP_LANG" "$TMP_WF" "$TMP_GI" "$TMP_GI2" "$TMP_GI3" "$TMP_GI4" "$TMP_GI5" "$TMP_STATE" "$TMP_CMD" "$TMP_CMD2" "$TMP_CMD3"' EXIT
+mkdir -p "$TMP_UP_STATE/.claude"
+
+# Round 1: write skip memo for the new check
+cat >"$TMP_UP_STATE/.claude/loom-audit-state.json" <<'EOF'
+{
+  "upstream-loom-label-suggest": {
+    "skipped_at": "2026-05-23T00:00:00Z",
+    "reason": "user-skipped"
+  }
+}
+EOF
+
+if python3 -c "
+import json,sys
+d = json.load(open('$TMP_UP_STATE/.claude/loom-audit-state.json'))
+sys.exit(0 if 'upstream-loom-label-suggest' in d and d['upstream-loom-label-suggest'].get('reason') == 'user-skipped' else 1)
+" 2>/dev/null; then
+  pass "state-file: upstream-loom-label-suggest skip memo round-trips"
+else
+  fail "state-file: upstream-loom-label-suggest skip memo malformed"
+fi
+
+# SKILL must register the new check-name in the recognised list.
+assert_contains "SKILL state-file recognised-check-names list includes upstream-loom-label-suggest" \
+  "$SKILL_FILE" 'upstream-loom-label-suggest'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo
