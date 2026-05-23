@@ -86,6 +86,42 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - **No AUTOFIX tag** — JSON surgery is content-aware (multiple hook entries may share a stanza) and excluded by the Wave 2 contract (loom-a29) from deterministic apply.
     - Lineage: surfaced by loom-nsb research (`drawer_loom_decisions_3eec30046461f0766ac92eec`, 2026-05-09); live example fixed via loom-sd5 (liza_base bd-prime SessionStart duplicate, 2026-05-15); preventive scan added by loom-ann (2026-05-15).
 
+13. **Language and preflight template match**
+    - Probe the project's primary language via canonical markers (the helper is conceptually `detect_project_language()`, performed inline by reading the filesystem — no script call):
+      - `python` → `<root>/pyproject.toml` OR `<root>/setup.py` OR `<root>/setup.cfg` OR `<root>/requirements*.txt`
+      - `go` → `<root>/go.mod`
+      - `rust` → `<root>/Cargo.toml`
+      - `node` → `<root>/package.json` (and NOT also `pyproject.toml` — that tie-breaks to polyglot)
+      - `shell` → `<root>/scripts/` directory AND `*.sh` files present, with no other language markers
+      - `unknown` → none of the above OR polyglot (multiple language markers; **never guess**)
+    - Read `<root>/.beads/preflight.template` (or `<root>/.beads/config.yaml`'s `preflight.template` field) to see the bd preflight shape. If absent, it's the bd-default Go-shaped template.
+    - **Verdict matrix:**
+      - PROMPT = language=`unknown` AND preflight.template is unset or bd-default → the audit-project skill prompts the user `(python|go|rust|node|shell|skip)`; on a non-skip answer it writes the chosen template; on `skip` it memoizes silence in `.claude/loom-audit-state.json`.
+      - WARN = language ∈ {`python`, `rust`, `node`, `shell`} AND preflight.template starts with `go ` (or is the bd-default Go-shaped template) → the audit-project skill offers a y/N/skip diff preview that replaces the template with a language-appropriate one.
+      - PASS = language is determinable AND preflight.template matches; OR a skip memo for `preflight-language-match` exists in `.claude/loom-audit-state.json`.
+    - **No AUTOFIX tag** — the fix requires either an interactive language pick (PROMPT) or a y/N/skip diff preview (WARN). The skill drives the prompt loop and writes; the onboarder only reports.
+    - Lineage: loom-r6g (2026-05-21). Surfaced when /audit-project against fresh ~/repos/mforth (Python, solo) passed all checks while leaving a Go-shaped preflight template on a Python project.
+
+14. **CLAUDE.md solo-workspace bd dolt push guard**
+    - Probe solo-workspace status (conceptually `is_solo_workspace()`, performed inline by shelling out): run `bd dolt remote list --json` from `<root>`. Outcomes:
+      - `[]` → solo (no Dolt remote configured) → TRUE
+      - Non-empty list with a `"name"` field → has-remote → FALSE
+      - Command errors (old bd, missing dolt, etc.) → **degrade-safe** TRUE (treat as solo; better to nudge a false-positive than miss the real one)
+    - When solo, read `<root>/CLAUDE.md`. Search for `bd dolt push` lines that are NOT wrapped in the canonical loom-hsb guard:
+      ```bash
+      if bd dolt remote list --json 2>/dev/null | grep -q '"name"'; then
+        bd dolt push
+      else
+        echo "(solo bd workspace; no Dolt remote — skipping bd dolt push)"
+      fi
+      ```
+      A `bd dolt push` line counts as **unguarded** when no `if bd dolt remote list` appears in the preceding ~5 lines of the same fenced code block (the audit-project skill's regex anchors on this proximity).
+    - **Verdict matrix:**
+      - PASS = no `CLAUDE.md`, or no `BEADS INTEGRATION` block at all, or the block already uses the loom-hsb guard, or a skip memo for `claude-md-solo-aware` exists in `.claude/loom-audit-state.json`, or `is_solo_workspace()` returned FALSE.
+      - WARN = solo workspace AND CLAUDE.md contains unguarded `bd dolt push` → the audit-project skill offers a y/N/skip diff preview that rewrites the canonical block to loom-hsb guard shape. If the surrounding block has been hand-edited beyond pattern recognition, the fix refuses with a one-line pointer to loom's own CLAUDE.md as the reference shape.
+    - **No AUTOFIX tag** — content-aware: only the canonical `bd init`-generated block shape is mechanically rewritable; hand-edited variants need user review.
+    - Lineage: loom-r6g (2026-05-21). Same trial as item 13 (fresh ~/repos/mforth audit); loom-hsb shipped the guard in loom's own CLAUDE.md (2026-05-04) but downstream projects don't inherit it. Sibling: bd init's CLAUDE.md template generation is upstream-only (filed separately).
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -102,7 +138,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 12 ...)
+(... continue through item 14 ...)
 
 ## Summary
 

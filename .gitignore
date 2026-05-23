@@ -14,6 +14,11 @@
 # Per-session ephemera if loom itself is being worked on
 .claude/workflow-state.json
 
+# Per-project audit memo state — written by /audit-project to remember
+# user "skip" answers across runs so the same row doesn't re-prompt.
+# Never read by anything except the audit-project skill. (loom-r6g)
+.claude/loom-audit-state.json
+
 # Editor / OS
 .DS_Store
 *.swp
