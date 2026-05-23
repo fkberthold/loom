@@ -238,6 +238,101 @@ Hand control back to the activity recipe that pointed you here. The
 recipe specifies the steps and stages between phase A and phase B.
 When the recipe finishes its middle, return here for phase B.
 
+### Dispatch discipline — central agent briefs a worker (loom-7p6)
+
+Dispatch discipline (uniform across all recipes): Phase B is worker
+territory. Brief a single worker via Agent + isolation: worktree
+covering the full variable middle in one dispatch. Do NOT use
+Edit/Write/MultiEdit yourself between bead-claim and bead-close.
+While the worker runs (background): answer user questions, pre-stage
+the next bead, or revise the contract — but do NOT start parallel
+code-work in the central session. The worker returns; you review;
+you re-dispatch only on surprises.
+
+**Allowed while the worker runs (central session):**
+- Answer the user's questions; explain in-flight decisions.
+- Pre-stage the next bead (read its description, surface prior art,
+  draft the next worker brief — but do not claim it yet).
+- Revise the in-flight contract if the user clarifies intent (capture
+  in a follow-up note for the re-dispatch, do not edit code).
+- Read-only investigation: `bd show`, `git log`, MemPalace search.
+
+**Forbidden while the worker runs (central session):**
+- Edit, Write, or MultiEdit on any file in the worktree.
+- Parallel code-work on the same bead in the main repo.
+- Closing the bead, merging the branch, or pushing.
+- Starting a second worker on the same bead's variable middle.
+
+#### Worker-brief template (inline; copy-paste, adapt per bead)
+
+Keep total length ≤ 250 words. Recipes cite this template by
+reference; they do not duplicate it.
+
+- **Subject** — `<bead-id>: <one-line title>`.
+- **Context** — 2-3 sentences from the bead description, plus any
+  provenance drawer IDs (`drawer_<project>_decisions_<hash>`) the
+  worker should read before touching code. Cite siblings only when
+  the lineage is load-bearing.
+- **Scope** — the variable-middle steps in the order the recipe
+  prescribes (M1 → Mn). One sentence per step; reference the bead's
+  acceptance criteria verbatim.
+- **Anti-scope** — what NOT to touch: files outside the bead's
+  surface area, follow-up beads' work, drive-by refactors.
+- **Voice** — tone calibration for doc-shaped work (e.g. "match
+  sibling skill's economy; no abstract preamble"). Omit for pure
+  code work.
+- **Dispatch hygiene** — run the pre-flight smoke battery
+  (`.claude/rules/dispatched-agents.md`) as the first bash call;
+  use relative file paths only; rename the branch to `frank/<id>`;
+  run `bd update <id> --claim`; commit on the branch but do not
+  merge, push, or close — central handles integration; return a
+  ≤ 250-word summary (files changed, test results RED→GREEN, commit
+  hash, branch name).
+- **Stop-and-report triggers** — escalate to central rather than
+  push through when: the brief's premise is wrong (file already
+  matches, bead is duplicate); the scope blows past ~2× the
+  estimated diff; a NEW failure mode surfaces that the brief did
+  not anticipate; the pre-flight smoke battery fails.
+
+#### Re-dispatch decision rule
+
+When the worker returns, central reviews the diff + the worker's
+summary, then chooses:
+
+- **Clean** — verification GREEN, diff matches scope, no surprises.
+  Advance to phase B (verification) and onward to C/D. No
+  re-dispatch.
+- **Minor polish (≤ 3 lines)** — typo, wording nit, missing
+  citation. Central edits in place. Do not spin up a fresh worker
+  for ≤ 3 lines.
+- **Substantive rework** — wrong design, missed scope, new failure
+  mode surfaced. Brief a **fresh worker** with the corrected
+  contract. Do not chain edits onto the original worker's session.
+
+Central re-runs the activity's verification harness after the worker
+returns regardless of which branch above fires — trust-but-verify
+per `superpowers:verification-before-completion`. The worker's
+RED→GREEN counts in the summary are evidence to spot-check, not to
+take on faith.
+
+#### Phase ownership (who runs what)
+
+- **A1 (bug-family search):** SUBAGENT — `bug-family-researcher`,
+  auto-dispatched by the `bd update --claim` PreToolUse hook.
+- **A2 / A3 (claim + worktree):** CENTRAL — short ceremony, no
+  worker dispatch needed.
+- **B (variable middle):** WORKER — dispatched via Agent +
+  isolation: worktree per the discipline above. Central does not
+  Edit/Write here.
+- **C (commit + finish-branch):** CENTRAL — the worker commits on
+  the branch; central reviews, runs phase B verification, then
+  drives `superpowers:finishing-a-development-branch` for
+  integration.
+- **D (file outputs):** CENTRAL files; drafting is SUBAGENT work —
+  `drawer-author` drafts the decision drawer, `kg-relationship-
+  extractor` drafts the KG triples, central reviews and files
+  through MemPalace MCP tools.
+
 ### Mid-recipe branchpoint — NEW failure mode → TDD detour (loom-z3m.6)
 
 While the activity recipe owns the variable middle, the shell
