@@ -80,6 +80,7 @@ and phase B:
 | Step boundary | Stage to write |
 |---|---|
 | Entering step M1 (define the question) | `defining` |
+| Entering step M1.5 (decompose scope) | `scoping` |
 | Entering step M2 (search prior art) | `searching` |
 | Entering step M3 (fetch authoritative docs) | `fetching` |
 | Entering step M4 (synthesize) | `synthesizing` |
@@ -130,8 +131,28 @@ searching, or the search returns mush.
 If the question can't be stated in one or two sentences, it's two
 questions — split the bead before continuing.
 
-State the question to the user before moving to M2. A misframed
+State the question to the user before moving to M1.5. A misframed
 question is the most expensive failure mode of this recipe.
+
+#### M1.5. Decompose the question across research axes
+
+Set stage `scoping`. For each axis pair below, ask *does my
+question apply to both sides?* If yes, flag it so M2 searches
+both — don't let the question's surface wording skew the first
+wave to one side.
+
+- **static-config vs dynamic-trace** — declarations vs runtime.
+- **observable-from-logs vs observable-from-settings** — emitted
+  vs configured.
+- **snapshot vs time-series** — point-in-time vs evolution.
+- **per-call vs per-session** — one invocation vs accumulated run.
+- **scope-of-N vs scope-of-1** — fleet vs single instance.
+
+Worked example (loom-nsb): "what does context cost?" needs
+*both* static-config (prompt+schema bytes) AND dynamic-trace
+(per-call tokens accumulating per-session). The user redirected
+mid-bead because M2 only covered static. Decompose first, search
+once.
 
 #### M2. Search prior art (local palace + tribal facts + diary)
 
@@ -292,6 +313,11 @@ feature/refactor bead for the design work and pick its recipe.
   query terms are vague. The drawer ends up answering "everything
   about X" instead of the specific question. Future sessions can't
   cite the drawer as a decision because there's no decision in it.
+- **Skip M1.5 (axis decomposition):** the first search wave skews
+  to one axis (typically static-config / scope-of-1 / snapshot —
+  whichever the question's surface wording suggests). User
+  re-steers mid-bead and M2 reruns against the missing axis. The
+  loom-nsb static-vs-dynamic redirect is the canonical example.
 - **Skip M2 (local search), jump to web fetch:** the answer often
   already lives in the palace as a sibling drawer. Skipping M2
   produces redundant drawers that fragment the family lineage.
