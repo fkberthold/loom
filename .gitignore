@@ -46,3 +46,9 @@
 
 # bd-worktree-preseed sentinel (loom-x4m hook memoization, ephemeral per worktree).
 .beads/.loom-preseeded
+
+# install.sh / /audit-project pre-loom backups — per-installation
+# snapshots of user-local files that install.sh / the audit-project
+# autofix recipes overwrote on first run. Never tracked; the canonical
+# state lives at the un-suffixed path. (loom-7ro)
+*.pre-loom.bak

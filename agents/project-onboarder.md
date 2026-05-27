@@ -136,6 +136,18 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Embed each matching bead's ID + one-line description snippet in the report so the user can verify the suggestion against the actual bead text.
     - Lineage: loom-z3m.11 (2026-05-23). Surfaced by lingering HAW bead `7iz` that mirrored what loom-x4m fixed; cleared by inspection only because someone happened to remember the pairing. Companion infrastructure: the `upstream:loom` label reference doc (`docs/reference/upstream-loom-label.md`) and the `/check-loom-upstream` slash command (read-only sweep that pairs labeled beads against recently-closed loom beads).
 
+16. **Loom env block in project `.claude/settings.json`**
+    - The Claude Code harness ships two competing defaults that loom rules actively counter:
+      - `CLAUDE_CODE_ENABLE_TASKS=false` — silences the harness's TaskCreate / TodoWrite nudges (upstream #26038, #45986). Loom rules require bd, not Tasks.
+      - `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` — disables the auto-spawned `MEMORY.md` surrogate (upstream #23544, #23750). Loom rules require `bd remember` + MemPalace, not `MEMORY.md`.
+    - Read `<root>/.claude/settings.json`. Parse JSON. Inspect `.env.CLAUDE_CODE_ENABLE_TASKS` and `.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY`.
+    - **Verdict matrix:**
+      - PASS = both keys present with canonical values (`"false"` and `"1"`), OR a skip memo for `loom-env-block` exists in `.claude/loom-audit-state.json`.
+      - WARN = file exists but one or both keys are missing or carry non-canonical values.
+      - MISS = `<root>/.claude/settings.json` absent.
+    - **Tag the WARN/MISS suggested-fix line with `[AUTOFIX:loom-env-block]`** for the audit-project skill's `--apply-onboarding` flag. The fix is a deep-merge that overwrites the two loom keys with canonical values and preserves every other key in the file (writing `.claude/settings.json.pre-loom.bak` on first overwrite). Idempotent.
+    - Lineage: loom-7ro (2026-05-27). loom's own `install.sh` performs the same merge against `<loom_root>/.claude/settings.json`; this item propagates the same defaults into downstream loom-managed projects via `/audit-project --apply-onboarding`.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -152,7 +164,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 15 ...)
+(... continue through item 16 ...)
 
 ## Summary
 
@@ -163,11 +175,12 @@ Top 3 gaps to fix first (most blocking → least): <ordered short list>
 
 ### AUTOFIX tags on suggested-fix lines
 
-For deterministic one-command remediations (items 3, 4, 11), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
+For deterministic one-command remediations (items 3, 4, 11, 16), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
 
 - `bd-hooks` — item 3 MISS, runs `bd hooks install` + the absorbing commit two-step (loom-cka).
 - `workflow-json` — item 4 MISS, writes `{"v":1,"mode":"full"}` to `<root>/.claude/workflow.json`.
 - `gitignore-worktrees` — item 11 INFO, appends `.claude/worktrees/` AND `.claude/workflow-state.json` to `<root>/.gitignore` (independently idempotent per line; loom-tat folded the second line in 2026-05-15).
+- `loom-env-block` — item 16 WARN/MISS, deep-merges the canonical loom env block (`CLAUDE_CODE_ENABLE_TASKS=false`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`) into `<root>/.claude/settings.json`, overwriting only those two keys and preserving every other key. Writes `.claude/settings.json.pre-loom.bak` on first overwrite. Idempotent (loom-7ro).
 
 Example shape:
 
