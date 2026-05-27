@@ -24,6 +24,15 @@
 
 set -uo pipefail
 
+# loom-n1q: tests MUST be hermetic from the user's shell env. If the
+# user exports LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1 in .zshenv or
+# similar (a common workaround for false positives), it propagates
+# into every test invocation and silently bypasses the hook — turning
+# every "expected BLOCK" assertion into a false PASS / unexpected
+# FAIL. Unset at fixture startup so the bypass-bypass test (case 4)
+# is the only path that exercises the env-var bypass.
+unset LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP
+
 LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOOK="$LOOM_ROOT/hooks/edit-after-failure-guard.sh"
 
@@ -570,6 +579,214 @@ if [ "$rc" -eq 2 ]; then
 else
   fail "real failure after hook self-ref didn't block. rc=$rc" "$out"
 fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
+# 14. loom-n1q — git-merge CONFLICT whitelist.
+# Pattern: a git merge with conflicts produces output that includes
+# "CONFLICT (content):" + "Automatic merge failed; fix conflicts and
+# then commit the result." The Bash tool framing then appends
+# "Exit code: 1" which trips FAIL_RE. But the user's REQUIRED next
+# action is to Edit the conflicting files — exactly what the guard
+# refuses. Treat git-merge conflict signals like the self-ref
+# whitelist: skip the failure-marker check for that tool_result.
+# -------------------------------------------------------------------
+
+echo "==> 14. Git-merge CONFLICT whitelist (loom-n1q)"
+
+# 14a. Conflict text + "Exit code: 1" trailer → allow (would otherwise
+#      trip on "Exit code: 1").
+T=$(mk_transcript "$(tool_use_block Bash)
+$(tool_result_block 'Auto-merging .beads/issues.jsonl
+CONFLICT (content): Merge conflict in .beads/issues.jsonl
+Automatic merge failed; fix conflicts and then commit the result.
+Exit code: 1')")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "git merge CONFLICT + Exit code: 1 → allowed"
+else
+  fail "merge CONFLICT blocked. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 14b. Just "Automatic merge failed" without CONFLICT line → still
+#      whitelisted (defensive — git phrasing might vary).
+T=$(mk_transcript "$(tool_use_block Bash)
+$(tool_result_block 'Auto-merging foo.txt
+Automatic merge failed; fix conflicts and then commit the result.
+Exit code: 1')")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "Automatic merge failed (no CONFLICT line) → allowed"
+else
+  fail "Automatic-merge-failed-only blocked. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 14c. Positive control — text with literal word "conflict" but NOT
+#      the git-merge framing → still blocks if FAIL_RE matches.
+#      ("conflict" alone isn't a discriminator.)
+T=$(mk_transcript "$(tool_use_block Bash)
+$(tool_result_block 'FAIL: tests/test_foo.py - resource conflict detected')")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "word 'conflict' without git framing: still blocks (positive control)"
+else
+  fail "conflict-word-alone failed to block. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
+# 15. loom-n1q — TTL via "last-Bash-only" semantics.
+# Pattern: a Python traceback or test failure appears, then the agent
+# runs a NEW Bash command that succeeds (or simply doesn't contain
+# failure markers). The latch should clear — the failure was recovered
+# from in the very next Bash call. Currently the failure latches for
+# the full 80-record tail with no TTL.
+# Fix: only consider the MOST RECENT Bash tool_result. If it lacks
+# failure markers, ALLOW regardless of any prior Bash failure.
+# -------------------------------------------------------------------
+
+echo "==> 15. TTL — last-Bash-only semantics (loom-n1q)"
+
+# 15a. Python traceback followed by clean Bash → allow (recovered).
+T=$(mk_transcript "$(tool_use_block Bash '' e1)
+$(tool_result_block 'Traceback (most recent call last):
+  File \"<string>\", line 1, in <module>
+ImportError: No module named foo' e1)
+$(tool_use_block Bash '' e2)
+$(tool_result_block 'foo bar baz' e2)")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "traceback then clean Bash → allowed (TTL cleared)"
+else
+  fail "traceback latched past clean Bash. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 15b. Two failures in a row (no clean Bash between) → still blocks.
+T=$(mk_transcript "$(tool_use_block Bash '' e3)
+$(tool_result_block 'FAIL: test_foo failed' e3)
+$(tool_use_block Bash '' e4)
+$(tool_result_block 'FAIL: test_bar failed' e4)")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "two failures back-to-back: blocks (positive control)"
+else
+  fail "back-to-back failures didn't block. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 15c. Failure → clean Bash → failure → block (latest Bash decides).
+T=$(mk_transcript "$(tool_use_block Bash '' e5)
+$(tool_result_block 'FAIL: old failure' e5)
+$(tool_use_block Bash '' e6)
+$(tool_result_block 'ok, all good' e6)
+$(tool_use_block Bash '' e7)
+$(tool_result_block 'FAIL: new failure' e7)")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "fail → clean → fail: blocks on the latest (positive control)"
+else
+  fail "latest-failure not seen. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 15d. Failure → non-Bash tool_results (Read/MemPalace) → clean Bash
+#      → allow. Intervening non-Bash results don't keep the latch.
+T=$(mk_transcript "$(tool_use_block Bash '' e8)
+$(tool_result_block 'FAIL: test_foo failed' e8)
+$(tool_use_block Read /tmp/foo e9)
+$(tool_result_block 'file contents' e9)
+$(tool_use_block Bash '' e10)
+$(tool_result_block 'clean output' e10)")
+
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "failure → non-Bash → clean Bash → allowed (last Bash wins)"
+else
+  fail "non-Bash intervening kept latch. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
+# 16. loom-n1q — per-project marker file bypass.
+# Pattern: the env-var bypass LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1
+# must be set before `claude` forks; in-session export is a no-op
+# (the agent's exported env doesn't reach the hook spawned by the
+# harness). Reachable alternative: a marker file at
+# <project>/.claude/no-edit-after-failure-guard that any agent can
+# create with one Bash call. When present, hook exits 0.
+# -------------------------------------------------------------------
+
+echo "==> 16. Per-project marker-file bypass (loom-n1q)"
+
+# Helper: build a fake project root with .claude/, .git/, and an
+# optional marker. Returns the dir.
+mk_proj_root() {
+  local with_marker="$1"
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.claude" "$d/.git"
+  if [ "$with_marker" = "yes" ]; then
+    touch "$d/.claude/no-edit-after-failure-guard"
+  fi
+  printf '%s' "$d"
+}
+
+# 16a. Marker present in project root → allow even with failure.
+proj=$(mk_proj_root yes)
+T=$(mk_transcript "$(tool_use_block Bash)
+$(tool_result_block 'FAIL: test_foo failed
+1 failed, 0 passed')")
+
+# Run from inside the fake project's src/ subdir; the hook should
+# walk up to find the marker.
+mkdir -p "$proj/src"
+out=$(cd "$proj/src" && run_hook Edit "$proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "marker file at project root → allowed (failure present but bypassed)"
+else
+  fail "marker file did not bypass. rc=$rc" "$out"
+fi
+rm -rf "$proj"
+rm -f "$T"
+
+# 16b. No marker in project root → still blocks (positive control).
+proj=$(mk_proj_root no)
+T=$(mk_transcript "$(tool_use_block Bash)
+$(tool_result_block 'FAIL: test_foo failed
+1 failed, 0 passed')")
+
+mkdir -p "$proj/src"
+out=$(cd "$proj/src" && run_hook Edit "$proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "no marker file → still blocks (positive control)"
+else
+  fail "no-marker did not block. rc=$rc" "$out"
+fi
+rm -rf "$proj"
+rm -f "$T"
+
+# 16c. Marker file works from deeper subdir too.
+proj=$(mk_proj_root yes)
+mkdir -p "$proj/a/b/c/d"
+T=$(mk_transcript "$(tool_use_block Bash)
+$(tool_result_block 'FAIL: test_foo failed
+1 failed, 0 passed')")
+
+out=$(cd "$proj/a/b/c/d" && run_hook Edit "$proj/a/b/c/d/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "marker found via walk-up from deep subdir → allowed"
+else
+  fail "walk-up to marker failed. rc=$rc" "$out"
+fi
+rm -rf "$proj"
 rm -f "$T"
 
 # -------------------------------------------------------------------
