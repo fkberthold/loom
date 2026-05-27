@@ -151,6 +151,14 @@ the dolt is later wiped. Bypass with
 `LOOM_BD_WORKTREE_PRESEED_SKIP=1`. See
 [`docs/reference/bd-worktree-preseed.md`](../../docs/reference/bd-worktree-preseed.md).
 
+**Sentinel absence at smoke-time is expected.** The preseed hook
+fires on the first *write-class* bd call; the smoke battery's
+`bd list -n 1` is read-class and does NOT trigger it. A fresh
+worktree will not yet carry `.beads/.loom-preseeded` when smoke
+runs — that's correct behavior, not a regression. The smoke check's
+job is verifying dolt non-empty, not sentinel presence. See the
+"Sentinel timing" section of the reference page.
+
 ## Base-freshness check
 
 **Risk (loom-6zi, surfaced 2026-05-15 by loom-b1l worker).** A

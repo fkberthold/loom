@@ -70,6 +70,28 @@ import, export
   (for testing or one-off cases where the pre-seed isn't wanted).
 - `BD_BIN` — override the bd binary path (default: `bd`).
 
+## Sentinel timing — expected absence on fresh worktrees
+
+The sentinel is created lazily: the hook only fires on the first
+*write-class* `bd` call inside the worktree. Read-class calls
+(`bd list`, `bd show`, `bd ready`, `bd stats`) do not trigger it.
+
+A consequence: dispatched workers running the pre-flight smoke
+battery from `.claude/rules/dispatched-agents.md` will not see
+the sentinel at smoke-time, because the battery uses `bd list -n 1`
+(read-class) to verify dolt state. The sentinel appears later, when
+the worker's first `bd update --claim` / `bd close` fires.
+
+This is operating-as-designed, not a phantom regression. If a
+worker reports "sentinel absent at smoke-time," the correct
+response is: confirm `bd list -n 1` returned non-empty (proves dolt
+is preseeded by an earlier mechanism, or carried over from main —
+either way the worktree is safe to write into).
+
+Surfaced 2026-05-26 by both Wave 1 workers on loom-vca children
+(loom-ad1, loom-tww); pinned here so future workers / hook-
+maintainers don't chase the timing.
+
 ## Sentinel file
 
 `<worktree>/.beads/.loom-preseeded`. Touch this file to skip the
