@@ -86,6 +86,33 @@ if is_test_path "$PATH_RAW"; then
   exit 0
 fi
 
+# Marker-file bypass (loom-n1q): a per-project escape hatch that any
+# agent can create with one Bash call (touch .claude/no-edit-after-
+# failure-guard). The env-var bypass above requires export BEFORE
+# `claude` forks — useless to in-session agents. The marker file is
+# reachable at runtime.
+#
+# Walk up from the target file's directory (preferred — most precise
+# for cross-project edits) looking for .claude/no-edit-after-failure-
+# guard. If not found there, walk up from PWD as a fallback.
+walk_up_for_marker() {
+  local d="$1"
+  d=$(cd "$d" 2>/dev/null && pwd) || return 1
+  while [ "$d" != "/" ] && [ -n "$d" ]; do
+    if [ -f "$d/.claude/no-edit-after-failure-guard" ]; then
+      return 0
+    fi
+    d=$(dirname "$d")
+  done
+  return 1
+}
+
+target_dir=$(dirname "$PATH_RAW")
+[ -d "$target_dir" ] || target_dir="$PWD"
+if walk_up_for_marker "$target_dir" || walk_up_for_marker "$PWD"; then
+  exit 0
+fi
+
 # Scan the transcript tail. Use python for robust JSON parsing of
 # JSONL transcripts. We look at the last ~N records for:
 #   1. A Bash tool result containing failure markers
@@ -138,6 +165,19 @@ FAIL_RE = re.compile(
 # this sentinel before scanning for markers.
 SELF_REF = "edit-after-failure-guard"
 
+# loom-n1q: git-merge CONFLICT whitelist. A `git merge` with
+# conflicts produces output containing CONFLICT (content): /
+# Automatic merge failed; fix conflicts and then commit the result.
+# The Bash tool then appends Exit code: 1, which trips FAIL_RE
+# (\bexit code:\s*[1-9]). But the user's REQUIRED next action is
+# precisely to Edit the conflict files — exactly what the guard
+# would refuse. Treat conflict-resolution Bash results as a clean
+# Bash result (clearing any prior latch).
+MERGE_CONFLICT_MARKERS = (
+    "CONFLICT (content):",
+    "Automatic merge failed; fix conflicts",
+)
+
 try:
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         lines = fh.readlines()
@@ -148,9 +188,19 @@ except OSError:
 lines = lines[-TAIL:]
 
 # Walk forward. Track:
-#   - most-recent-failure index (failure_idx)
-#   - any test-file edit AFTER that failure (test_edit_after_failure)
-#   - tool_use_id → issuing tool name map (loom-7j5 fix #1)
+#   - failure_idx: index of the LAST Bash tool_result that matched
+#                  FAIL_RE. loom-n1q "last-Bash-only" semantics —
+#                  this is overwritten by every later Bash result.
+#                  A subsequent clean Bash result (no FAIL_RE match,
+#                  no CONFLICT whitelist hit) clears the latch back
+#                  to -1. Self-ref tool_results are skipped entirely
+#                  (don't clear, don't latch).
+#   - test_edit_after_failure: True iff any Edit/Write/MultiEdit on
+#                              a test path occurred AFTER failure_idx.
+#                              Resets to False whenever failure_idx
+#                              is updated (latched OR cleared).
+#   - tool_use_by_id: tool_use_id → issuing tool name map
+#                     (loom-7j5 fix #1).
 failure_idx = -1
 test_edit_after_failure = False
 tool_use_by_id = {}
@@ -228,13 +278,28 @@ for i, raw in enumerate(lines):
                 text = ""
 
             # loom-7j5 fix #3: skip texts that reference the hook
-            # itself (recursive self-trigger sub-bug).
+            # itself (recursive self-trigger sub-bug). Don't latch
+            # AND don't clear — leave the previous Bash decision
+            # intact.
             if SELF_REF in text:
                 continue
 
+            # loom-n1q whitelist: git-merge CONFLICT output looks
+            # like a failure but is actually the conflict-resolution
+            # opportunity. Treat as clean Bash — clear any latch.
+            if text and any(m in text for m in MERGE_CONFLICT_MARKERS):
+                failure_idx = -1
+                test_edit_after_failure = False
+                continue
+
+            # loom-n1q "last-Bash-only" TTL: every Bash tool_result
+            # decides its own latch state. A clean result clears the
+            # prior failure; a fresh failure re-latches.
             if text and FAIL_RE.search(text):
                 failure_idx = i
-                # Reset the test-edit tracker — the failure is fresh.
+                test_edit_after_failure = False
+            else:
+                failure_idx = -1
                 test_edit_after_failure = False
 
 # Emit result on stdout: "BLOCK" if failure observed and no test edit

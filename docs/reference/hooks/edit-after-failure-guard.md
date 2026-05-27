@@ -48,9 +48,11 @@ For each Edit/Write/MultiEdit tool call:
 3. Tail the last 80 JSONL records of the transcript. Build a
    `tool_use_id → name` map from every `tool_use` block seen, so
    each `tool_result` can be source-discriminated (loom-7j5 fix
-   #1). Find the most-recent `tool_result` block whose
-   **issuing tool was `Bash`** and whose text matches any
-   failure-marker regex:
+   #1). Walk forward through Bash-originated `tool_result` blocks
+   in order; each one decides the current latch state
+   ("last-Bash-only" — loom-n1q). A Bash result matching any
+   failure-marker regex below LATCHES; a subsequent clean Bash
+   result CLEARS the latch:
    - `^FAIL\s`
    - `^FAIL:\s`
    - `\bFAILED\s+\S+(?:::|/)` (pytest brief, e.g. `FAILED tests/foo.py::test_bar`)
@@ -63,11 +65,20 @@ For each Edit/Write/MultiEdit tool call:
    - `\bTests?:.*\bfailed\b`
    - `\bexit code:\s*[1-9]`
 
-   Texts containing the literal substring `edit-after-failure-guard`
-   are skipped before the regex check (loom-7j5 fix #3: hook
-   self-reference whitelist, prevents recursive self-trigger when
-   a prior BLOCKED message lands in the tail).
-4. After the most-recent failure, scan forward for a `tool_use`
+   Two whitelist classes never latch and never clear (skipped
+   entirely, leaving the prior state intact):
+   - Texts containing the literal substring `edit-after-failure-guard`
+     (loom-7j5 fix #3: hook self-reference whitelist, prevents
+     recursive self-trigger when a prior BLOCKED message lands in
+     the tail).
+
+   One whitelist class always CLEARS the latch (treated as a clean
+   Bash result, since the next Edit IS the work):
+   - Texts containing `CONFLICT (content):` or
+     `Automatic merge failed; fix conflicts` (loom-n1q: git-merge
+     conflict-resolution opportunity. The Bash framing adds
+     `Exit code: 1` which would otherwise trip `\bexit code:\s*[1-9]`).
+4. After the latched failure (if any), scan forward for a `tool_use`
    of `Edit`/`Write`/`MultiEdit` whose `file_path` matches the
    test-file conventions above. If found → exit 0 (RED captured;
    guard cleared).
@@ -75,18 +86,44 @@ For each Edit/Write/MultiEdit tool call:
 
 ## Bypass
 
+Three reachable bypasses, in order of preference:
+
+### Per-project marker file (loom-n1q, recommended for interactive sessions)
+
+```bash
+touch .claude/no-edit-after-failure-guard
+```
+
+Hook walks up from the target file's directory (and from `$PWD`)
+looking for `.claude/no-edit-after-failure-guard`. If found,
+exit 0 silently. Per-project, reachable from any agent Bash call,
+visible in `git status` (commit it or `.gitignore` it per your
+policy).
+
+This bypass is the answer to the env-var bypass not propagating
+from in-session `export` calls — the env-var freezes at `claude`
+fork time, so agents that decide *during* a session to step around
+the guard can't `export` their way out. The marker file always
+works.
+
+### Environment variable (loom-z3m.6, original bypass)
+
 ```bash
 LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1
 ```
 
-Set in the worker's env when the recent failure is unrelated to
-the current edit (incidental flake, pre-existing lint warning,
-unrelated test failure in a CI batch). Prefer to file a follow-up
-bead for the unrelated failure rather than silently absorb it.
+Set in the worker's env BEFORE `claude` launches when the recent
+failure is unrelated to the current edit (incidental flake,
+pre-existing lint warning, unrelated test failure in a CI batch).
+In-session `export` is a no-op — the env is frozen at fork time.
+Prefer to file a follow-up bead for the unrelated failure rather
+than silently absorb it.
 
-The hook also auto-allows when the target file_path is itself a
-test file — writing/fixing the failing test IS the desired next
-move, so no bypass is needed for that case.
+### Auto-allow on test-file targets
+
+The hook auto-allows when the target file_path is itself a test
+file — writing/fixing the failing test IS the desired next move,
+so no bypass is needed for that case.
 
 ## Tools matched
 
@@ -143,14 +180,17 @@ words; that case is now handled by source-discrimination (only
 Bash-originated `tool_result` blocks are scanned) plus tighter
 framing patterns.
 
-The auto-clear (a test edit after the failure) is the relief valve;
-the bypass env var is the safety net.
+The auto-clear (a test edit after the failure) is one relief valve;
+a subsequent clean Bash call ("last-Bash-only" TTL — loom-n1q) is
+a second; the marker file is a third; the bypass env var is the
+safety net.
 
 The 80-record transcript tail balances "catch recent failures" with
 "don't pay reading cost on every Edit". Multi-failure sessions
 (e.g. a long debug loop) are handled correctly: only the
-**most-recent** failure matters, and a test edit after it clears
-the guard until the next failure surfaces.
+**most-recent Bash result** matters. A clean Bash call between a
+failure and the next Edit clears the latch (loom-n1q TTL). A test
+edit after a failure also clears.
 
 False-positive seams worth watching:
 
@@ -168,7 +208,8 @@ False-positive seams worth watching:
 ## Files
 
 - Hook: `hooks/edit-after-failure-guard.sh`
-- Tests: `lib/tests/edit-after-failure-guard.test.sh` (35 fixture cases)
+- Tests: `lib/tests/edit-after-failure-guard.test.sh` (45 fixture cases)
+- Marker file path: `<project>/.claude/no-edit-after-failure-guard`
 - Skill mid-recipe branchpoint: `skills/bead-lifecycle-shell/SKILL.md`
   (Variable middle → Mid-recipe branchpoint subsection)
 
@@ -178,6 +219,11 @@ False-positive seams worth watching:
 - Bug-class follow-up: loom-7j5 (P2 bug, 2026-05-19) — three-axis
   refinement (tool_use_id source-discrimination, tighter framing,
   hook self-reference whitelist)
+- Bug-class follow-up: loom-n1q (P2 bug, 2026-05-26) — three-axis
+  refinement (git-merge CONFLICT whitelist, "last-Bash-only" TTL,
+  per-project marker-file bypass). Test fixture also unsets
+  `LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP` at startup so tests are
+  hermetic from the user's shell env.
 - Origin: loom-z3m retrospective dig (Phase 1, 14 improvement beads
   filed)
 - Companion (out of scope for loom; upstream PRs in loom-ki5):
