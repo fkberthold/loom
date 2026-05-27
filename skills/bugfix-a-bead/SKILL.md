@@ -94,47 +94,71 @@ of that lineage BEFORE writing tests. The 2026-05-02 huu.15.2 → 0qw
 pivot is the canonical example: defensive coercion → convention
 alignment after the search caught the family.
 
-### Variable middle — M1 → M6 (recipe owns)
+### Variable middle — M1 → M6 (recipe owns the scope, worker owns the work)
+
+**Dispatch posture.** The variable middle is worker territory. Brief
+ONE worker via `Agent` + `isolation: "worktree"` covering M1 → M6 in
+a single dispatch; do NOT Edit/Write in the central session between
+bead-claim and bead-close. See `bead-lifecycle-shell` §Dispatch
+discipline for the worker-brief template, the allowed/forbidden
+central-session actions while the worker runs, the re-dispatch
+decision rule, and the full Phase A/B/C/D ownership table.
+
+The M-steps below are **scope items for the worker brief**, not a
+to-do list for central. Translate each into one sentence in the
+brief's Scope section (the template targets ≤ 250 words total).
+Preserve the discipline verbatim — RED before GREEN, bug-class
+coverage, enshrined-test sweep — that's WHAT the worker does, not
+WHO does it. Stage transitions named below are written by the worker
+inside the worktree as each step begins; the worker's return summary
+should call them out so central can spot-check the lineage.
 
 #### M1. Verify the bug's read
 
-Set stage `debugging`. Invoke `superpowers:systematic-debugging`. Read
-the actual code paths the bead names. Confirm or correct the bead's
-hypothesis BEFORE writing any test or fix code. Bug fixes drift from
-filing date to claim date; the bead's symptom may now reproduce
-differently or come from a different layer.
+Have the worker set stage `debugging`, invoke
+`superpowers:systematic-debugging`, and read the actual code paths
+the bead names — confirming or correcting the bead's hypothesis
+BEFORE writing any test or fix code. Bug fixes drift from filing
+date to claim date; the bead's symptom may now reproduce differently
+or come from a different layer. The worker should surface its
+diagnosis in the return summary so central can compare against the
+bead's stated cause.
 
 #### M2. Bead-assumption audit
 
-Set stage `assumption-audit`. With M1's diagnosis in hand, compare the
-root cause you found against the bead description's stated cause
-before writing the RED test. If they materially diverge, run
-`bd update <id> --description "<corrected framing>"` (preferred —
-overwrites the stale framing). If you want to preserve the original
-hypothesis as history, run `bd comment <id> "<correction>"` as the
+Have the worker set stage `assumption-audit` and, with M1's diagnosis
+in hand, compare the root cause against the bead description's stated
+cause before writing the RED test. If they materially diverge, the
+worker runs `bd update <id> --description "<corrected framing>"`
+(preferred — overwrites the stale framing); to preserve the original
+hypothesis as history, `bd comment <id> "<correction>"` is the
 minimum. Future sessions read the bead, not the transcript; stale
-descriptions become load-bearing-but-wrong (HAW yho, 2026-05).
+descriptions become load-bearing-but-wrong (HAW yho, 2026-05). The
+worker's return summary should note any reframing so central can
+review the new framing.
 
 #### M3. TDD — RED first
 
-Set stage `tdd-red`. Invoke `superpowers:test-driven-development`.
-Write the failing test that reproduces the symptom. Use a verbatim
-string from a transcript or log line where possible — those make the
-most stable regression tests. Run it, watch it fail with the expected
-message, paste the failure to user-facing output BEFORE any
-implementation lands.
+Have the worker set stage `tdd-red`, invoke
+`superpowers:test-driven-development`, and write the failing test
+that reproduces the symptom — using a verbatim string from a
+transcript or log line where possible, since those make the most
+stable regression tests. The worker runs the test, watches it fail
+with the expected message, and surfaces the failure output in its
+return summary as evidence that RED preceded GREEN.
 
 #### M4. GREEN — minimal fix
 
-Set stage `tdd-green`. Smallest change that makes the test pass.
-Re-run just the new test to confirm GREEN. Resist the urge to clean up
-adjacent code — keep the diff focused so the bug-fix lineage stays
-legible.
+Have the worker set stage `tdd-green` and make the smallest change
+that turns the test green, then re-run just the new test to confirm
+GREEN. The worker should resist the urge to clean up adjacent code —
+keep the diff focused so the bug-fix lineage stays legible. Pass/fail
+counts and the diff summary go in the worker's return.
 
 #### M5. Bug-class coverage
 
-Set stage `bug-class`. Add a second test exercising the bug *class*,
-not just the instance:
+Have the worker set stage `bug-class` and add a second test
+exercising the bug *class*, not just the instance:
 - For convention-mismatch bugs: parameterize over every value in the
   affected set.
 - For state machines: unit-test the machine in isolation across each
@@ -143,19 +167,23 @@ not just the instance:
   on-boundary case.
 
 Frank's durable rule from HAW 13p.3.11 deploy day: *"write a test for
-the bug AND for the bug class."*
+the bug AND for the bug class."* The worker should name the class
+shape in its return summary so central can confirm the coverage
+matches the bug's family.
 
 #### M6. Full suite — find tests that enshrined the bug
 
-Set stage `enshrined-sweep`. Run the full test suite. Failures here
-are usually tests that locked in the buggy contract — **update them,
-don't work around them.** The 0qw fix surfaced 14 such tests; each
-was evidence the workaround had spread.
+Have the worker set stage `enshrined-sweep` and run the full test
+suite. Failures here are usually tests that locked in the buggy
+contract — **update them, don't work around them.** The 0qw fix
+surfaced 14 such tests; each was evidence the workaround had spread.
 
 If a previously-passing test now fails because it asserted the buggy
-behavior, fix the test to assert the correct contract. If you can't
-tell whether the test was wrong or right, surface it to the user — do
-not silently weaken or skip it.
+behavior, the worker fixes the test to assert the correct contract.
+If the worker can't tell whether a test was wrong or right, it should
+stop and escalate to central via its return summary rather than
+silently weaken or skip the test — that's a stop-and-report trigger
+in the brief.
 
 ### Phase B — verification (delegate to shell)
 
