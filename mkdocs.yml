@@ -109,6 +109,7 @@ nav:
       - bd CLI: reference/bd-cli.md
       - MemPalace MCP: reference/mempalace-mcp.md
       - Decision tables: reference/decision-tables.md
+      - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
       - Glossary: reference/glossary.md
   - Explanation:
       - explanation/index.md

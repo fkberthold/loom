@@ -1,5 +1,7 @@
 # Mental model
 
+[!! DOCS-SCAFFOLD-FIXME: replace this section before publish !!](docs-scaffold-fixme-mental-model.md)
+
 > **Thesis:** {{ project_name }} is shaped by one load-bearing idea.
 > This page names it, traces what it makes possible, and acknowledges
 > what it gives up in return.

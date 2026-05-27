@@ -15,6 +15,8 @@
     cd $(basename {{ repo_url }} .git)
     ```
 
+[!! DOCS-SCAFFOLD-FIXME: replace this section before publish !!](docs-scaffold-fixme-install-cmd.md)
+
 2. **Install dependencies.** Replace this step with the project's
    actual installation command. Common shapes:
 
@@ -31,6 +33,8 @@
     # for a Bash-tool project (e.g. loom-shaped)
     ./install.sh
     ```
+
+[!! DOCS-SCAFFOLD-FIXME: replace this section before publish !!](docs-scaffold-fixme-install-verify.md)
 
 3. **Verify the install.** Replace this step with whatever invocation
    shows the install succeeded. Whatever you pick should *exit zero*
