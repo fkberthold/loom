@@ -148,6 +148,26 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - **Tag the WARN/MISS suggested-fix line with `[AUTOFIX:loom-env-block]`** for the audit-project skill's `--apply-onboarding` flag. The fix is a deep-merge that overwrites the two loom keys with canonical values and preserves every other key in the file (writing `.claude/settings.json.pre-loom.bak` on first overwrite). Idempotent.
     - Lineage: loom-7ro (2026-05-27). loom's own `install.sh` performs the same merge against `<loom_root>/.claude/settings.json`; this item propagates the same defaults into downstream loom-managed projects via `/audit-project --apply-onboarding`.
 
+17. **`~/.loom/upstream/` orphan-clone scan (informational)**
+    - The upstream-a-bead recipe (loom-k2g) caches per-repo clones under `~/.loom/upstream/<owner>/<repo>/`. A clone is "orphan" when no open `upstream:watch` bead references it — the recipe finished, the watch-bead closed (or never spawned), and the clone is taking disk for no live workflow.
+    - Procedure: list `~/.loom/upstream/*/*/` directories. For each, parse the corresponding `<owner>/<repo>` pair. Cross-check against open `upstream:watch` beads (`bd list --label=upstream:watch --json`); each watch-bead carries a PR URL in its description from which `<owner>/<repo>` can be derived (`https://github.com/<owner>/<repo>/pull/<N>`). A clone with no matching open watch-bead is an orphan candidate.
+    - **Verdict matrix:**
+      - PASS = no `~/.loom/upstream/` directory exists, OR every clone has a matching open `upstream:watch` bead.
+      - INFO = ≥1 orphan clone detected.
+    - **Tag the INFO suggested-fix line with `[AUTOFIX:loom-upstream-gc-handoff]`** for the audit-project skill's `--apply-onboarding` flag. The fix is a handoff: the skill prints `run /loom-upstream-gc to review and prune orphan clones interactively` — the actual prune is interactive (per-clone y/N gate inside `/loom-upstream-gc`) and lives in the slash command, not in the AUTOFIX recipe. The handoff tag exists so `--apply-onboarding` can mark the row as queued-for-user rather than silently leaving it in the per-item queue.
+    - Embed the list of orphan clone paths in the report so the user can verify before invoking `/loom-upstream-gc`.
+    - Lineage: loom-k2g (2026-05-27). Companion infrastructure: `/loom-upstream-gc` slash command (loom-k2g.4); upstream-a-bead recipe (loom-k2g.1); upstream cache governance (loom-k2g.2).
+
+18. **`gh auth status` — GitHub CLI authentication**
+    - The upstream-a-bead recipe (loom-k2g) and other upstream-flow primitives shell out to `gh` for issue/PR creation, fork detection, and canonical-owner checks. An unauthenticated `gh` causes every upstream recipe step to fail with an opaque error.
+    - Procedure: run `gh auth status` (no flags). Check the exit code.
+    - **Verdict matrix:**
+      - PASS = `gh auth status` exits 0 (authenticated against at least one host).
+      - WARN = `gh auth status` exits non-zero (not authenticated, or `gh` binary missing).
+    - **Tag the WARN suggested-fix line with `[AUTOFIX:gh-auth-prompt]`** for the audit-project skill's `--apply-onboarding` flag. The fix is a handoff: the skill prints `run \`gh auth login\` interactively to authenticate` — the actual login is an interactive OAuth/token flow that cannot run inside the audit, and lives in `gh` itself. The handoff tag exists so `--apply-onboarding` can mark the row as queued-for-user rather than silently leaving it in the per-item queue.
+    - Embed the `gh auth status` stderr in the report so the user sees the specific failure mode (missing binary vs expired token vs no host configured).
+    - Lineage: loom-k2g (2026-05-27). Surfaced during the upstream-a-bead design — every upstream recipe step assumes `gh` is authenticated, so the audit must catch the unauthenticated case before the user trips it mid-recipe.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -164,7 +184,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 16 ...)
+(... continue through item 18 ...)
 
 ## Summary
 
@@ -175,12 +195,14 @@ Top 3 gaps to fix first (most blocking → least): <ordered short list>
 
 ### AUTOFIX tags on suggested-fix lines
 
-For deterministic one-command remediations (items 3, 4, 11, 16), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
+For deterministic one-command remediations (items 3, 4, 11, 16) and interactive-handoff items (17, 18), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
 
 - `bd-hooks` — item 3 MISS, runs `bd hooks install` + the absorbing commit two-step (loom-cka).
 - `workflow-json` — item 4 MISS, writes `{"v":1,"mode":"full"}` to `<root>/.claude/workflow.json`.
 - `gitignore-worktrees` — item 11 INFO, appends `.claude/worktrees/` AND `.claude/workflow-state.json` to `<root>/.gitignore` (independently idempotent per line; loom-tat folded the second line in 2026-05-15).
 - `loom-env-block` — item 16 WARN/MISS, deep-merges the canonical loom env block (`CLAUDE_CODE_ENABLE_TASKS=false`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`) into `<root>/.claude/settings.json`, overwriting only those two keys and preserving every other key. Writes `.claude/settings.json.pre-loom.bak` on first overwrite. Idempotent (loom-7ro).
+- `loom-upstream-gc-handoff` — item 17 INFO, handoff to `/loom-upstream-gc` for interactive orphan-clone prune. Recipe prints the handoff message rather than pruning directly — actual removal is per-clone y/N gated inside the slash command (loom-k2g).
+- `gh-auth-prompt` — item 18 WARN, handoff to interactive `gh auth login`. Recipe prints the login instruction rather than attempting the OAuth flow inside the audit (loom-k2g).
 
 Example shape:
 

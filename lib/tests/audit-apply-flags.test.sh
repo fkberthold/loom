@@ -482,16 +482,18 @@ assert_contains "SKILL cites loom-ann (this bead)" \
 echo "==> loom-ann: SKILL lists the documented AUTOFIX recipes"
 # Inventory guard — loom-ann correctly did NOT add a recipe; loom-7ro
 # subsequently added the fourth recipe (loom-env-block) with documented
-# determinism rationale (deep-merge of two known keys is bit-stable).
-# Wave 2 contract (loom-a29) still requires every recipe be
-# deterministic. Update this guard only after a future bead
-# deliberately adds a new AUTOFIX:<recipe-id> with documented
-# determinism rationale.
+# determinism rationale (deep-merge of two known keys is bit-stable);
+# loom-k2g.6 added the fifth (loom-upstream-gc-handoff) and sixth
+# (gh-auth-prompt) — both are handoff recipes that print user-facing
+# instructions rather than writing the tree, so they trivially satisfy
+# the Wave 2 determinism contract (loom-a29). Update this guard only
+# after a future bead deliberately adds a new AUTOFIX:<recipe-id> with
+# documented determinism rationale.
 autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
-if [ "$autofix_recipe_count" = "4" ]; then
-  pass "SKILL AUTOFIX inventory is 4 (bd-hooks, workflow-json, gitignore-worktrees, loom-env-block)"
+if [ "$autofix_recipe_count" = "6" ]; then
+  pass "SKILL AUTOFIX inventory is 6 (bd-hooks, workflow-json, gitignore-worktrees, loom-env-block, loom-upstream-gc-handoff, gh-auth-prompt)"
 else
-  fail "SKILL AUTOFIX inventory should be 4 not $autofix_recipe_count" \
+  fail "SKILL AUTOFIX inventory should be 6 not $autofix_recipe_count" \
     "(if a new AUTOFIX recipe was added deliberately, update this guard)"
 fi
 
@@ -973,14 +975,15 @@ assert_contains "SKILL cites loom-z3m lineage on item 15" \
 
 # Negative assertion — item 15 must NOT introduce an AUTOFIX recipe.
 # Re-check the AUTOFIX inventory count. Was 3 when loom-z3m.11 landed;
-# loom-7ro added the fourth (loom-env-block) for item 16, NOT item 15.
-# Item 15 remains informational/suggest-only.
+# loom-7ro added the fourth (loom-env-block) for item 16, NOT item 15;
+# loom-k2g.6 added the fifth + sixth (loom-upstream-gc-handoff, gh-auth-prompt)
+# for items 17 + 18, NOT item 15. Item 15 remains informational/suggest-only.
 autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
-if [ "$autofix_recipe_count" = "4" ]; then
-  pass "SKILL AUTOFIX inventory is 4 (item 15 correctly remains informational-only; loom-7ro added item 16)"
+if [ "$autofix_recipe_count" = "6" ]; then
+  pass "SKILL AUTOFIX inventory is 6 (item 15 correctly remains informational-only; loom-7ro added item 16; loom-k2g.6 added items 17+18)"
 else
-  fail "SKILL AUTOFIX inventory should be 4 not $autofix_recipe_count" \
-    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only; loom-7ro adds item 16 loom-env-block)"
+  fail "SKILL AUTOFIX inventory should be 6 not $autofix_recipe_count" \
+    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only; loom-7ro adds item 16 loom-env-block; loom-k2g.6 adds items 17+18 handoff recipes)"
 fi
 
 echo "==> loom-z3m.11: agents/project-onboarder.md item 15 declaration"

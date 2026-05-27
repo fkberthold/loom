@@ -112,11 +112,31 @@ audit. This is a deliberately user-pulled workflow.
     that does not touch the backup. Counters the harness's
     competing TaskCreate / MEMORY.md defaults on the per-project
     layer (loom-7ro).
+  - `[AUTOFIX:loom-upstream-gc-handoff]` (item 17 INFO) — handoff
+    recipe for orphan clones under `~/.loom/upstream/<owner>/<repo>/`
+    with no matching open `upstream:watch` bead. The recipe does
+    NOT prune directly — actual removal is per-clone y/N gated
+    inside `/loom-upstream-gc`. The recipe prints the handoff
+    message `orphan clones detected; run /loom-upstream-gc to
+    review and prune interactively` and marks the row as queued-
+    for-user. The handoff tag exists so `--apply-onboarding`
+    visibly resolves the row rather than silently leaving it in
+    the per-item queue (loom-k2g).
+  - `[AUTOFIX:gh-auth-prompt]` (item 18 WARN) — handoff recipe for
+    unauthenticated `gh` (`gh auth status` non-zero exit). The
+    recipe does NOT attempt the OAuth flow — `gh auth login` is
+    interactive and cannot run inside the audit. The recipe prints
+    `gh is not authenticated; run \`gh auth login\` interactively
+    to fix` and marks the row as queued-for-user. Same handoff-tag
+    rationale as item 17 (loom-k2g).
   Items NOT tagged AUTOFIX (item 2 `bd init`, item 5 MemPalace wing
   creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`)
   remain in the per-item approval queue. The flag never touches
   WARN items (those imply real conflict — dirty tree, malformed
-  workflow.json, etc. — and need human triage).
+  workflow.json, etc. — and need human triage). Items 17 and 18
+  are exceptions to the WARN-untouched rule because they resolve
+  by handoff (not by in-process write); the handoff message itself
+  IS the resolution.
 - `--workflow-mode=full|light|off` — only meaningful with
   `--apply-onboarding`. Sets the `mode` value the
   `[AUTOFIX:workflow-json]` recipe writes. Default `full`.
@@ -915,6 +935,36 @@ form), apply the recipe:
   without creating a backup). The lineage and motivation match loom's
   install.sh env-merge step: counters the harness's competing
   defaults (TaskCreate / MEMORY.md) on a per-project basis.
+
+- **`[AUTOFIX:loom-upstream-gc-handoff]`** — handoff recipe; no
+  in-tree write and no guest-mode gate needed (the recipe only
+  prints text). For each orphan clone the onboarder reported under
+  `~/.loom/upstream/<owner>/<repo>/`, the recipe emits:
+
+  ```
+  orphan clone: ~/.loom/upstream/<owner>/<repo>/
+    no open upstream:watch bead references this clone
+    run /loom-upstream-gc to review and prune interactively
+  ```
+
+  Then mark the item resolved-by-handoff so it does not re-surface
+  in the per-item Step 4 queue. The actual prune lives in
+  `/loom-upstream-gc` (loom-k2g.4) which gates per-clone with y/N
+  and refuses removal when uncommitted changes are present.
+
+- **`[AUTOFIX:gh-auth-prompt]`** — handoff recipe; no in-tree write
+  and no guest-mode gate needed. Emit:
+
+  ```
+  gh is not authenticated (`gh auth status` exited non-zero):
+    <verbatim gh auth status stderr from the onboarder report>
+  run `gh auth login` interactively to authenticate
+  ```
+
+  Then mark the item resolved-by-handoff. `gh auth login` is an
+  interactive OAuth/token flow that cannot run inside the audit;
+  the user runs it in their own terminal, then re-runs
+  `/audit-project` to confirm the WARN cleared.
 
 For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
 queue for Step 4. Emit one summary line per skipped item: `--apply-
