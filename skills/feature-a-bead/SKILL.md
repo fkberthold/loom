@@ -128,11 +128,35 @@ common way features cause cleanup work three months later.
 
 ### Variable middle — M1 → M5 (recipe owns)
 
-#### M1. Brainstorm the design
+The variable middle is **worker territory**, per `bead-lifecycle-shell
+§ Dispatch discipline — central agent briefs a worker`. Central
+designs the contract at M1 (the design dialogue is user-interaction-
+shaped — stays in the central session), then dispatches ONE worker
+via `Agent` + `isolation: "worktree"` to own M2-M5 in a single
+dispatch. The steps below are **scope items for the worker brief**,
+not central's to-do list. Central does not Edit/Write between
+bead-claim and bead-close; while the worker runs, central may
+answer user questions, pre-stage the next bead, or revise the
+contract — but does not parallel-code the variable middle.
 
-Set stage `designing`. The design must be explicit BEFORE any test is
-written — features without an upfront contract produce tests that pin
-implementation accidents instead of intent.
+After the worker returns, apply the re-dispatch decision rule from
+the shell: **clean** → advance; **≤3-line polish** → central edits
+in place; **substantive rework** → brief a fresh worker with the
+corrected contract. Central re-runs verification regardless.
+
+The worker brief follows the template in the shell. Cite the M-steps
+below as scope items and instruct the worker to write the stage
+markers in the table above at each M-boundary it crosses.
+
+#### M1. Brainstorm the design (central — pre-dispatch)
+
+The contract is designed BEFORE the worker is dispatched. This step
+is user-interaction-shaped (brainstorm dialogue, contract framing,
+maybe a design-question recursion) and stays with central. Features
+without an upfront contract produce tests that pin implementation
+accidents instead of intent — the contract must be explicit before
+any test is written, so it must be explicit before the worker is
+briefed.
 
 Choose the brainstorming variant by where the design will land:
 - **`beadpowers:brainstorming`** — when the design will land as new
@@ -146,46 +170,60 @@ Choose the brainstorming variant by where the design will land:
 The brainstorm should produce, at minimum: the contract (input shape,
 output shape, observable behavior), the failure modes the contract
 introduces, and the boundary with adjacent components. State the
-contract to the user before moving to M2 — a misstated contract is
-the most expensive failure mode of this recipe, because every test
-written downstream pins the wrong thing.
+contract to the user and lock it before drafting the worker brief —
+a misstated contract is the most expensive failure mode of this
+recipe, because every test the worker writes pins the wrong thing.
 
 If the brainstorm reveals the bead is actually bug-shaped or
 refactor-shaped (the contract already exists; you're fixing or
-restructuring it), pause here and switch recipes. Mis-typed beads
-waste the rest of the middle.
+restructuring it), pause here and switch recipes BEFORE dispatching.
+Mis-typed beads waste the worker's entire dispatch.
 
-#### M2. Plan if multi-task
+When the contract is locked, set stage `designing` and write the
+worker brief. The brief carries the locked contract verbatim plus
+the M2-M5 scope items below.
 
-Set stage `planning`. Decide whether the work is single-task or
+#### M2. Plan if multi-task (scope item — brief decision)
+
+Decide BEFORE dispatching whether the work is single-task or
 multi-task. Single-task means one branch, one verification pass, one
-commit family. Multi-task means the contract from M1 decomposes into
-discrete pieces with their own verification surfaces.
+commit family — one worker dispatch covers M2-M5. Multi-task means
+the contract from M1 decomposes into discrete pieces with their own
+verification surfaces — and the dispatch shape differs accordingly.
 
-For multi-task work, invoke `superpowers:writing-plans`:
+For multi-task work, invoke `superpowers:writing-plans` in central
+(planning is design-dialogue-shaped — stays with central):
 - Draft the plan in `docs/plans/<bead-id>-<slug>.md` (or the project's
   conventional plan location).
 - File child beads under this bead (or under the same epic, blocked
   on this bead) for each task in the plan.
 - This bead becomes the *coordinator* — its closing drawer documents
   the contract; the child beads carry the implementation.
+- Each child bead re-enters the appropriate activity recipe on its
+  own claim, with its own worker dispatch. Do NOT dispatch a single
+  mega-worker for the multi-bead plan.
 
-For single-task work, skip `superpowers:writing-plans` and continue
-to M3 in this same bead. Don't invent ceremony for a one-step
-implementation.
+For single-task work, skip `superpowers:writing-plans` and have the
+worker brief cover M3-M5 in one dispatch. Don't invent ceremony for
+a one-step implementation.
 
-The judgment call: if you'd write more than ~3 commits to land the
-feature, or the feature crosses more than ~2 service boundaries,
-plan it. Otherwise inline.
+The judgment call: if the feature would land in more than ~3 commits
+or cross more than ~2 service boundaries, plan it. Otherwise inline.
+Have the worker write stage `planning` only if M2 produced
+intra-bead planning artifacts the worker is consuming; otherwise the
+brief skips this stage marker and goes straight to `red`.
 
-#### M3. RED — pin the desired contract
+#### M3. RED — pin the desired contract (scope item)
 
-Set stage `red`. Invoke `superpowers:test-driven-development`. Write
-the failing test that pins the contract from M1.
+Have the worker invoke `superpowers:test-driven-development`, write
+stage `red`, and author the failing test that pins the contract from
+M1 (carried verbatim in the brief).
 
-This is the conceptual hinge of the recipe. The test is initially red
-not because of a bug but because the feature doesn't exist yet. The
-test should describe the *contract*, not the implementation:
+This is the conceptual hinge of the recipe — call it out explicitly
+in the brief. The test is initially red not because of a bug but
+because the feature doesn't exist yet. The brief should instruct the
+worker that the test must describe the *contract*, not the
+implementation:
 - For an API: pin the request/response shape and the observable
   state change, not the internal call sequence.
 - For a CLI: pin the command surface, exit code, and stdout/stderr
@@ -193,42 +231,46 @@ test should describe the *contract*, not the implementation:
 - For a module: pin the public function signatures and their
   behavior under representative inputs, not private helpers.
 
-Run the test, watch it fail with the *expected* failure (typically
-"undefined symbol" or "function returns nil" before any
-implementation exists), and paste the failure to user-facing output
-BEFORE moving to M4. If the test fails for a different reason (test
-setup is broken, the contract assumes something that isn't true),
-fix that BEFORE writing implementation — a mis-RED test produces
-a deceptive GREEN.
+The brief should require the worker to run the test, watch it fail
+with the *expected* failure (typically "undefined symbol" or
+"function returns nil" before any implementation exists), and
+include the failure verbatim in its return summary. If the test
+fails for a different reason (test setup is broken, the contract
+assumes something that isn't true), the worker must fix that before
+writing implementation — a mis-RED test produces a deceptive GREEN.
+A pre-empted-RED failure is a stop-and-report trigger if the cause
+suggests the contract is wrong; surface to central for re-dispatch.
 
-#### M4. GREEN — minimal implementation
+#### M4. GREEN — minimal implementation (scope item)
 
-Set stage `green`. Smallest implementation that satisfies the
-contract test. Resist the urge to build out the full feature surface
-in this step — keep the diff focused on what the M3 test actually
-exercises so the contract→implementation lineage stays legible in
-git history.
+Have the worker write stage `green` and add the smallest
+implementation that satisfies the M3 contract test. The brief should
+explicitly cap scope to what the M3 test exercises — the worker
+should resist building out the full feature surface in this step so
+the contract→implementation lineage stays legible in git history.
 
-Re-run the M3 test to confirm GREEN. If you wrote multiple contract
-tests at M3 (a feature with several observable behaviors), make them
-all GREEN before advancing — but don't add behaviors the tests don't
+The brief should require the worker to re-run the M3 test to confirm
+GREEN. If M3 produced multiple contract tests (a feature with
+several observable behaviors), all must be GREEN before advancing —
+but the brief must prohibit adding behaviors the tests don't
 exercise.
 
 The git log after M4 should show: one commit-shaped diff that adds
 the failing test, then one commit-shaped diff that makes it pass.
-This is auditable evidence that the contract drove the
-implementation, not the other way around. Use the
-`git commit --fixup`/squash dance later if your project's convention
-prefers a single commit, but the RED→GREEN order should be visible
-during the bead.
+This is auditable evidence the contract drove the implementation,
+not the other way around. The brief may permit a later
+`git commit --fixup`/squash if the project's convention prefers a
+single commit, but the RED→GREEN order should be visible during the
+worker's session.
 
-#### M5. Negative cases + integration test
+#### M5. Negative cases + integration test (scope item)
 
-Set stage `integration`. New contracts introduce new failure modes;
-this step covers them.
+Have the worker write stage `integration`. New contracts introduce
+new failure modes; this step covers them. The brief should list both
+sub-deliverables.
 
 **Negative cases** — for each input dimension the contract names,
-write a test for the failure path:
+the worker writes a test for the failure path:
 - For input validation: the malformed-input case, the empty-input
   case, the boundary cases on either side of any limit.
 - For partial failures: the case where a downstream dependency
@@ -242,10 +284,10 @@ production failure becomes a bug bead in the same family three weeks
 later — and that's a self-inflicted wound: the failure modes were
 visible at design time. Frank's durable rule from HAW 13p.3.11
 generalizes: *"write a test for the contract AND for the contract's
-failure surface."*
+failure surface."* Cite that rule in the brief.
 
-**Integration test** — exercise the feature end-to-end against real
-systems where applicable:
+**Integration test** — the worker exercises the feature end-to-end
+against real systems where applicable:
 - For an API endpoint: a test that hits the real router with the
   real request payload and asserts the real response.
 - For a CLI: a test that shells out to the real binary with the
@@ -255,9 +297,18 @@ systems where applicable:
   dependency.
 
 If the feature has no meaningful integration surface (a pure
-function with no I/O), skip the integration test and document that
-in the closing drawer. Don't fake an integration test by mocking
-everything — that's just a unit test wearing a costume.
+function with no I/O), the brief should permit the worker to skip
+the integration test and surface that omission in its return
+summary so central can record the rationale in the closing drawer.
+The brief must prohibit faking an integration test by mocking
+everything — that's a unit test wearing a costume. A worker that
+discovers the integration boundary is unmockable-real should
+stop-and-report rather than mock-around it.
+
+The brief closes by reminding the worker: commit on the branch with
+the RED→GREEN order visible, surface the M3 RED output + M4 GREEN
+counts + M5 negative-case and integration-test counts in the return
+summary, do NOT merge / push / close — central handles integration.
 
 ### Phase B — verification (delegate to shell, with feature extension)
 
