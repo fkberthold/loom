@@ -17,6 +17,8 @@ Follow the [Install how-to](../how-to/install.md) to get
 {{ project_name }} on your machine. Come back here when the install
 verification step passes.
 
+[!! DOCS-SCAFFOLD-FIXME: replace this section before publish !!](docs-scaffold-fixme-quickstart-invocation.md)
+
 ## 2. Run it against the example
 
 Pick the smallest meaningful invocation of {{ project_name }} —

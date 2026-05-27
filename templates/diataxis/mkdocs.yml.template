@@ -5,6 +5,10 @@ edit_uri: edit/main/docs/
 
 docs_dir: docs
 
+# Unreplaced scaffold placeholders carry DOCS-SCAFFOLD-FIXME broken-link
+# sentinels; `mkdocs build --strict` will fail until every one is replaced.
+# See docs/reference/docs-scaffold-fixme.md for the convention + inventory.
+
 theme:
   name: material
   features:

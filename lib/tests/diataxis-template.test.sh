@@ -144,7 +144,54 @@ else
   fail "no surviving project_name/repo_url/short_description placeholders" "$stray"
 fi
 
-echo "==> mkdocs build --strict"
+# --- DOCS-SCAFFOLD-FIXME sentinel contract (loom-egl) -------------------
+# A consumer who scaffolds the diataxis tree and runs `mkdocs build
+# --strict` without replacing any placeholders MUST get a build failure
+# that names each unreplaced placeholder by token. After all four
+# sentinels are replaced, --strict MUST pass. Both halves are
+# load-bearing: RED-only doesn't pin "the sentinels specifically fail";
+# GREEN-only doesn't pin "the rest of the template is clean."
+echo "==> DOCS-SCAFFOLD-FIXME sentinels block --strict build (loom-egl RED phase)"
+red_log=$(cd "$TMP" && mkdocs build --strict --site-dir "$TMP/_build_red" 2>&1)
+red_rc=$?
+if [ "$red_rc" -ne 0 ]; then
+  pass "mkdocs build --strict fails with sentinels intact (rc=$red_rc)"
+else
+  fail "mkdocs build --strict fails with sentinels intact" "$red_log"
+fi
+for token in \
+  docs-scaffold-fixme-install-cmd \
+  docs-scaffold-fixme-install-verify \
+  docs-scaffold-fixme-quickstart-invocation \
+  docs-scaffold-fixme-mental-model; do
+  if echo "$red_log" | grep -q "$token"; then
+    pass "stderr names sentinel token: $token"
+  else
+    fail "stderr names sentinel token: $token" "$red_log"
+  fi
+done
+
+# Strip sentinel lines to simulate the consumer replacing each
+# placeholder block.
+echo "==> Strip DOCS-SCAFFOLD-FIXME sentinel lines (simulates consumer replace)"
+sentinel_files_touched=0
+while IFS= read -r -d '' f; do
+  if grep -q 'DOCS-SCAFFOLD-FIXME' "$f"; then
+    sed -i '/DOCS-SCAFFOLD-FIXME/d' "$f"
+    sentinel_files_touched=$((sentinel_files_touched + 1))
+  fi
+done < <(find "$TMP/docs" -type f -name '*.md' -print0)
+pass "stripped DOCS-SCAFFOLD-FIXME sentinels from $sentinel_files_touched file(s)"
+
+echo "==> No surviving DOCS-SCAFFOLD-FIXME sentinels after sed replacement (loom-egl)"
+stray_sentinels=$(grep -rl 'DOCS-SCAFFOLD-FIXME' "$TMP/docs" 2>/dev/null || true)
+if [ -z "$stray_sentinels" ]; then
+  pass "no surviving DOCS-SCAFFOLD-FIXME sentinels"
+else
+  fail "no surviving DOCS-SCAFFOLD-FIXME sentinels" "$stray_sentinels"
+fi
+
+echo "==> mkdocs build --strict (loom-egl GREEN phase: passes after sentinel replacement)"
 build_log=$(cd "$TMP" && mkdocs build --strict --site-dir "$TMP/_build" 2>&1)
 if [ $? -eq 0 ]; then
   pass "mkdocs build --strict succeeded"

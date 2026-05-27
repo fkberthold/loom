@@ -260,14 +260,18 @@ Variables substituted: project_name=<...>, repo_url=<...>,
 
 1. Install dependencies:
    pip install -r requirements.txt
-2. Preview locally:
+2. Replace the DOCS-SCAFFOLD-FIXME sentinels with real content:
+   grep -r DOCS-SCAFFOLD-FIXME docs/  # lists every unreplaced placeholder
+   `mkdocs build --strict` will refuse to build until every sentinel is replaced;
+   see `docs/reference/docs-scaffold-fixme.md` for the convention and inventory.
+3. Preview locally:
    mkdocs serve
-3. Splice the README pointer:
+4. Splice the README pointer:
    cat README.docs-pointer.md  # then paste into your project README
-4. Push to publish (GH Pages workflow will deploy on push to main):
+5. Push to publish (GH Pages workflow will deploy on push to main):
    git add . && git commit -m "scaffold Diataxis docs" && git push
-5. Enable GitHub Pages in repo settings: Source = "Deploy from a branch" → `gh-pages` (one-time setup; the workflow auto-creates the branch on first run).
-6. Run `/audit-project --check=docs` periodically to catch drift
+6. Enable GitHub Pages in repo settings: Source = "Deploy from a branch" → `gh-pages` (one-time setup; the workflow auto-creates the branch on first run).
+7. Run `/audit-project --check=docs` periodically to catch drift
    between docs/ and the system / beads / MemPalace.
 ```
 
