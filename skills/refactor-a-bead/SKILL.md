@@ -133,62 +133,89 @@ a refactor — split it.
 
 ### Variable middle — M1 → M4 (recipe owns)
 
+**Dispatch, do not code.** Per `bead-lifecycle-shell § Dispatch
+discipline — central agent briefs a worker (loom-7p6)`, central
+briefs ONE worker via `Agent` + `isolation: "worktree"` covering M1
+→ M4 in a single dispatch. Central does NOT call Edit/Write/
+MultiEdit on bead files between claim and close. The steps below
+are SCOPE ITEMS to fold into the worker brief (per the inline
+worker-brief template in `bead-lifecycle-shell`), not a to-do list
+for the central session to execute itself. The refactor-specific
+discipline — tests stay GREEN throughout, NEVER RED;
+characterization-first when coverage is missing; behavior
+preservation absolute — is WHAT the worker does; the recipe says
+WHO (worker) and HOW (one dispatch). When the worker returns,
+central applies the re-dispatch decision rule in the shell:
+clean → advance to phase B; ≤ 3 line polish → central edits in
+place; substantive rework → fresh worker with corrected contract.
+
+Stage updates listed earlier (`scoping`, `characterizing`,
+`restructuring`, `verifying-behavior`) are written by the worker as
+it crosses each step boundary inside the dispatch.
+
 #### M1. Identify scope
 
-Set stage `scoping`. State explicitly, in user-facing output:
+Brief the worker to set stage `scoping` and state explicitly, in
+its returned summary:
 
 - **What is in scope.** The exact files, modules, or symbols being
   restructured. Be specific — "the `X` class", not "the X area".
 - **What is NOT changing.** The external contract: function
   signatures (or the explicit list of signature changes that are
   pure renames with no semantic shift), return types, error shapes,
-  observable side effects, persisted formats, wire formats. List
-  these affirmatively so future you can spot drift.
+  observable side effects, persisted formats, wire formats. The
+  worker should list these affirmatively so future readers can spot
+  drift.
 - **The target shape.** What the code should look like when done.
   One or two sentences, concrete. "Extract the validation logic
   from `parse()` into a `Validator` struct in the same package, no
   exported API change" is a good target shape; "clean up parsing"
   is not.
-- **What tests already cover this.** Run the test files that touch
-  the in-scope code (`go test -run <Pattern>`, `pytest path/`,
-  whatever the project uses). Note coverage gaps — those are the
-  M2 candidates.
+- **What tests already cover this.** The worker should run the test
+  files that touch the in-scope code (`go test -run <Pattern>`,
+  `pytest path/`, whatever the project uses) and note coverage gaps
+  — those are the M2 candidates.
 
 If any of these four can't be stated cleanly, the bead is
-underspecified — pause and refine, or split. A vague refactor scope
-is the single most common cause of "while I'm here" sprawl.
+underspecified — the worker should escalate (stop-and-report
+trigger: "brief's premise is wrong"), and central re-scopes or
+splits before re-dispatch. A vague refactor scope is the single
+most common cause of "while I'm here" sprawl.
 
 #### M2. Write characterization tests if missing
 
-Set stage `characterizing`. The job here is to install a tripwire
-*before* touching the code. If any breakage during M3 trips the
-tripwire, you find out immediately and can revert one step instead
-of debugging an opaque downstream failure.
+Brief the worker to set stage `characterizing`. The job here is to
+install a tripwire *before* touching the code. If any breakage
+during M3 trips the tripwire, the worker finds out immediately and
+can revert one step instead of debugging an opaque downstream
+failure.
 
-Two cases:
+Two cases the worker handles:
 
-1. **The area is already well-tested.** Document the existing tests
-   that play this role — name them by file/function in user-facing
-   output ("M2 satisfied by `parser_test.go::TestParseAll/*` and
-   `validator_test.go::TestRoundTrip/*` — 47 cases covering all
+1. **The area is already well-tested.** The worker documents the
+   existing tests that play this role — naming them by file/function
+   in its summary ("M2 satisfied by `parser_test.go::TestParseAll/*`
+   and `validator_test.go::TestRoundTrip/*` — 47 cases covering all
    in-scope code paths"). Then move to M3. Do not write redundant
    tests just to fill the step; the existing suite is the
    characterization.
 
-2. **The area is under-tested for the refactor's purposes.** Write
-   tests that pin *current* behavior. This is itself a small TDD
-   cycle, but with an inverted assertion: each test must pass
-   GREEN against current code on the first run. If a
-   characterization test goes RED on first run, either you
-   misunderstand current behavior or there's a latent bug — both
-   need investigation before continuing.
+2. **The area is under-tested for the refactor's purposes.** The
+   worker writes tests that pin *current* behavior. This is itself
+   a small TDD cycle, but with an inverted assertion: each test must
+   pass GREEN against current code on the first run. If a
+   characterization test goes RED on first run, either the worker
+   misunderstands current behavior or there's a latent bug — both
+   need investigation before continuing, and either qualifies as a
+   stop-and-report trigger (NEW failure mode the brief did not
+   anticipate).
 
-   Characterization tests should be:
+   Brief the worker that characterization tests should be:
    - **Behavior-pinning, not implementation-pinning.** Test what
      callers observe (return values, side effects, errors), not
      internal helper calls or private state. Implementation-pinning
-     tests will block valid refactors and force you to edit them
-     during M3 — exactly what this recipe is trying to prevent.
+     tests will block valid refactors and force the worker to edit
+     them during M3 — exactly what this recipe is trying to prevent.
    - **Comprehensive at the boundary being preserved.** Include the
      happy path, the error path, the boundary cases, and any
      known-quirky behavior. Quirky behavior is the most likely to
@@ -196,16 +223,17 @@ Two cases:
    - **Verbatim where it matters.** If error messages or log lines
      are part of the contract, assert them verbatim.
 
-Run the new tests against unchanged code. They MUST all pass
-GREEN. Only then proceed to M3. Commit the characterization tests
-as a separate commit before the restructure if the project
-convention allows — it makes the test diff at phase B trivially
-inspectable (it should be empty).
+The worker runs the new tests against unchanged code. They MUST all
+pass GREEN before M3 begins. The worker should commit the
+characterization tests as a separate commit before the restructure
+if the project convention allows — it makes the test diff at phase
+B trivially inspectable (it should be empty).
 
 #### M3. Refactor — restructure without changing behavior
 
-Set stage `restructuring`. Make the change the bead describes,
-moving in small steps. The discipline:
+Brief the worker to set stage `restructuring` and make the change
+the bead describes, moving in small steps. The discipline the brief
+must transfer verbatim:
 
 - **Run the test suite frequently — every meaningful step.** The
   whole point of M2 was to install a tripwire; a tripwire only
@@ -214,15 +242,17 @@ moving in small steps. The discipline:
   the broader suite. The cost of finding a regression at the next
   step is much lower than at the end.
 - **Commit small.** Each green checkpoint is a candidate
-  micro-commit on the branch. If you discover at step 7 that step
-  3 broke something subtle, you want to bisect, not unravel.
-- **No "while I'm here" edits.** If you spot an unrelated
-  improvement, file it as a follow-up bead. Adding it here breaks
-  the "no behavior change" guarantee even if the improvement is
-  itself behavior-preserving — because every extra change widens
-  the surface that future readers must verify is safe.
-- **No test edits.** If a test starts failing during M3, STOP.
-  Investigate. Either:
+  micro-commit on the branch. If the worker discovers at step 7
+  that step 3 broke something subtle, the goal is to bisect, not
+  unravel.
+- **No "while I'm here" edits.** If the worker spots an unrelated
+  improvement, file it as a follow-up bead (anti-scope per the
+  worker-brief template). Adding it here breaks the "no behavior
+  change" guarantee even if the improvement is itself
+  behavior-preserving — because every extra change widens the
+  surface that future readers must verify is safe.
+- **No test edits.** If a test starts failing during M3, the worker
+  STOPS. Investigate. Either:
   - The refactor changed behavior (most common; revert the last
     step and try a different approach), or
   - The test was implementation-pinning (less common; document
@@ -232,30 +262,35 @@ moving in small steps. The discipline:
 
   Editing a test to keep it passing during a refactor without
   understanding why it failed is the canonical way refactors
-  silently become bug-injection events.
+  silently become bug-injection events. The brief must call this
+  out explicitly; it's the refactor recipe's signature constraint.
 
 #### M4. Verify behavior preserved
 
-Set stage `verifying-behavior`. Two checks, in order:
+Brief the worker to set stage `verifying-behavior` and perform two
+checks, in order:
 
 1. **Full suite, characterization tests included, must pass
    UNCHANGED.** Not "still passing after I tweaked them" — passing
    on the same assertions they had at end of M2.
 
-2. **Inspect the test diff.** Run `git diff main -- <test-paths>`
-   (or the equivalent against the refactor's base commit). The
-   diff should be empty or near-empty:
+2. **Inspect the test diff.** The worker runs `git diff main --
+   <test-paths>` (or the equivalent against the refactor's base
+   commit). The diff should be empty or near-empty:
    - Empty diff: ideal. The refactor preserved behavior cleanly.
    - Renames only (e.g., import-path updates from a moved file):
-     acceptable, but check each rename is mechanical.
+     acceptable, but the worker checks each rename is mechanical.
    - Anything else: a smell. Each non-rename test edit must be
-     justified in user-facing output before phase B. If you can't
-     justify it, the refactor changed behavior and the bead should
-     be split or restated as a feature/bugfix.
+     justified in the worker's returned summary. If the worker
+     can't justify it, the refactor changed behavior and the bead
+     should be split or restated as a feature/bugfix — escalate to
+     central as a stop-and-report trigger.
 
-If the test diff is more than mechanical, do not advance to phase
-B. Return to M3 (or re-scope at M1) and bring the test diff back
-to near-empty before claiming the refactor is done.
+If the test diff is more than mechanical, the worker does not
+advance to commit. The worker returns to central for re-dispatch
+(substantive rework) rather than papering over the diff. Central
+re-scopes at M1 (or commissions a sibling bugfix/feature bead) and
+briefs a fresh worker.
 
 ### Phase B — verification (delegate to shell, with refactor extension)
 
