@@ -140,29 +140,71 @@ the same way the bug-family lineage matters.
 
 ### Variable middle — M1 → M5 (recipe owns)
 
-#### M1. Identify the gap
+**Prelude — this is a worker brief, not central's to-do list.**
 
-Set stage `gap-finding`. State the gap operationally in a single
-sentence: "the README's installation section assumes `bd` is
-already on PATH, but the install.sh that the section recommends
-doesn't put it there." Not "the docs are bad," not "this section
-is unclear" — a specific, falsifiable gap.
+Per `bead-lifecycle-shell § Dispatch discipline — central agent
+briefs a worker (loom-7p6)`, Phase B is worker territory. Central
+designs the contract and dispatches ONE worker via `Agent` +
+`isolation: "worktree"` to own M1 → M5 end-to-end in a single
+dispatch. Central does NOT use Edit/Write/MultiEdit between bead-
+claim and bead-close. The steps below are **scope items for the
+worker brief**, not actions central performs. Stage updates listed
+in the stage-updates table above are written by the worker as it
+crosses each step boundary.
 
-If the gap is actually two or three gaps ("the install section is
-wrong AND the quickstart links to the wrong file AND the API
-reference is missing the new flag"), split the bead. Docs beads
-with multiple gaps drift in scope and produce sprawling diffs that
-nobody can review.
+The worker brief follows the template in the shell skill (Subject /
+Context / Scope / Anti-scope / Voice / Dispatch hygiene / Stop-and-
+report triggers). Cite the shell by reference; do not duplicate.
 
-State the gap to the user before moving to M2. A misdiagnosed gap
-produces a doc edit that doesn't actually help anyone.
+**Docs-specific voice handoff (load-bearing, per loom-7p6 design
+lock).** The shell template's **Voice** field is *mandatory* for
+docs beads — and central must pre-populate it with **2–3 verbatim
+sibling-doc paragraphs** copied into the brief itself, not just a
+pointer telling the worker to go sample voice. The design drawer
+(`drawer_loom_decisions_9b92cbb794d50a1ef1061006`, 2026-05-18) calls
+out docs as the recipe whose distinctive failure mode is voice
+drift, and parent bead loom-7p6's locked decisions explicitly say
+"docs-a-bead worker gets voice-calibration excerpts in brief to
+mitigate drift." Worker-side sampling alone is insufficient: the
+sample-then-draft loop drifts without an external pin, because the
+worker's own draft starts colonizing its sense of "house voice"
+within a few paragraphs. Verbatim excerpts in the brief give the
+worker a fixed anchor it can re-read against its own prose.
 
-#### M2. Sample sibling-doc voice
+Central samples the 2–3 paragraphs (Read the area's sibling docs,
+pick the most representative passages on tone + structure + code-
+example style), and pastes them verbatim into the brief's Voice
+field with file-and-line provenance. The worker's own M2 sampling
+is still part of the scope — it expands central's seed sample —
+but the brief's verbatim anchors are the floor the worker cannot
+drift below.
 
-Set stage `voice-sampling`. Read 2–3 sibling docs in the same area
-before drafting. For a `docs/` page, read its sibling pages. For a
-README section, read the rest of the README and the README of any
-closely-related project in the same repo. Note:
+#### M1. Identify the gap — scope item for the worker brief
+
+Have the worker state the gap operationally in a single sentence:
+"the README's installation section assumes `bd` is already on
+PATH, but the install.sh that the section recommends doesn't put
+it there." Not "the docs are bad," not "this section is unclear"
+— a specific, falsifiable gap.
+
+If the worker discovers the gap is actually two or three gaps
+("the install section is wrong AND the quickstart links to the
+wrong file AND the API reference is missing the new flag"), the
+worker should stop-and-report (per the brief's stop-and-report
+triggers) so central can split the bead. Docs beads with multiple
+gaps drift in scope and produce sprawling diffs that nobody can
+review.
+
+The worker should restate the gap in its return summary so central
+can confirm the diagnosis matches the bead's framing before review.
+
+#### M2. Sample sibling-doc voice — scope item for the worker brief
+
+Have the worker read 2–3 sibling docs in the same area before
+drafting (expanding the verbatim anchors central already pasted
+into the Voice field). For a `docs/` page, read its sibling pages.
+For a README section, read the rest of the README and the README
+of any closely-related project in the same repo. The worker notes:
 
 - **Tone** — terse vs narrative, formal vs gritty, you-the-reader
   vs we-the-team.
@@ -176,75 +218,91 @@ closely-related project in the same repo. Note:
 Voice mismatch is the #2 docs failure mode (after lying docs).
 Readers feel a tonal jolt before they can articulate it; the doc
 reads as foreign and the surrounding docs lose authority by
-association.
+association. The brief's verbatim Voice excerpts are the floor;
+the worker's M2 sampling is the expansion. Both are required.
 
-For drift-repair beads on an existing doc, the doc itself IS the
-voice sample — match the rest of the file you're editing, not
-your own preferred voice.
+For drift-repair beads on an existing doc, instruct the worker
+in the brief that the doc itself IS the voice sample — match the
+rest of the file being edited, not the worker's own preferred
+voice. (Central should still paste a representative passage from
+the target doc itself into the Voice field as the anchor.)
 
-#### M3. Draft
+#### M3. Draft — scope item for the worker brief
 
-Set stage `drafting`. Two modes:
+Have the worker draft per the bead's shape. Two modes the brief
+should call out:
 
-- **New doc** — draft the structure first (headings + a one-line
-  intent under each), get it right, then fill in prose. The
-  structure is the load-bearing part; if the structure is wrong
-  the prose can't fix it. For longer docs, post the heading
-  outline to the user before filling prose so a structural problem
-  gets caught early.
-- **Drift repair** — minimal surgery. Edit the paragraph that's
-  wrong; leave the surrounding paragraphs alone unless they're
-  also wrong. Resist the urge to "while I'm in here" rewrite — it
-  bloats the diff, mixes the bug-fix with editorial preference,
-  and makes the change hard to review.
+- **New doc** — worker drafts the structure first (headings + a
+  one-line intent under each), gets it right, then fills in prose.
+  The structure is the load-bearing part; if the structure is
+  wrong the prose can't fix it. For longer docs, the brief should
+  ask the worker to surface the heading outline in its return
+  summary so central can spot structural problems before approving
+  the prose pass (or trigger a re-dispatch with a corrected
+  outline).
+- **Drift repair** — minimal surgery. The worker edits the
+  paragraph that's wrong and leaves surrounding paragraphs alone
+  unless they're also wrong. The brief's Anti-scope field must
+  explicitly forbid "while I'm in here" rewrites — they bloat the
+  diff, mix the bug-fix with editorial preference, and make the
+  change hard to review.
 
-Examples in the doc must be runnable, not approximate. Use real
-file paths, real bead ids, real commands — values that round-trip
-when the reader pastes them. Placeholder text (`<your-id>`) is
-fine when the value genuinely varies per reader; never paper over
-"I didn't check what this should be" with a placeholder.
+The brief must require that examples in the doc are runnable, not
+approximate: real file paths, real bead ids, real commands —
+values that round-trip when the reader pastes them. Placeholder
+text (`<your-id>`) is acceptable when the value genuinely varies
+per reader; the worker must NEVER paper over "I didn't check what
+this should be" with a placeholder.
 
-#### M4. Review against code for accuracy
+#### M4. Review against code for accuracy — scope item for the worker brief
 
-Set stage `reviewing`. **This step is non-negotiable.** Re-read
-the code, feature, or behavior the doc describes. For each claim
-in the doc, verify:
+**This step is non-negotiable and the brief must say so explicitly.**
+Have the worker re-read the code, feature, or behavior the doc
+describes. For each claim in the doc, the worker verifies:
 
 - **Command examples** — actually run them. A bash block that
   pretends to demonstrate setup but errors on first invocation
-  is the canonical lying-doc failure. Run the commands; capture
-  the output if the doc shows output.
+  is the canonical lying-doc failure. The worker runs the
+  commands and captures the output if the doc shows output.
 - **API signatures, flag names, config keys** — match against the
-  current source, not your memory of it. Names drift quietly.
+  current source, not the worker's memory. Names drift quietly.
 - **Cross-references** — every file path, drawer slug, bead id,
   URL, and inter-doc link must resolve. Link rot is the #1 docs
-  failure mode in workflow-infrastructure projects; assume any
-  link not verified this session is broken.
+  failure mode in workflow-infrastructure projects; the brief
+  should instruct the worker to assume any link not verified this
+  session is broken.
 - **Order-of-operations** — if the doc says "first do X, then Y,"
-  walk the steps. Sequencing bugs are the most common substantive
-  error in setup docs.
-- **Audience-knowledge assumptions** — re-read with the audience's
-  context (user, contributor, on-call engineer). If a step
-  silently assumes context the audience doesn't have, name the
-  assumption or supply the context.
+  the worker walks the steps. Sequencing bugs are the most
+  common substantive error in setup docs.
+- **Audience-knowledge assumptions** — the worker re-reads with
+  the audience's context (user, contributor, on-call engineer). If
+  a step silently assumes context the audience doesn't have, the
+  worker names the assumption or supplies the context.
 
-When a verification fails, the answer is to fix the doc — not to
-loosen the claim into something vague. "Run `bd close <id>`"
-becomes "Run `bd close <id1> <id2> ... --reason='<one-line>'`"
-when verification shows the real shape; it does not become "Use
-the bd close command."
+When a verification fails, the brief should instruct the worker to
+fix the doc — not to loosen the claim into something vague. "Run
+`bd close <id>`" becomes "Run `bd close <id1> <id2> ...
+--reason='<one-line>'`" when verification shows the real shape; it
+does not become "Use the bd close command."
 
-If the verification surfaces that the underlying code is wrong
-(not the doc), pause and surface to the user. Pivoting to a
-bug-fix mid-docs-bead is fine; silently papering over a code bug
-in the doc is not.
+If the worker's verification surfaces that the underlying CODE is
+wrong (not the doc), that's a stop-and-report trigger — the worker
+returns to central rather than pivoting silently. Central decides
+whether to file a bug-shaped follow-up bead and pause the docs
+bead, or to absorb a small code fix into the same worker dispatch.
+Silently papering over a code bug in the doc is forbidden.
 
-#### M5. Optional decision-drawer capture
+The brief should ask the worker to include the M4 verification log
+(which commands ran, which links checked, what they returned) in
+its return summary as evidence — central spot-checks rather than
+re-running everything.
 
-Set stage `polishing`. Most docs beads finish at M4 — the doc is
-the deliverable, full stop. File a decision drawer ONLY when the
-doc encodes a project decision worth surfacing in palace search
-beyond the doc's lifetime:
+#### M5. Optional decision-drawer capture — scope item for the worker brief
+
+Most docs beads finish at M4 — the doc is the deliverable, full
+stop. The brief should instruct the worker to file a decision
+drawer ONLY when the doc encodes a project decision worth
+surfacing in palace search beyond the doc's lifetime:
 
 - An architecture choice the doc is the first articulation of
   (e.g., "we standardize on bash for hooks, not Python" — the doc
@@ -255,13 +313,18 @@ beyond the doc's lifetime:
 - A deprecation (e.g., "v1 working-a-bead is replaced by the
   recipe family" — drawer the migration plan, doc the new shape).
 
-When you do file a drawer, link it from the doc and link the doc
-from the drawer. The drawer remembers WHY; the doc remembers HOW.
+When the worker does file a drawer, the brief should require
+linking it from the doc and linking the doc from the drawer. The
+drawer remembers WHY; the doc remembers HOW.
 
 If the doc doesn't encode a decision — it's a how-to-use guide, a
-reference page, a quickstart — skip M5. Filing a drawer for every
-docs bead bloats the palace with non-decisions and makes future
-search noisier.
+reference page, a quickstart — the brief should explicitly tell
+the worker to skip M5. Filing a drawer for every docs bead bloats
+the palace with non-decisions and makes future search noisier.
+(Phase D3 still owns the *closing* drawer capture — that's central
+work post-merge, not part of the worker's scope. M5 here is only
+about a doc-encodes-a-decision artifact, distinct from the
+lifecycle-closing drawer.)
 
 ### Phase B — verification (delegate to shell, with docs extension)
 
