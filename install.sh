@@ -31,6 +31,58 @@ do_or_print() {
   fi
 }
 
+# Refuse to run from a linked worktree (loom-cuk). install.sh resolves
+# LOOM_ROOT from BASH_SOURCE; when invoked at .worktrees/<id>/install.sh
+# every `ln -s` bakes the worktree path as the symlink target. After the
+# worktree is cleaned up post-merge, every ~/.claude/ symlink dangles at
+# once (observed 2026-05-26: 95 dangling after loom-yjo cleanup).
+#
+# Detection: when LOOM_ROOT is inside a git checkout, compare it to the
+# git-common-dir's parent directory. They match iff LOOM_ROOT is the
+# main working tree. (`git-common-dir` always points at the shared
+# admin dir, regardless of which worktree you're in; its parent is the
+# main checkout's toplevel.)
+#
+# Falls through silently (no refusal) when:
+#   - LOOM_ROOT is outside any git checkout (no git context to evaluate)
+#   - The user sets LOOM_INSTALL_FROM_WORKTREE=1 (escape hatch for the
+#     rare case where install-from-worktree is intentional)
+#
+# Backstop: scripts/loom-doctor (loom-cuk M5) reports already-dangling
+# ~/.claude/ symlinks even when prevention slipped (e.g. older worktree
+# installs from before this guard landed).
+if [ "${LOOM_INSTALL_FROM_WORKTREE:-0}" != "1" ]; then
+  if _loom_top=$(git -C "$LOOM_ROOT" rev-parse --show-toplevel 2>/dev/null) \
+     && _loom_common=$(git -C "$LOOM_ROOT" rev-parse --git-common-dir 2>/dev/null); then
+    # git-common-dir may be relative — anchor to LOOM_ROOT.
+    case "$_loom_common" in
+      /*) ;;
+      *) _loom_common="$LOOM_ROOT/$_loom_common" ;;
+    esac
+    _loom_common=$(cd "$(dirname "$_loom_common")" && pwd)/$(basename "$_loom_common")
+    _loom_main=$(dirname "$_loom_common")
+    # Normalize both via realpath so symlinks (e.g. /home -> /Users on
+    # mac) don't cause spurious mismatch.
+    _loom_top_real=$(realpath "$_loom_top" 2>/dev/null || echo "$_loom_top")
+    _loom_main_real=$(realpath "$_loom_main" 2>/dev/null || echo "$_loom_main")
+    if [ "$_loom_top_real" != "$_loom_main_real" ]; then
+      echo "[loom-install] ERROR: install.sh must be run from the main loom checkout, not a linked worktree." >&2
+      echo "[loom-install]   current (worktree): $_loom_top_real" >&2
+      echo "[loom-install]   main checkout:      $_loom_main_real" >&2
+      echo "[loom-install]" >&2
+      echo "[loom-install] Running from a worktree bakes the worktree path into every" >&2
+      echo "[loom-install] ~/.claude/ symlink; post-merge worktree cleanup orphans them" >&2
+      echo "[loom-install] all at once. Cd to the main checkout and re-run:" >&2
+      echo "[loom-install]" >&2
+      echo "[loom-install]   cd $_loom_main_real && ./install.sh${DRY_RUN:+ --check}" >&2
+      echo "[loom-install]" >&2
+      echo "[loom-install] (Override with LOOM_INSTALL_FROM_WORKTREE=1 if this is intentional.)" >&2
+      exit 1
+    fi
+    unset _loom_top _loom_common _loom_main _loom_top_real _loom_main_real
+  fi
+fi
+
 # Sanity check: are we in the loom repo?
 for required in skills/bugfix-a-bead/SKILL.md hooks/bd-claim-research.sh settings.snippet.json; do
   if [ ! -f "$LOOM_ROOT/$required" ]; then
