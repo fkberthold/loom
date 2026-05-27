@@ -6,6 +6,10 @@
 #   - .mode    "full" | "light" | "off" (read by workflow_resolve_mode)
 #   - .guest   { active: bool, bd_mode: "host"|"personal"|"none",
 #                repo_key: "<basename>-<sha8>" }
+#   - .deploy  string — shell command surfaced by /wrap-up section 6 as a
+#              hint after the bead is closed. Optional. Empty / null /
+#              absent → /wrap-up skips the section silently. Surface-only;
+#              /wrap-up does NOT auto-run the command (loom-0k0).
 #
 # Sourceable library. Provides:
 #   workflow_config_path [start_dir]
@@ -13,6 +17,7 @@
 #   workflow_config_guest_get <field> [start_dir]         echo guest.<field>
 #   workflow_config_guest_on <bd_mode> <repo_key> [start_dir]
 #   workflow_config_guest_off [start_dir]
+#   workflow_resolve_deploy [start_dir]                   echo .deploy or ""
 #
 # bd_mode must be one of: host, personal, none.
 
@@ -141,4 +146,30 @@ workflow_config_guest_off() {
     printf '{"v": 1, "mode": "%s"}\n' "$mode" > "$path.tmp.$$"
     mv "$path.tmp.$$" "$path"
   fi
+}
+
+# Resolve .deploy — the project's wrap-up deploy-hint command (loom-0k0).
+# Echo the string verbatim; empty when absent, null, empty-string, malformed,
+# or workflow.json missing. Always exit 0 — /wrap-up must not crash on bad
+# config; an empty string just means "skip section 6 silently."
+workflow_resolve_deploy() {
+  local start="${1:-$PWD}"
+  local path
+  path=$(workflow_config_path "$start")
+  [ -f "$path" ] || return 0
+  local val=""
+  if command -v jq >/dev/null 2>&1; then
+    val=$(jq -r '.deploy // ""' "$path" 2>/dev/null || true)
+  else
+    # No-jq fallback: extract the .deploy string with grep/sed. Supports
+    # plain quoted-string values; nested objects / arrays unsupported (the
+    # whole schema is flat in practice).
+    val=$(grep -oE '"deploy"[[:space:]]*:[[:space:]]*"[^"]*"' "$path" 2>/dev/null \
+      | sed -E 's/^"deploy"[[:space:]]*:[[:space:]]*"(.*)"$/\1/' | head -1)
+  fi
+  # jq returns the literal string "null" for a JSON null when -r is used
+  # only if the filter explicitly evaluates to null — `.deploy // ""`
+  # already collapses null → "", so this guard is belt-and-suspenders.
+  [ "$val" = "null" ] && val=""
+  printf '%s' "$val"
 }

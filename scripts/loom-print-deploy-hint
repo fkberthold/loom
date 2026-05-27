@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# loom-print-deploy-hint — print "Next step (project deploy): <cmd>" if
+# the project's .claude/workflow.json has a .deploy field set; print
+# nothing otherwise. Always exits 0.
+#
+# Invoked by /wrap-up section 6 (loom-0k0). Bash-shebanged so the
+# resolver lib's BASH_SOURCE-based path detection works regardless of
+# which shell the caller is running. The lib is bash-only by design;
+# this wrapper isolates that constraint from /wrap-up's caller.
+#
+# Resolves its sibling lib via the script's own directory so the
+# worktree's script always uses the worktree's lib (and the installed
+# script uses the installed lib — both symlink chains stay consistent).
+
+set -uo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+lib="$script_dir/../lib/workflow-config.sh"
+
+[ -f "$lib" ] || exit 0   # lib missing (script moved?); silent skip
+
+# shellcheck source=/dev/null
+. "$lib"
+
+deploy_cmd=$(workflow_resolve_deploy "$PWD")
+[ -n "$deploy_cmd" ] || exit 0
+
+printf 'Next step (project deploy): %s\n' "$deploy_cmd"

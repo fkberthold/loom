@@ -65,34 +65,49 @@ If the closing surfaced anything worth follow-up (deferred polish,
 related beads to file), surface that to the user before exiting. Don't
 file beads automatically — let the user decide.
 
-## 6. (loom only) Re-deploy via install.sh
+## 6. Surface project deploy hint (if configured)
 
-Loom is the workflow-infrastructure repo — its primitives only take
-effect once symlinked into `~/.claude/`. Any /wrap-up that landed a
-new, renamed, or moved skill / command / agent / hook / lib / script
-needs install.sh to run before the changes are actually live.
+Some projects need a follow-up command run after the bead lands —
+loom needs `./install.sh` to symlink primitives into `~/.claude/`;
+a service repo might need a build step; most projects need
+nothing.
 
-**Detect loom checkout** (all conditions must hold):
-- `pwd` repo root contains `install.sh` AND `settings.snippet.json`
-- `install.sh` first line matches `#!/usr/bin/env bash` AND contains
-  the literal `loom install.sh` in its header comment
-
-If detected, run the deploy sequence below and report the output to
-the user. Skip silently in any other project (this step is a no-op).
+Read the project's `.claude/workflow.json` `.deploy` field. If it
+resolves to a non-empty string, surface it as a hint AND STOP —
+do not auto-run it. The user decides when (and whether) to
+execute the command.
 
 ```bash
-# Re-deploy: install.sh symlinks current loom files into ~/.claude/
-# and prunes dangling loom-owned symlinks left over from renamed
-# or deleted source files. Idempotent.
-./install.sh
+# Print "Next step (project deploy): <cmd>" if .deploy is set;
+# silent no-op otherwise. Always exits 0; safe in any project.
+~/.claude/scripts/loom-print-deploy-hint
 ```
 
-The historical (a) mkdir prelude (Gap 1) and (b) prune loop (Gap 2)
-that used to live here are now folded into install.sh itself
-(loom-1nf shipped Gap 3, loom-40e shipped Gap 2, Gap 1 was
-silently fixed earlier). See drawer
+The script wraps `workflow_resolve_deploy` in a bash-shebanged
+executable so it works regardless of the invoking shell (the lib
+itself uses `BASH_SOURCE` for path detection and is bash-only;
+the wrapper isolates that constraint).
+
+**Configuring a project:** add a `.deploy` string to
+`<project>/.claude/workflow.json`:
+
+```json
+{ "v": 1, "mode": "full", "deploy": "./install.sh" }
+```
+
+Loom itself ships this set to `./install.sh`. Any other project
+that wants a hint adds its own command — `./scripts/build`,
+`make deploy`, `kubectl apply -k ...`, whatever.
+
+History: this section used to detect-and-run loom's `install.sh`
+by literal-match on the file header, which leaked loom-specific
+guidance into unrelated projects when Claude elided the literal
+check (loom-0k0, 2026-05-26). The current shape is generic +
+surface-only — projects opt in via workflow.json, and `/wrap-up`
+never auto-runs a command. See
 `drawer_loom_decisions_5c6dbbce59f5373cf7b67935`
-("install.sh — TWO RENAME-DEPLOY GAPS FOUND") for the full lineage.
+("install.sh — TWO RENAME-DEPLOY GAPS FOUND") for the earlier
+install.sh-gap lineage that lived in this section.
 
 ## What to skip
 
