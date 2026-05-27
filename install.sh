@@ -279,6 +279,33 @@ else
   fi
 fi
 
+# Wire the post-rewrite hook into loom's own .git/hooks/ (loom-yjo).
+# After git rebase / commit --amend, the hook re-exports .beads/
+# issues.jsonl from dolt and auto-commits the result if it diverges
+# from HEAD — automating the manual `git add .beads/issues.jsonl &&
+# git commit -m 'bd: post-rebase re-export'` workaround. Composes
+# orthogonally with the bd-merge-driver above (loom-4um covers git
+# merge; this covers rebase-replay).
+#
+# Same symlink-with-non-symlink-skip pattern as pre-push above. Reuses
+# GIT_COMMON_DIR already resolved earlier.
+log ""
+log "Wiring post-rewrite hook in loom's .git/hooks/..."
+POST_REWRITE_TARGET="$GIT_COMMON_DIR/hooks/post-rewrite"
+POST_REWRITE_SOURCE="$LOOM_ROOT/hooks/post-rewrite.sh"
+if [ -e "$POST_REWRITE_TARGET" ] && [ ! -L "$POST_REWRITE_TARGET" ]; then
+  log "  SKIP: $POST_REWRITE_TARGET already exists (non-symlink) — integrate manually"
+elif [ -L "$POST_REWRITE_TARGET" ] && [ "$(readlink "$POST_REWRITE_TARGET")" = "$POST_REWRITE_SOURCE" ]; then
+  log "  already linked: $POST_REWRITE_TARGET -> $POST_REWRITE_SOURCE"
+else
+  if [ "$DRY_RUN" = "1" ]; then
+    log "  WOULD: ln -sf '$POST_REWRITE_SOURCE' '$POST_REWRITE_TARGET'"
+  else
+    ln -sf "$POST_REWRITE_SOURCE" "$POST_REWRITE_TARGET"
+    log "  linked $POST_REWRITE_TARGET -> $POST_REWRITE_SOURCE"
+  fi
+fi
+
 log ""
 log "Install complete."
 log ""
