@@ -376,6 +376,32 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 10. zsh portability — snippet must not use zsh-readonly variable names
+# ---------------------------------------------------------------------------
+#
+# Frank's shell is zsh; commands in /wrap-up are dogfooded against the user's
+# interactive shell. The snippet originally used `status=$(...)` which collides
+# with zsh's read-only $status variable (loom-6p6 dogfood surface 2026-05-27).
+
+echo "==> 10. zsh portability: snippet runs cleanly under zsh"
+
+if command -v zsh >/dev/null 2>&1; then
+  zout=$(cd "$LOOM_ROOT" && zsh -c "$(extract_snippet)" 2>&1); zrc=$?
+  if [ "$zrc" -eq 0 ]; then
+    pass "zsh: snippet exits 0"
+  else
+    fail "zsh: snippet exited non-zero" "rc=$zrc out=$zout"
+  fi
+  if echo "$zout" | grep -qi 'read-only variable'; then
+    fail "zsh: read-only variable collision in snippet" "$zout"
+  else
+    pass "zsh: no read-only-variable collision"
+  fi
+else
+  echo "  SKIP: zsh not installed; cannot verify zsh portability"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 

@@ -34,12 +34,12 @@ ids=$(git log --since="$since" --format='%s' main 2>/dev/null \
   | sort -u)
 open_ids=""
 for id in $ids; do
-  status=$(bd show "$id" --json 2>/dev/null \
+  bd_status=$(bd show "$id" --json 2>/dev/null \
     | python3 -c 'import json,sys
 try: d=json.load(sys.stdin)
 except Exception: d=[]
 print(d[0].get("status","") if isinstance(d,list) and d else "")' 2>/dev/null)
-  case "$status" in open|in_progress) open_ids="$open_ids $id" ;; esac
+  case "$bd_status" in open|in_progress) open_ids="$open_ids $id" ;; esac
 done
 open_ids=$(printf '%s\n' $open_ids | grep -v '^$' | sort -u)
 if [ -n "$open_ids" ]; then
