@@ -48,12 +48,35 @@ For each Bash tool call:
 1. `LOOM_CWD_DRIFT_GUARD_SKIP=1` (literal "1") → exit 0.
 2. `tool_name != "Bash"` → exit 0.
 3. Empty command → exit 0.
-4. Resolve `$PWD` via `python3 os.path.realpath`.
-5. cwd realpath does NOT contain `.claude/worktrees/agent-<id>` →
+4. Top-level `agent_id` or `agent_type` present as non-empty string
+   → exit 0 (worker-context exemption, loom-ehv).
+5. Resolve `$PWD` via `python3 os.path.realpath`.
+6. cwd realpath does NOT contain `.claude/worktrees/agent-<id>` →
    exit 0.
-6. Command does NOT match the central-op allowlist → exit 0.
-7. Otherwise → exit 2 with a recovery message naming the worktree
+7. Command does NOT match the central-op allowlist → exit 0.
+8. Otherwise → exit 2 with a recovery message naming the worktree
    root, the inferred main root, and the matched verb.
+
+### Worker-context exemption (loom-ehv, 2026-05-27)
+
+Claude Code's PreToolUse hook stdin payload carries optional
+top-level `agent_id` and `agent_type` fields when the hook fires
+inside a subagent (Task-tool spawn). Workers dispatched with
+`isolation: "worktree"` legitimately operate from inside their own
+`.claude/worktrees/agent-<id>/` directory — the central-drift
+assumption only applies to the ORCHESTRATOR's persistent-bash
+session, where a returned worker's worktree cwd can silently leak.
+With either marker present, the guard short-circuits silently so
+the worker can run `bd update --claim`, `bd close`, `git push`,
+etc., from its own worktree without bypass ceremony.
+
+Reference: https://code.claude.com/docs/en/hooks (PreToolUse JSON
+input — `agent_id` / `agent_type` fields).
+
+Why inlined (not via `lib/subagent-detect.sh`): that helper keys
+off `isSidechain` / `parentUuid` / `source`, which appear in
+SessionStart payloads but are NOT documented in PreToolUse. Two
+different payload schemas, two different signals.
 
 ## Central-op allowlist
 

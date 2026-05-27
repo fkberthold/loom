@@ -64,6 +64,30 @@ fi
 # Empty command → let underlying handle.
 [ -n "$CMD" ] || exit 0
 
+# Worker-context exemption (loom-ehv, 2026-05-27).
+# Claude Code's PreToolUse payload carries optional top-level
+# `agent_id` / `agent_type` fields when the hook fires inside a
+# subagent (Task-tool spawn — see https://code.claude.com/docs/en/hooks
+# "PreToolUse Hook JSON Input"). Workers legitimately operate from
+# their own `.claude/worktrees/agent-<id>/` worktree; the central-drift
+# assumption only applies to the ORCHESTRATOR's persistent-bash
+# session. Suppress the guard when either marker is a non-empty string.
+#
+# Why inline (not lib/subagent-detect.sh): that helper keys off
+# `isSidechain` / `parentUuid` / `source` — fields present in
+# SessionStart payloads but NOT documented in PreToolUse. Different
+# schemas, different signals. Inlining keeps the guard self-contained.
+if command -v jq >/dev/null 2>&1; then
+  AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // ""')
+  AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // ""')
+else
+  AGENT_ID=$(echo "$INPUT" | grep -oP '"agent_id"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
+  AGENT_TYPE=$(echo "$INPUT" | grep -oP '"agent_type"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
+fi
+if [ -n "$AGENT_ID" ] || [ -n "$AGENT_TYPE" ]; then
+  exit 0
+fi
+
 # Resolve cwd via realpath. The drift signature is a path containing
 # .claude/worktrees/agent-<id> somewhere in the resolved chain.
 PWD_REAL=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$PWD" 2>/dev/null) || PWD_REAL="$PWD"
