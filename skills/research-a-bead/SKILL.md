@@ -115,31 +115,60 @@ same question, restate the bead in terms of "extends X" or "narrows
 X" before continuing. Do not redo prior work; cite it and add only
 what's new.
 
-### Variable middle — M1 → M5 (recipe owns)
+### Variable middle — M1 → M5 (brief a worker)
 
-#### M1. Define the question
+Per `bead-lifecycle-shell § Dispatch discipline — central agent
+briefs a worker (loom-7p6)`, phase B is worker territory: brief a
+single worker in one dispatch covering the full variable middle,
+then review on return and re-dispatch only on surprises. The steps
+below are **scope items for the worker brief**, not central's own
+to-do list. Central does not run `mempalace_search`,
+`context7-plugin:docs`, or `WebFetch` itself during phase B; the
+worker drafts, central reviews and files the resulting MemPalace
+artifacts at phase D.
 
-Set stage `defining`. Write down the *exact* question the bead is
-asking, in one or two sentences, in your own words. This is not
-the bead title — it's the operational question whose answer will
-become the drawer body. Common failure: the bead title is broad
-("evaluate vector DBs"); the operational question is narrow ("does
-Chroma 1.5.7 still hit the multi-process Rust bug under our deep-
-sleep concurrency pattern?"). Find the narrow form before
-searching, or the search returns mush.
+**Dispatch shape for research beads.** Research is no-code by
+default (drawer + KG triples + maybe a `docs/` page), so the worker
+brief should default to **background dispatch without
+`isolation: "worktree"`** — there is no source change to isolate
+and a worktree adds ceremony without benefit. Add `isolation:
+"worktree"` only when the bead writes a tracked `docs/` artifact or
+other repo file that should branch + merge rather than land on main
+directly. The phase-ownership table in the shell still applies; the
+worktree clause is the research-specific exception.
+
+The worker brief packs M1 → M5 into the **Scope** section of the
+inline template at `bead-lifecycle-shell § Worker-brief template`.
+Phrase each step as one sentence pointing at this recipe; the
+worker reads the recipe for the details, the brief just names the
+discipline to enforce.
+
+#### M1. Have the worker define the question
+
+Worker sets stage `defining` and writes the *exact* question the
+bead is asking, in one or two sentences, in their own words. This
+is not the bead title — it's the operational question whose answer
+will become the drawer body. Common failure: the bead title is
+broad ("evaluate vector DBs"); the operational question is narrow
+("does Chroma 1.5.7 still hit the multi-process Rust bug under our
+deep-sleep concurrency pattern?"). The worker finds the narrow form
+before searching, or the search returns mush.
 
 If the question can't be stated in one or two sentences, it's two
-questions — split the bead before continuing.
+questions — worker stops and surfaces the split decision to central
+before continuing.
 
-State the question to the user before moving to M1.5. A misframed
-question is the most expensive failure mode of this recipe.
+The worker returns the question to central before moving to M1.5.
+A misframed question is the most expensive failure mode of this
+recipe; central confirms framing before the worker burns context on
+M2 searches.
 
-#### M1.5. Decompose the question across research axes
+#### M1.5. Have the worker decompose the question across research axes
 
-Set stage `scoping`. For each axis pair below, ask *does my
-question apply to both sides?* If yes, flag it so M2 searches
-both — don't let the question's surface wording skew the first
-wave to one side.
+Worker sets stage `scoping`. For each axis pair below, the worker
+asks *does my question apply to both sides?* If yes, the worker
+flags it so M2 searches both — don't let the question's surface
+wording skew the first wave to one side.
 
 - **static-config vs dynamic-trace** — declarations vs runtime.
 - **observable-from-logs vs observable-from-settings** — emitted
@@ -151,65 +180,70 @@ wave to one side.
 Worked example (loom-nsb): "what does context cost?" needs
 *both* static-config (prompt+schema bytes) AND dynamic-trace
 (per-call tokens accumulating per-session). The user redirected
-mid-bead because M2 only covered static. Decompose first, search
+mid-bead because M2 only covered static. The brief should name
+decomposition explicitly so the worker decomposes first, searches
 once.
 
-#### M2. Search prior art (local palace + tribal facts + diary)
+#### M2. Have the worker search prior art (local palace + tribal facts + diary)
 
-Set stage `searching`. The shell's A1 search was a quick scan; M2
-is the deep dive. Run, in order:
+Worker sets stage `searching`. The shell's A1 search was a quick
+scan; M2 is the worker's deep dive across all four internal
+sources. The brief should name the source ordering:
 
-1. `mempalace_search` — try multiple query rephrasings; semantic
-   search is sensitive to wording. Search both the project's wing
-   and any sibling wings where the topic might have surfaced
-   before (cross-project lineage is common — the LOOM PROVENANCE
-   drawer is the canonical example).
-2. `mempalace_kg_query` — for every named concept in the question.
-   The KG surfaces convention/design-family relationships that
-   semantic search can miss.
-3. `mempalace_traverse` and `mempalace_follow_tunnels` — when M2.1
-   surfaces a hub drawer; follow tunnels one or two hops to
-   discover lineage.
-4. `bd memories <keyword>` — tribal one-liners that auto-inject at
-   `bd prime` time.
+1. `mempalace_search` — worker tries multiple query rephrasings;
+   semantic search is sensitive to wording. Search both the
+   project's wing and any sibling wings where the topic might have
+   surfaced before (cross-project lineage is common — the LOOM
+   PROVENANCE drawer is the canonical example).
+2. `mempalace_kg_query` — worker queries every named concept in
+   the question. The KG surfaces convention/design-family
+   relationships that semantic search can miss.
+3. `mempalace_traverse` and `mempalace_follow_tunnels` — when
+   M2.1 surfaces a hub drawer; worker follows tunnels one or two
+   hops to discover lineage.
+4. `bd memories <keyword>` — tribal one-liners that auto-inject
+   at `bd prime` time.
 5. `mempalace_diary_read("<agent>", N)` — diary entries often
    capture design pivots that decision drawers don't, especially
    for partially-formed designs.
 6. `Grep` / `Glob` against the project — code is also prior art.
 
-Capture findings in a working buffer (scratch notes in the
-session, or a draft drawer). Keep verbatim quotes and source
-file/drawer paths so the synthesis at M4 can cite cleanly.
+Worker captures findings in a working buffer (scratch notes in
+the worker's session, or a draft drawer). Keep verbatim quotes
+and source file/drawer paths so the M4 synthesis can cite cleanly
+when central files the drawer at phase D.
 
-If M2 already produces a confident answer, jump to M4 — don't
-fetch external docs you don't need.
+If M2 already produces a confident answer, worker jumps to M4 —
+don't fetch external docs that aren't needed.
 
-#### M3. Fetch authoritative external docs (only if needed)
+#### M3. Have the worker fetch authoritative external docs (only if needed)
 
-Set stage `fetching`. Two routes, in order of preference:
+Worker sets stage `fetching`. Two routes, in order of preference:
 
-1. **Library / framework / API docs** — invoke the
-   `context7-plugin:docs` skill (or call the
+1. **Library / framework / API docs** — worker invokes the
+   `context7-plugin:docs` skill (or calls the
    `mcp__plugin_context7-plugin_context7__query-docs` tool
    directly). Context7 is the canonical route for library
    documentation; prefer it over web search when the question is
    "what does library X do" / "how do I configure Y."
-2. **Web search** — `WebSearch` for everything else: vendor
-   announcements, blog posts, RFC threads, GitHub issue
-   discussions. Always include a year filter (current year per
-   environment date) to avoid stale answers.
+2. **Web search / fetch** — `WebSearch` or `WebFetch` for
+   everything else: vendor announcements, blog posts, RFC threads,
+   GitHub issue discussions. Worker always includes a year filter
+   (current year per environment date) to avoid stale answers.
 
-Skip M3 entirely if M2 already answered the question. Research
-beads with a strong palace ground often need zero external fetch.
+Worker skips M3 entirely if M2 already answered the question.
+Research beads with a strong palace ground often need zero
+external fetch.
 
-When you do fetch, capture the source URL + date next to each
-quote so the synthesis at M4 stays auditable.
+When the worker does fetch, capture the source URL + date next to
+each quote so the M4 synthesis stays auditable for central's
+review.
 
-#### M4. Synthesize findings
+#### M4. Have the worker synthesize findings
 
-Set stage `synthesizing`. Compose the answer in the shape of a
-decision drawer body, even if the project also wants a docs/ file.
-Include:
+Worker sets stage `synthesizing` and composes the answer in the
+shape of a decision drawer body, even if the project also wants a
+docs/ file. The worker's synthesis should include:
 
 - The question, restated.
 - The answer, stated up front (not buried at the end).
@@ -221,36 +255,44 @@ Include:
   (palace cites, doc URLs, code refs).
 - OPEN — followups that became visible during the research.
 
-If the synthesis surfaces multiple distinct findings, draft them
-as separate drawers — one drawer = one decision is the canonical
-shape (per the `drawer-author` agent's discipline).
+If the synthesis surfaces multiple distinct findings, the worker
+drafts them as separate drawer bodies — one drawer = one decision
+is the canonical shape (per the `drawer-author` agent's discipline).
 
-#### M5. File findings
+#### M5. Have the worker surface findings for central to file
 
-Set stage `filing`. Three filings, in order:
+Worker sets stage `filing` and returns the drafted artifacts in
+the worker summary so central can file them at phase D. The brief
+should name four output classes:
 
-1. **Decision drawer** in the project's `decisions` room via
-   `mempalace_add_drawer`. The `drawer-author` subagent drafts
-   these well — invoke it with the synthesis from M4 plus links
-   to the bead and any commit.
-2. **KG triples** for convention or design-family relationships
-   surfaced by the research. The `kg-relationship-extractor`
-   subagent handles this. Skip in light mode unless the research
-   *is* a convention/family question — in which case the triples
-   are the deliverable, not optional.
+1. **Decision drawer body** — drafted in the worker's summary, ready
+   for central to file via `mempalace_add_drawer` into the project's
+   `decisions` room. The worker can invoke the `drawer-author`
+   subagent within its session to draft the drawer body well, but
+   the actual `mempalace_add_drawer` call belongs to central at
+   phase D.
+2. **KG triple proposals** — for convention or design-family
+   relationships surfaced by the research. The worker can invoke the
+   `kg-relationship-extractor` subagent to draft 3-5 triples; central
+   reviews and files via `mempalace_kg_add`. Skip in light mode
+   unless the research *is* a convention/family question — in which
+   case the triples are the deliverable, not optional.
 3. **Optional follow-up beads** — if the research uncovered work
-   that should happen but is out of scope for this bead, file it
-   as a child bead under the same epic (or as its own bead with a
-   pointer to the closing drawer). Don't expand scope here; file
-   and move on.
-4. **Optional `bd remember "<one-line>"`** — only for tribal facts
-   that future sessions need at `bd prime` time (the project-
-   keyword auto-inject). Multi-paragraph findings → drawer.
+   that should happen but is out of scope for this bead, the worker
+   names the candidate beads (title + one-line scope + parent epic)
+   in the summary; central files them via `bd create` at phase D.
+   Don't expand scope inside the worker session; surface and let
+   central decide.
+4. **Optional `bd remember "<one-line>"`** — worker proposes the
+   one-liner in the summary for tribal facts that future sessions
+   need at `bd prime` time (the project-keyword auto-inject); central
+   runs `bd remember` at phase D. Multi-paragraph findings → drawer.
 
 Cross-reference: if the closing drawer relates to a sibling drawer
 in another wing (e.g., loom research that extends an HAW finding),
-add a tunnel via `mempalace_create_tunnel` so the lineage is
-discoverable.
+the worker names the sibling drawer ID in the summary so central
+can add a tunnel via `mempalace_create_tunnel` at phase D and the
+lineage stays discoverable.
 
 ### Phase B — verification (delegate to shell, with research extension)
 
