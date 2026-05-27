@@ -81,6 +81,7 @@ nav:
       - Use guest mode: how-to/guest-mode.md
       - Where to update what: how-to/where-to-update-what.md
       - Scaffold a managed project's docs: how-to/scaffold-managed-project-docs.md
+      - Contribute a fix upstream: how-to/contribute-upstream.md
       - Common scenarios:
           - how-to/common-scenarios/index.md
           - New bug: how-to/common-scenarios/new-bug.md
@@ -111,6 +112,8 @@ nav:
       - Loom env vars: reference/loom-env-vars.md
       - Decision tables: reference/decision-tables.md
       - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
+      - upstream-a-bead recipe: reference/upstream-a-bead.md
+      - upstream:loom label: reference/upstream-loom-label.md
       - Glossary: reference/glossary.md
   - Explanation:
       - explanation/index.md
