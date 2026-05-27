@@ -106,6 +106,24 @@ machines and dispatched agents.
   Those should be filed in the loom tracker (`cd ~/repos/loom && bd
   create ...`) instead. Project trackers carry project-scoped work.
 
+## Opposite direction — `upstream:work` and `upstream:watch`
+
+The `upstream:loom` label moves discipline *into* loom from a
+downstream project. The opposite direction — moving a fix from
+loom OUT to someone else's repo — uses two paired labels:
+
+| Label | Applied to | Meaning |
+|---|---|---|
+| `upstream:work` | A loom-side work-bead | Drives the upstream contribution. Closes FAST on PR file via the [`upstream-a-bead`](upstream-a-bead.md) recipe. |
+| `upstream:watch` | A loom-side watch-bead | Auto-spawned at M7 of the recipe. Closes SLOW when [`/check-upstream-prs`](slash-commands/all-commands.md) detects the upstream PR merged (or surfaces for review on rejection). |
+
+If you are filing a workaround bead in a downstream project because
+of a loom-side bug, use `upstream:loom` (this page). If you are
+filing a fix *against* someone else's repo from inside loom, use
+`upstream:work` and follow [Contribute upstream](../how-to/contribute-upstream.md).
+The two label conventions compose orthogonally — a single bead
+never carries both.
+
 ## Lineage
 
 - Closes: loom-z3m.11 (P2 feature, design locked 2026-05-22)

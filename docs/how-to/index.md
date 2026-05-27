@@ -47,6 +47,12 @@ matches what you are about to do.
   — copy loom's Diataxis skeleton into a managed project with
   per-file approval; opt-out marker; post-scaffold audit.
 
+## Drive a fix into someone else's repo
+
+- [Contribute a fix upstream](./contribute-upstream.md) — the
+  two-bead lifecycle (work-bead closes fast on PR file; watch-bead
+  closes slow on upstream merge) via the `upstream-a-bead` recipe.
+
 ## Common scenarios
 
 Recipes for recurring situations that span multiple lifecycle
