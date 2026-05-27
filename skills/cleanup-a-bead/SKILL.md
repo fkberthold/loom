@@ -129,39 +129,59 @@ being removed AND what stays. Don't redo that scoping from scratch.
 
 ### Variable middle — M1 → M4 (recipe owns)
 
+**Phase B is worker territory.** Per `bead-lifecycle-shell §
+Dispatch discipline — central agent briefs a worker (loom-7p6)`,
+central dispatches a single worker via `Agent` + `isolation:
+"worktree"` covering the full M1 → M4 sequence in one brief. Do
+NOT Edit/Write/MultiEdit in the central session between bead-claim
+and bead-close. The steps below are **scope items for the worker
+brief**, not a to-do list central executes itself. Copy the
+worker-brief template from `bead-lifecycle-shell § Worker-brief
+template`; the per-step notes below populate its **Scope** field.
+Re-dispatch (vs. central polish-in-place) follows the rule in
+`bead-lifecycle-shell § Re-dispatch decision rule`.
+
+While the worker runs, central reviews prior art, answers user
+questions, or pre-stages the next bead — but does no code-work on
+this bead. When the worker returns, central re-runs the activity's
+verification harness (phase B) before integration.
+
 #### M1. Identify scope
 
-Set stage `scoping`. Write down two lists, in your own words:
+Have the worker set stage `scoping` and write down two lists, in
+their own words:
 
 1. **What gets removed.** The exact set of files, functions, configs,
    deps, hooks, symlinks, doc sections. Be specific to path or symbol
    level — "the foo helper" is not specific; `lib/foo.sh` and
    `lib/tests/foo.bats` is specific.
-2. **What's NOT being removed.** The adjacent things you might
+2. **What's NOT being removed.** The adjacent things one might
    *think* are also dead but aren't. This is the bounding fence
    around the diff. State it explicitly so the diff stays focused
    and so a reviewer can quickly verify scope.
 
-Sources for this scope, in order of authority:
+Sources the worker should draw on, in order of authority:
 
 - The originating bead/drawer (if A1 surfaced one).
 - `bd orphans` and `bd stale` output if the scope wasn't pre-defined.
-- A targeted `Grep` against the project for the names you intend to
-  remove — if the count of references is much higher than expected,
-  the thing is more alive than the bead assumed; pause and check.
+- A targeted `Grep` against the project for the names being removed
+  — if the count of references is much higher than expected, the
+  thing is more alive than the bead assumed; the worker should
+  surface this as a stop-and-report trigger rather than push through.
 
-State both lists to the user before moving to M2. Cleanup scope
-disagreements are cheap to resolve at M1 and expensive at M3.
+The worker reports both lists back in its return summary so central
+can spot-check before integration. Cleanup scope disagreements are
+cheap to resolve at M1 and expensive at M3.
 
 #### M2. Hunt orphan references — BEFORE removing
 
-Set stage `hunting-orphans`. This is the step that earns this recipe
-its keep. For every name, path, symbol, or config key on the
-"removed" list from M1, grep the entire repo (and adjacent repos if
-cross-project) and build a **kill-list** of every other file that
-references it.
+Have the worker set stage `hunting-orphans`. This is the step that
+earns this recipe its keep. For every name, path, symbol, or config
+key on the "removed" list from M1, the worker greps the entire repo
+(and adjacent repos if cross-project) and builds a **kill-list** of
+every other file that references it.
 
-Surfaces to scan that aren't covered by the test suite:
+Surfaces the worker must scan that aren't covered by the test suite:
 
 - **Docs** — README, walkthrough, and the published docs site under
   `docs/` (Diataxis quadrants: `docs/tutorials/`, `docs/how-to/`,
@@ -195,38 +215,42 @@ Surfaces to scan that aren't covered by the test suite:
   grep there too. The cd-chain hook discipline applies: cleanup at
   the source can ricochet into consumers.
 
-Write the kill-list as a plain bullet list. Each entry is a file +
-the change needed (delete the line / delete the file / regenerate /
-update the link). The kill-list is what M3 actually executes; M2 is
-the planning step.
+The worker writes the kill-list as a plain bullet list. Each entry
+is a file + the change needed (delete the line / delete the file /
+regenerate / update the link). The kill-list is what M3 actually
+executes; M2 is the planning step.
 
-If the kill-list is much larger than expected, surface it before
-proceeding. Sometimes a "small cleanup" is actually a cross-cutting
-deprecation that wants its own bead.
+If the kill-list is much larger than expected (~2× the brief's
+estimate), the worker surfaces it as a stop-and-report trigger
+rather than absorbing scope. Sometimes a "small cleanup" is
+actually a cross-cutting deprecation that wants its own bead;
+central decides whether to re-dispatch with revised scope or split.
 
 #### M3. Remove
 
-Set stage `removing`. Execute the kill-list in one focused commit.
-Include both the deletions and the kill-list updates (doc edits,
-config edits, symlink removals) in the same commit so the repo stays
-**consistent at every commit boundary** — never land a commit where
-the removed thing is gone but the references aren't, or vice versa.
+Have the worker set stage `removing` and execute the kill-list in
+one focused commit. The worker includes both the deletions and the
+kill-list updates (doc edits, config edits, symlink removals) in the
+same commit so the repo stays **consistent at every commit boundary**
+— never land a commit where the removed thing is gone but the
+references aren't, or vice versa.
 
-Use `git rm` for tracked files; for files outside the repo (e.g.,
-`~/.claude/...` symlinks created by install.sh), note the manual
-cleanup in the commit body and update install.sh in a separate,
-explicit commit if the install logic itself needs to change. The
-install.sh discipline from CLAUDE.md applies: this repo is
-canonical, symlinks are per-installation.
+The worker uses `git rm` for tracked files; for files outside the
+repo (e.g., `~/.claude/...` symlinks created by install.sh), notes
+the manual cleanup in the commit body and updates install.sh in a
+separate, explicit commit if the install logic itself needs to
+change. The install.sh discipline from CLAUDE.md applies: this repo
+is canonical, symlinks are per-installation.
 
-Keep the diff focused. Resist `while I'm here` adjacent fixes; if
-something else looks wrong, file a separate bead and move on. The
+The worker keeps the diff focused and resists `while I'm here`
+adjacent fixes. If something else looks wrong, the worker files a
+separate bead and moves on (per the brief's anti-scope). The
 cleanup commit's value is partly that future bisect can land on it
 cleanly when an orphan reference is found later.
 
 #### M4. Verify nothing broke
 
-Set stage `verifying`. Three layers, in order:
+Have the worker set stage `verifying` and run three layers, in order:
 
 1. **Full test suite** — run from a clean shell. Pass count should
    match baseline minus the deleted tests; no new failures.
@@ -245,8 +269,10 @@ Set stage `verifying`. Three layers, in order:
    commit's own diff. Hits are evidence M2 missed something.
 
 Cleanups can compile clean and lint clean and still break at runtime
-via orphan references. M4.3 is the runtime-trap canary; treat hits
-seriously even when they look benign.
+via orphan references. M4.3 is the runtime-trap canary; the worker
+treats hits seriously even when they look benign and surfaces them
+in its return summary so central can decide on re-dispatch vs.
+in-place polish.
 
 ### Phase B — verification (delegate to shell, with cleanup extension)
 
