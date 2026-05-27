@@ -19,8 +19,7 @@ the hook was installed, `7iz` had no work left — but `bd ready` still
 listed it.
 
 The label is the cross-tracker handshake. Pair it with the
-[`/check-loom-upstream`](slash-commands/check-loom-upstream.md) sweep
-to surface candidate clearings.
+`/check-loom-upstream` sweep to surface candidate clearings.
 
 ## Label literal
 
@@ -72,8 +71,7 @@ re-prompt on subsequent audits.
 
 ## /check-loom-upstream sweep
 
-The companion slash command
-[`/check-loom-upstream`](slash-commands/check-loom-upstream.md) reads
+The companion slash command `/check-loom-upstream` reads
 the project's `upstream:loom`-labeled beads and queries the loom repo
 (via `LOOM_REPO_PATH`) for recently-closed loom beads that may have
 addressed them. It pairs candidates and surfaces them as a
