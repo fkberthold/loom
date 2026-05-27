@@ -9,6 +9,48 @@ capture + push, in order:
 
 ## 1. Verify ready to close
 
+**Discovery sub-step (before asking the user)**: scan main for beads
+that were merged but never closed. Surfaces stranded work from prior
+parallel-dispatch sessions where the user's memory was the only
+binding between "merged" and "closed" (loom-6p6, 2026-05-27 — after
+loom-7p6.2–.6 were merged 2026-05-26 but never closed). Run the
+snippet below; if it surfaces any IDs, present them as the default
+close-set to the user with `"Found N bead(s) merged-to-main but
+still open: <ids>. Close all?"` — user confirms, edits, or
+overrides. If empty, fall through silently.
+
+```bash
+# DISCOVERY:START — find beads merged to main but still open/in_progress.
+# Prefix-agnostic; reuses the canonical bead-ID regex from
+# hooks/bd-close-capture.sh. Idempotent + safe to run in any project.
+since=$(bd list --status=closed --json 2>/dev/null \
+  | python3 -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception: d=[]
+print(max((x.get("closed_at","") for x in d if x.get("closed_at")), default=""))' 2>/dev/null)
+[ -z "$since" ] && since='7 days ago'
+ids=$(git log --since="$since" --format='%s' main 2>/dev/null \
+  | grep -oE '[a-z][a-z0-9_-]*-[0-9a-z]{3,}(\.[0-9a-z]+)*' \
+  | sort -u)
+open_ids=""
+for id in $ids; do
+  status=$(bd show "$id" --json 2>/dev/null \
+    | python3 -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception: d=[]
+print(d[0].get("status","") if isinstance(d,list) and d else "")' 2>/dev/null)
+  case "$status" in open|in_progress) open_ids="$open_ids $id" ;; esac
+done
+open_ids=$(printf '%s\n' $open_ids | grep -v '^$' | sort -u)
+if [ -n "$open_ids" ]; then
+  echo "Found bead(s) merged-to-main but still open:"
+  printf '  %s\n' $open_ids
+fi
+# DISCOVERY:END
+```
+
+Then continue with the user-confirmation flow:
+
 - Confirm with the user which bead(s) are wrapping up. If multiple,
   treat as a batch and process each in turn.
 - Run `bd show <id>` for each bead to get the title + status (must be
