@@ -154,12 +154,8 @@ exit 0
 
 ## Related
 
-- Watch-bead spawn convention:
-  [`skills/upstream-a-bead/SKILL.md`](../skills/upstream-a-bead/SKILL.md)
-  § M7.
-- Opposite-direction sibling:
-  [`commands/check-loom-upstream.md`](check-loom-upstream.md)
-  (project beads ↔ loom closes).
+- Watch-bead spawn convention: `skills/upstream-a-bead/SKILL.md` § M7.
+- Opposite-direction sibling: `/check-loom-upstream` (project beads ↔ loom closes).
 - Pruning the upstream clone cache: `/loom-upstream-gc`
   (loom-k2g.4, follow-on bead).
 - Closes: loom-k2g.3.
