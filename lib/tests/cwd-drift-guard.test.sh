@@ -49,6 +49,29 @@ print(json.dumps({"tool_name": sys.argv[1], "tool_input": {"command": sys.argv[2
   fi
 }
 
+# Like run_hook but injects extra top-level keys into the JSON payload
+# (e.g. `agent_id`, `agent_type`) to simulate Claude Code's PreToolUse
+# payload shape inside a subagent. Per
+# https://code.claude.com/docs/en/hooks the PreToolUse payload carries
+# optional `agent_id` / `agent_type` when fired inside a subagent —
+# the worker-context signal we use to suppress this hook.
+#   $1 = cwd
+#   $2 = tool name
+#   $3 = command string
+#   $4 = JSON snippet inserted at top level (e.g. '"agent_id":"abc"')
+run_hook_with_extra_payload() {
+  local cwd="$1" tool="$2" cmd="$3" extra_json="$4"
+  local payload
+  payload=$(python3 -c '
+import json, sys
+d = {"tool_name": sys.argv[1], "tool_input": {"command": sys.argv[2]}}
+extra = json.loads("{" + sys.argv[3] + "}")
+d.update(extra)
+print(json.dumps(d))
+' "$tool" "$cmd" "$extra_json")
+  (cd "$cwd" && bash "$HOOK" <<<"$payload" 2>&1)
+}
+
 # Build a main + worktree fixture.
 # Note: the worktree path must contain ".claude/worktrees/agent-<id>"
 # because the hook keys off that path pattern.
@@ -287,6 +310,87 @@ if [ "$rc" -eq 0 ]; then
   pass "empty command: hook silent"
 else
   fail "empty command triggered hook. rc=$rc" "$out"
+fi
+rm -rf "$(dirname "$MAIN")"
+
+# -------------------------------------------------------------------
+# 15. loom-ehv — worker-context payload should be allowed.
+# Claude Code's PreToolUse payload carries optional top-level
+# `agent_id` / `agent_type` fields when the hook fires inside a
+# subagent (Task-tool spawn). Workers legitimately operate from
+# their own `.claude/worktrees/agent-*/` worktree — the central-
+# drift assumption does not apply to them. With either marker
+# present, the hook must short-circuit (exit 0) even when cwd is
+# a worktree and the command is in the central-op allowlist.
+# -------------------------------------------------------------------
+
+echo "==> 15. Worker-context payload (agent_id / agent_type) → allow"
+
+FX=$(mk_main_plus_worktree)
+MAIN=$(echo "$FX" | cut -f1)
+WT=$(echo "$FX" | cut -f2)
+
+# 15a. agent_id present alone → allow.
+out=$(run_hook_with_extra_payload "$WT" Bash "bd update loom-foo --claim" '"agent_id":"worker-abc"'); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "agent_id present + bd update --claim from worktree: allowed (worker context)"
+else
+  fail "agent_id-present payload still blocked. rc=$rc" "$out"
+fi
+
+# 15b. agent_type present alone → allow.
+out=$(run_hook_with_extra_payload "$WT" Bash "git merge --no-ff frank/foo" '"agent_type":"general-purpose"'); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "agent_type present + git merge from worktree: allowed (worker context)"
+else
+  fail "agent_type-present payload still blocked. rc=$rc" "$out"
+fi
+
+# 15c. both markers present → allow.
+out=$(run_hook_with_extra_payload "$WT" Bash "bd close loom-foo" '"agent_id":"x","agent_type":"y"'); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "agent_id + agent_type both present + bd close from worktree: allowed"
+else
+  fail "both markers payload still blocked. rc=$rc" "$out"
+fi
+
+# 15d. empty-string agent_id → treat as ABSENT (central context),
+# so the central-drift block still fires. Defensive: only non-empty
+# string values count as a subagent marker.
+out=$(run_hook_with_extra_payload "$WT" Bash "bd update loom-foo --claim" '"agent_id":""'); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "empty-string agent_id treated as absent: central-drift still blocks"
+else
+  fail "empty agent_id incorrectly bypassed. rc=$rc" "$out"
+fi
+
+# 15e. agent_id present + main cwd → allow (hook is no-op outside
+# worktree anyway; documents that the new check composes harmlessly).
+out=$(run_hook_with_extra_payload "$MAIN" Bash "bd update loom-foo --claim" '"agent_id":"worker-abc"'); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "agent_id present + main cwd: allowed (no-op anyway)"
+else
+  fail "agent_id-present + main cwd unexpectedly blocked. rc=$rc" "$out"
+fi
+
+# 15f. agent_id present + worktree cwd + read-only op → allow
+# (would be allowed anyway; documents marker doesn't change anything).
+out=$(run_hook_with_extra_payload "$WT" Bash "git status" '"agent_id":"worker-abc"'); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "agent_id present + read-only op: allowed (already-allowed path)"
+else
+  fail "agent_id-present + read-only blocked. rc=$rc" "$out"
+fi
+
+# 15g. Regression guard for loom-d2o's original behavior:
+# NO agent markers + worktree cwd + central op → still blocks. This
+# is the central-drift case the original hook was built for; the
+# worker-context exemption must not weaken it.
+out=$(run_hook "$WT" Bash "bd update loom-foo --claim"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "no agent markers + central op + worktree cwd: still blocks (loom-d2o regression guard)"
+else
+  fail "central-drift case incorrectly allowed. rc=$rc" "$out"
 fi
 rm -rf "$(dirname "$MAIN")"
 
