@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# loom-doctor — health check for loom-installed primitives in
+# ~/.claude/. Reports dangling symlinks (target file no longer
+# exists) as the primary signal — the same failure mode that
+# motivated loom-cuk (95 dangling symlinks observed 2026-05-26
+# after a worktree was cleaned up post-merge while its install.sh
+# had been the source of the install).
+#
+# Walks each loom-owned subdirectory under $CLAUDE_HOME and looks
+# for symlinks whose target doesn't resolve. Loom-owned means: the
+# symlink target points into something that looks like a loom
+# repo (path contains 'loom' OR matches an explicit LOOM_ROOT
+# environment hint), so non-loom symlinks dropped by other tools
+# aren't false-flagged.
+#
+# Exit codes:
+#   0 = no dangling loom-owned symlinks found
+#   1 = one or more dangling symlinks reported
+#   2 = wrapper-level error (CLAUDE_HOME not a directory, etc.)
+#
+# Usage:
+#   loom-doctor                # default: scan $CLAUDE_HOME or ~/.claude
+#   loom-doctor --json         # machine-readable output
+#   loom-doctor --claude-home <path>   # override target dir
+#
+# Companion to install.sh's refuse-from-worktree guard (loom-cuk M4).
+# The guard prevents NEW dangling symlinks; the doctor surfaces ones
+# that pre-existed the guard (or slipped through via the
+# LOOM_INSTALL_FROM_WORKTREE=1 bypass).
+
+set -uo pipefail
+
+CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+OUTPUT_JSON=0
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --json) OUTPUT_JSON=1; shift ;;
+    --claude-home) CLAUDE_HOME="$2"; shift 2 ;;
+    --help|-h)
+      sed -n '1,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; /^set -uo/d; /^#!/d'
+      exit 0
+      ;;
+    *)
+      echo "loom-doctor: unknown arg: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [ ! -d "$CLAUDE_HOME" ]; then
+  echo "loom-doctor: CLAUDE_HOME not a directory: $CLAUDE_HOME" >&2
+  exit 2
+fi
+
+# Loom-owned subdirs we install into (see install.sh:48).
+SUBDIRS=(skills agents commands hooks lib scripts)
+
+# Collect dangling loom-owned symlinks.
+declare -a dangling=()
+declare -a dangling_targets=()
+
+for sub in "${SUBDIRS[@]}"; do
+  [ -d "$CLAUDE_HOME/$sub" ] || continue
+  # -maxdepth 4 catches lib/tests/<file> + skills/<name>/SKILL.md.
+  while IFS= read -r -d '' link; do
+    target=$(readlink "$link" 2>/dev/null) || continue
+    # Loom-owned heuristic: target path contains 'loom' (covers
+    # ~/repos/loom, /Users/x/repos/loom, /home/x/repos/loom-fork,
+    # ~/work/loom-staging, etc.). Conservative — non-loom symlinks
+    # are skipped to avoid false flags.
+    case "$target" in
+      *loom*) ;;
+      *) continue ;;
+    esac
+    if [ ! -e "$link" ]; then
+      dangling+=("$link")
+      dangling_targets+=("$target")
+    fi
+  done < <(find "$CLAUDE_HOME/$sub" -maxdepth 4 -type l -print0 2>/dev/null)
+done
+
+count="${#dangling[@]}"
+
+if [ "$OUTPUT_JSON" = "1" ]; then
+  printf '{"dangling_count":%d,"dangling":[' "$count"
+  for i in "${!dangling[@]}"; do
+    [ "$i" -gt 0 ] && printf ','
+    printf '{"link":"%s","target":"%s"}' \
+      "${dangling[$i]//\"/\\\"}" "${dangling_targets[$i]//\"/\\\"}"
+  done
+  printf ']}\n'
+else
+  if [ "$count" = "0" ]; then
+    echo "loom-doctor: OK — no dangling loom-owned symlinks under $CLAUDE_HOME"
+  else
+    echo "loom-doctor: FOUND $count dangling loom-owned symlink(s) under $CLAUDE_HOME"
+    echo ""
+    for i in "${!dangling[@]}"; do
+      echo "  ${dangling[$i]}"
+      echo "    -> ${dangling_targets[$i]}  (missing)"
+    done
+    echo ""
+    echo "These typically result from install.sh having been run from a"
+    echo "linked worktree that has since been cleaned up. To heal:"
+    echo "  cd <loom-main-checkout> && bash install.sh"
+    echo "The prune-then-relink pass removes orphans and re-creates"
+    echo "symlinks against the current main checkout."
+  fi
+fi
+
+[ "$count" = "0" ] || exit 1
+exit 0
