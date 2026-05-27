@@ -79,6 +79,7 @@ it before running the rest of this skill.
 | Implementation that warrants isolation | `superpowers:using-git-worktrees` |
 | Plan execution with review checkpoints | `superpowers:executing-plans` |
 | Verifying completion before commit | `superpowers:verification-before-completion` |
+| Upstream PR or issue contribution | `upstream-a-bead` |
 
 8. **Confirm intent.** Tell the user the bead, the process skill, and the immediate next action (1-2 sentences). Wait for `yes` / redirect before claiming or coding.
 
