@@ -116,6 +116,23 @@ for q in tutorials how-to reference explanation; do
   fi
 done
 
+# Regression guard (loom-tww, 2026-05-26): the four quadrant
+# landing pages historically shipped a `## Discipline` h2 section
+# that read awkwardly to end-users — it describes Diataxis
+# discipline RULES for *contributors*, not content for site
+# visitors. Downstream project mforth deleted them (commit 419554b);
+# this fixture pins the contract upstream so the sections cannot
+# silently return via template edits.
+echo "==> No contributor-facing '## Discipline' sections in quadrant indexes (loom-tww)"
+for q in tutorials how-to reference explanation; do
+  idx="$TMP/docs/$q/index.md"
+  if grep -q '^## Discipline' "$idx" 2>/dev/null; then
+    fail "$q/index.md has no '## Discipline' h2"
+  else
+    pass "$q/index.md has no '## Discipline' h2"
+  fi
+done
+
 echo "==> No surviving placeholders for the three known tokens"
 # Only flag the three tokens substitution is responsible for. GHA's
 # `${{ github.ref }}` syntax and any literal `{{ token }}` examples in
