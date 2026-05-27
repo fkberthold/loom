@@ -41,6 +41,7 @@
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-close-capture.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-preflight-docs-strict.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-worktree-preseed.sh"},
+          {"type": "command", "command": "bash $HOME/.claude/hooks/cwd-drift-guard.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/git-push-bd-sync.sh"}
         ]
       },

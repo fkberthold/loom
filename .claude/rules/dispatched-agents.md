@@ -197,3 +197,70 @@ from a prior crash needs preserving across the rebase. The wrapper
 refuses outside a linked worktree, snapshots untracked files,
 pre-detects collisions, and restores files post-rebase. See
 [`docs/reference/loom-rebase-worktree.md`](../../docs/reference/loom-rebase-worktree.md).
+
+## Central-side cwd verification (after worker dispatch returns)
+
+**Risk (loom-d2o, surfaced 2026-05-27 by the loom-7p6 + loom-cuk
+parallel-completion sequence).** This is the worker-side battery's
+mirror failure mode, on the CENTRAL agent's persistent-bash
+session. After 7 background workers were dispatched and one
+returned (loom-7p6.7), central's persistent-bash cwd silently
+resolved into the returned worker's
+`.claude/worktrees/agent-a36b96c117ccefeda/` — no explicit `cd`
+was issued. The next two ops mis-routed:
+
+- `bd close loom-7p6.7` ran in the worktree's bd context. The
+  worktree's `.beads/` permissions warning (`0775 != 0700`)
+  surfaced first; the close itself wrote to the worktree's dolt
+  and propagated through bd's sync layers from the wrong tree.
+- `git merge --no-ff frank/loom-7p6.7` returned 'Already up to
+  date' because from the worktree, the branch tip IS HEAD —
+  central thought it was merging into main, but was effectively
+  no-op'ing against the worker branch.
+
+The drift is silent: no notification, no banner, no diagnostic.
+Pre-completion `pwd` looked correct; post-worker-return `pwd`
+silently changed. Mechanism is opaque from the Claude Code
+harness's outside (persistent-bash cwd state may leak across the
+worker dispatch boundary, or the completion-notification path may
+propagate cwd back).
+
+**Mechanical fix.** The `hooks/cwd-drift-guard.sh` PreToolUse
+hook (loom-d2o) intercepts five central-context Bash commands
+when cwd resolves inside `.claude/worktrees/agent-*/`:
+
+- `git merge` (any options)
+- `git push` (any options)
+- `bd close` (any options)
+- `bd update` (any options)
+- `bd dolt push`
+
+It refuses with `exit 2` and emits a stderr message naming the
+worktree root, the inferred main root, and the recovery command
+(`cd <main-root> && <retry>`). Bypass via
+`LOOM_CWD_DRIFT_GUARD_SKIP=1` (literal-"1" match per loom-b1l;
+`=yes`/`=true`/`=0`/empty all rejected). See
+[`docs/reference/cwd-drift-guard.md`](../../docs/reference/cwd-drift-guard.md).
+
+Read-only ops (`git status`/`log`/`diff`/`branch`, `bd
+list`/`show`/`ready`) are NOT in the allowlist — they're safe
+from any cwd and pass through silently.
+
+**Convention fallback.** After any parallel-dispatch wave
+returns, central should verify cwd before the first
+merge/push/bd-close:
+
+```bash
+pwd                            # should be the main repo root
+git branch --show-current      # should be `main` (or central's branch)
+```
+
+If `pwd` shows a `.claude/worktrees/agent-<id>/` path, run
+`cd <main-root>` before any central-context op. The hook will
+also catch it mechanically; the convention is the read-only
+diagnostic.
+
+The hook composes with the worker-side battery: workers use the
+four-section pre-flight smoke test above; central uses the
+cwd-drift hook on returning from each dispatch wave. Defense in
+depth.
