@@ -102,6 +102,16 @@ audit. This is a deliberately user-pulled workflow.
     root of every loom-managed project; folded into one recipe by
     loom-tat after both customer trials (loom-b6o, loom-wxo)
     handled the workflow-state.json line manually.
+  - `[AUTOFIX:loom-env-block]` (item 16 WARN/MISS) — deep-merges
+    the canonical loom env block (`CLAUDE_CODE_ENABLE_TASKS=false`,
+    `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`) into
+    `<root>/.claude/settings.json`, overwriting only those two keys
+    and preserving every other key. Writes
+    `.claude/settings.json.pre-loom.bak` on first overwrite.
+    Idempotent — re-running against a canonical file is a no-op
+    that does not touch the backup. Counters the harness's
+    competing TaskCreate / MEMORY.md defaults on the per-project
+    layer (loom-7ro).
   Items NOT tagged AUTOFIX (item 2 `bd init`, item 5 MemPalace wing
   creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`)
   remain in the per-item approval queue. The flag never touches
@@ -844,6 +854,68 @@ form), apply the recipe:
   exactly the missing line being appended; the already-present
   line is never duplicated.
 
+- **`[AUTOFIX:loom-env-block]`** — gate first
+  (`refuse_if_guest AUTOFIX:loom-env-block`), then deep-merge the
+  canonical loom env block into `<root>/.claude/settings.json`. The
+  block:
+  ```json
+  {
+    "env": {
+      "CLAUDE_CODE_ENABLE_TASKS": "false",
+      "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
+    }
+  }
+  ```
+  Loom owns these two keys — conflicts on them OVERWRITE; every
+  other `env.*` key (and every non-env top-level key) is preserved
+  verbatim. The merge uses the same python-shape as loom's own
+  `install.sh` env-merge step (loom-7ro):
+  ```bash
+  mkdir -p "<root>/.claude"
+  if [ ! -f "<root>/.claude/settings.json" ]; then
+    cat >"<root>/.claude/settings.json" <<'JSON'
+  {
+    "env": {
+      "CLAUDE_CODE_ENABLE_TASKS": "false",
+      "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
+    }
+  }
+  JSON
+  else
+    python3 - "<root>/.claude/settings.json" <<'PYEOF'
+  import json, os, shutil, sys
+  path = sys.argv[1]
+  canonical = {
+      "CLAUDE_CODE_ENABLE_TASKS": "false",
+      "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+  }
+  with open(path) as f:
+      cur = json.load(f)
+  cur_env = cur.get("env", {}) if isinstance(cur.get("env"), dict) else {}
+  conflicts = [(k, cur_env[k], v) for k, v in canonical.items()
+               if k in cur_env and cur_env[k] != v]
+  additions = [k for k in canonical if k not in cur_env]
+  if not conflicts and not additions:
+      sys.exit(0)
+  backup = path + ".pre-loom.bak"
+  if not os.path.exists(backup):
+      shutil.copy2(path, backup)
+  merged = dict(cur_env)
+  for k, v in canonical.items():
+      merged[k] = v
+  cur["env"] = merged
+  with open(path, "w") as f:
+      json.dump(cur, f, indent=2); f.write("\n")
+  PYEOF
+  fi
+  ```
+  Writes `.claude/settings.json.pre-loom.bak` on first overwrite (the
+  python script handles the idempotency check internally — when both
+  keys are already canonical the script exits without writing and
+  without creating a backup). The lineage and motivation match loom's
+  install.sh env-merge step: counters the harness's competing
+  defaults (TaskCreate / MEMORY.md) on a per-project basis.
+
 For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
 queue for Step 4. Emit one summary line per skipped item: `--apply-
 onboarding: skipping item N (no AUTOFIX tag — requires human review)`.
@@ -885,6 +957,11 @@ Print a `## Auto-applied` section listing every change made:
 [AUTOFIX:gitignore-worktrees] @ <root>/.gitignore
   - appended `.claude/worktrees/`
   - appended `.claude/workflow-state.json`
+
+[AUTOFIX:loom-env-block] @ <root>/.claude/settings.json
+  - backed up to settings.json.pre-loom.bak
+  - merged env block: CLAUDE_CODE_ENABLE_TASKS=false (added),
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 (added)
 
 [DOC FIX][TRIVIAL] cardinality @ README.md:42
   - s/(105 dirs)/(106 dirs)/

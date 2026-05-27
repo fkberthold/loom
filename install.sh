@@ -267,6 +267,103 @@ EOF
   fi
 fi
 
+# Merge loom's canonical env block into <loom_root>/.claude/settings.json
+# (loom-7ro). The harness ships two competing defaults that loom rules
+# explicitly counter:
+#   - CLAUDE_CODE_ENABLE_TASKS=false — silence the TaskCreate/TodoWrite
+#     nudges (upstream #26038, #45986); loom rules require bd, not Tasks.
+#   - CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 — disable the auto-spawned
+#     MEMORY.md / bd remember surrogate (upstream #23544, #23750); loom
+#     rules require bd remember + MemPalace, not MEMORY.md.
+#
+# Project-level, not user-global: targets the loom repo's own
+# .claude/settings.json (and, by extension via /audit-project, each
+# downstream loom-managed project's). Loom owns these two keys —
+# conflicts on them OVERWRITE; other env keys preserved. First
+# overwrite writes .claude/settings.json.pre-loom.bak.
+log ""
+log "Project env-block merge into $LOOM_ROOT/.claude/settings.json:"
+PROJECT_SETTINGS_DIR="$LOOM_ROOT/.claude"
+PROJECT_SETTINGS="$PROJECT_SETTINGS_DIR/settings.json"
+if [ "$DRY_RUN" = "1" ]; then
+  log "  WOULD: merge canonical env block (CLAUDE_CODE_ENABLE_TASKS=false,"
+  log "         CLAUDE_CODE_DISABLE_AUTO_MEMORY=1) into $PROJECT_SETTINGS"
+else
+  mkdir -p "$PROJECT_SETTINGS_DIR"
+  if [ ! -f "$PROJECT_SETTINGS" ]; then
+    cat >"$PROJECT_SETTINGS" <<'JSON'
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TASKS": "false",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
+  }
+}
+JSON
+    log "  created $PROJECT_SETTINGS with canonical loom env block"
+  else
+    # Deep-merge: loom's two env keys overwrite; other env keys
+    # preserved; non-env top-level keys preserved. Backup on first
+    # overwrite (mirrors the user-global settings.json.pre-loom.bak
+    # pattern at line ~230). Log if a conflict was overwritten so the
+    # user can audit.
+    python3 - "$PROJECT_SETTINGS" <<'PYEOF'
+import json, os, shutil, sys
+
+path = sys.argv[1]
+canonical = {
+    "CLAUDE_CODE_ENABLE_TASKS": "false",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+}
+
+try:
+    with open(path) as f:
+        cur = json.load(f)
+except Exception as e:
+    print(f"[loom-install]   WARN: could not parse {path}: {e}", file=sys.stderr)
+    sys.exit(0)
+
+cur_env = cur.get("env", {}) if isinstance(cur.get("env"), dict) else {}
+conflicts = []
+additions = []
+for k, v in canonical.items():
+    if k in cur_env:
+        if cur_env[k] != v:
+            conflicts.append((k, cur_env[k], v))
+    else:
+        additions.append(k)
+
+# Idempotent no-op: both canonical keys already canonical → no write,
+# no backup.
+if not conflicts and not additions:
+    print(f"[loom-install]   loom env block already canonical in {os.path.basename(path)} (no change)")
+    sys.exit(0)
+
+# About to modify the file. Back up if there's no backup yet AND the
+# pre-existing file had ANY content to preserve (which is anything
+# other than the file we'd write fresh).
+backup = path + ".pre-loom.bak"
+if not os.path.exists(backup):
+    shutil.copy2(path, backup)
+    print(f"[loom-install]   backed up existing settings.json -> {os.path.basename(backup)}")
+
+merged_env = dict(cur_env)
+for k, v in canonical.items():
+    merged_env[k] = v
+cur["env"] = merged_env
+
+with open(path, "w") as f:
+    json.dump(cur, f, indent=2)
+    f.write("\n")
+
+for k, old, new in conflicts:
+    print(f"[loom-install]   overwrote env.{k}: '{old}' -> '{new}' (loom canonical wins)")
+for k in additions:
+    print(f"[loom-install]   added env.{k} = '{canonical[k]}'")
+print(f"[loom-install]   merged loom env block into {os.path.basename(path)}")
+PYEOF
+  fi
+fi
+
 # Wire the bd-merge-driver in loom's own .git/config (loom-4um).
 # Merge drivers are stored in git config (not in the tree), so the
 # repo's .gitattributes references `merge=bd-export` but nothing

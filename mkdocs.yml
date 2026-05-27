@@ -108,6 +108,7 @@ nav:
       - Path-scoped rules: reference/path-scoped-rules.md
       - bd CLI: reference/bd-cli.md
       - MemPalace MCP: reference/mempalace-mcp.md
+      - Loom env vars: reference/loom-env-vars.md
       - Decision tables: reference/decision-tables.md
       - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
       - Glossary: reference/glossary.md
