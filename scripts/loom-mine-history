@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# loom-mine-history — user-facing wrapper around the decision-archaeology
+# history-miner engine (lib/loom-mine-history.sh).
+#
+# The engine harvests a repo's merged PRs + merge/squash commits + release
+# tags, heuristically gates them, runs an LLM salience+draft pass behind a
+# mandatory cost gate, and emits a manifest (drafts.jsonl + kg-triples.jsonl)
+# to disk. The engine CANNOT file into MemPalace — MCP tools are not callable
+# from bash. This wrapper owns repo + wing RESOLUTION and engine INVOCATION;
+# the MCP palace filing belongs to skills/loom-mine-history/SKILL.md, which
+# drives this wrapper through the locked two-pass cost gate (dry-run preview →
+# user go-ahead → real pass) and then files the manifest.
+#
+# Design source: drawer_loom_decisions_e43e3693c8ee82e3bc6e34c6
+# (loom/decisions wing). Tracks loom-bn7.4. Engine: loom-bn7.1.
+#
+# Usage:
+#   scripts/loom-mine-history [--root <dir>] [--wing <name>] \
+#       [--since=DATE] [--since-release=TAG] [--max-units=N] \
+#       [--dry-run] [--model=MODEL] [--out <dir>]
+#
+#   --root <dir>          repo to mine (default: cwd's git toplevel)
+#   --wing <name>         MemPalace wing for filing (default: sanitized
+#                         basename of the repo root, `-`→`_`)
+#   --since=DATE          only commits/PRs since DATE (git --since)
+#   --since-release=TAG   only history after TAG
+#   --max-units=N         cap survivors fed to the LLM pass
+#   --dry-run             cost preview only; zero spend; NO manifest
+#   --model=MODEL         claude model (engine default: a cheap tier)
+#   --out <dir>           manifest output dir (REAL pass only; the skill
+#                         passes a tmp dir). Ignored under --dry-run.
+#
+# Two-pass contract (enforced jointly with the skill):
+#   - --dry-run invokes the engine with --dry-run and WITHOUT --out, so
+#     zero LLM spend and no manifest written. Prints the cost preview.
+#   - the real pass invokes the engine with --yes --out <dir>, writes the
+#     manifest, AND writes <dir>/wing (single line) + echoes the resolved
+#     wing — the engine emits no wing, the skill needs it for filing.
+#
+# Self-relative lib resolution (loom-0k0 pattern, see
+# scripts/loom-print-deploy-hint): the worktree's wrapper always uses the
+# worktree's lib; the installed wrapper uses the installed lib.
+
+set -uo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+lib="$script_dir/../lib/loom-mine-history.sh"
+
+if [ ! -f "$lib" ]; then
+  echo "loom-mine-history: engine lib not found at $lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$lib"
+
+# --- Parse wrapper flags --------------------------------------------------
+root=""
+wing=""
+out=""
+dry_run=0
+# Flags passed straight through to the engine.
+passthru=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --root)            shift; root="${1:-}" ;;
+    --root=*)          root="${1#--root=}" ;;
+    --wing)            shift; wing="${1:-}" ;;
+    --wing=*)          wing="${1#--wing=}" ;;
+    --out)             shift; out="${1:-}" ;;
+    --out=*)           out="${1#--out=}" ;;
+    --dry-run)         dry_run=1 ;;
+    --since|--since-release|--max-units|--model)
+      # Two-token forms: keep both tokens together for the engine.
+      flag="$1"; shift; passthru+=("$flag" "${1:-}") ;;
+    --since=*|--since-release=*|--max-units=*|--model=*)
+      passthru+=("$1") ;;
+    *)
+      echo "loom-mine-history: unrecognized argument '$1'" >&2
+      exit 2 ;;
+  esac
+  shift
+done
+
+# --- Resolve repo ---------------------------------------------------------
+# Precedence: --root override, else cwd's git toplevel.
+if [ -n "$root" ]; then
+  if [ ! -d "$root" ]; then
+    echo "loom-mine-history: --root '$root' does not exist or is not a directory" >&2
+    exit 2
+  fi
+  repo="$root"
+else
+  repo="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"
+  if [ -z "$repo" ]; then
+    echo "loom-mine-history: no --root given and cwd is not inside a git repository" >&2
+    exit 2
+  fi
+fi
+
+# Validate the resolved repo is a git working tree (covers --root pointing
+# at a real-but-non-git dir).
+if ! git -C "$repo" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "loom-mine-history: '$repo' is not a git repository" >&2
+  exit 2
+fi
+# Canonicalize so the wing basename is stable regardless of trailing slashes.
+repo="$(cd "$repo" && pwd)"
+
+# --- Resolve wing ---------------------------------------------------------
+# Precedence: --wing override, else sanitized basename of the repo root
+# (`-`→`_`, mirroring the liza_base convention). The project's mined drawers
+# land in this wing's `decisions` room, distinguished by provenance:mined.
+if [ -z "$wing" ]; then
+  wing="$(basename "$repo")"
+  wing="${wing//-/_}"
+fi
+
+# --- Invoke the engine ----------------------------------------------------
+if [ "$dry_run" -eq 1 ]; then
+  # Cost-preview only: --dry-run, no --out → zero spend, no manifest.
+  loom_mine_history "$repo" --dry-run "${passthru[@]}"
+  rc=$?
+  echo "(wing for filing: $wing)"
+  exit "$rc"
+fi
+
+# Real pass: requires an output dir to receive the manifest.
+if [ -z "$out" ]; then
+  echo "loom-mine-history: real pass requires --out <dir> (the skill passes a tmp dir)" >&2
+  exit 2
+fi
+mkdir -p "$out"
+
+loom_mine_history "$repo" --yes --out "$out" "${passthru[@]}"
+rc=$?
+
+# The engine emits no wing; the wrapper surfaces it to the skill.
+printf '%s\n' "$wing" > "$out/wing"
+echo "(wing for filing: $wing)"
+
+exit "$rc"
