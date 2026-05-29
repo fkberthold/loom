@@ -451,8 +451,11 @@ Files touched: $files"
       "$(printf '%s' "$drawer_body" | _lmh_json_escape)" \
       >> "$drafts_jsonl"
 
-    # EMIT KG triples: subject = the decision; three predicates.
-    local subject="$decision"
+    # EMIT KG triples: subject = the SOURCE unit (PR#/SHA), object of
+    # `decided` = the decision (design: PR#->decided->X). Subject must
+    # identify the source so the anchor is recoverable from the graph.
+    local subject
+    if [ "$typ" = "PR" ]; then subject="PR#$id"; else subject="$id"; fi
     printf '{"subject":"%s","predicate":"decided","object":"%s"}\n' \
       "$(printf '%s' "$subject" | _lmh_json_escape)" \
       "$(printf '%s' "$decision" | _lmh_json_escape)" >> "$triples_jsonl"

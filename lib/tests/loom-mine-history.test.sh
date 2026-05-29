@@ -488,6 +488,30 @@ for pred in decided mined_from authored_by; do
   fi
 done
 
+# The `decided` triple must link the SOURCE unit (PR#/SHA) to the
+# decision (design: PR#->decided->X), NOT be a tautology where the
+# subject equals the object. Pin subject != object so the source
+# anchor is recoverable from the graph.
+decided_line=$(grep '"predicate":"decided"' "$triples" 2>/dev/null | head -1)
+d_subj=$(printf '%s' "$decided_line" | sed -n 's/.*"subject":"\([^"]*\)".*/\1/p')
+d_obj=$(printf '%s' "$decided_line"  | sed -n 's/.*"object":"\([^"]*\)".*/\1/p')
+if [ -n "$d_subj" ] && [ "$d_subj" != "$d_obj" ]; then
+  pass "decided triple links source-id to decision (not a tautology)"
+else
+  fail "decided triple is tautological (subject==object)" "$decided_line"
+fi
+
+# All three triples for one unit must share the SAME source-id subject
+# so the graph clusters them on the source (PR#/SHA), not on the
+# decision text.
+mf_subj=$(grep '"predicate":"mined_from"' "$triples" 2>/dev/null | head -1 | sed -n 's/.*"subject":"\([^"]*\)".*/\1/p')
+ab_subj=$(grep '"predicate":"authored_by"' "$triples" 2>/dev/null | head -1 | sed -n 's/.*"subject":"\([^"]*\)".*/\1/p')
+if [ -n "$d_subj" ] && [ "$d_subj" = "$mf_subj" ] && [ "$d_subj" = "$ab_subj" ]; then
+  pass "all three triples share the same source-id subject"
+else
+  fail "triple subjects diverge across predicates" "decided=$d_subj mined_from=$mf_subj authored_by=$ab_subj"
+fi
+
 unset CLAUDE_REPLY_FILE
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
 
