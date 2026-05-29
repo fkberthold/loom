@@ -1,0 +1,485 @@
+#!/usr/bin/env bash
+# loom-mine-history.sh — deterministic core of the brownfield
+# "decision-archaeology" history miner.
+#
+# Mines a repo's merged PRs + merge/squash commits + release tags for
+# decisions that were stated in-flight but never captured in MemPalace.
+# Owns stages 1-4 of a 5-stage pipeline plus the manifest emit; the
+# stage-5 *MCP palace filing* belongs to the later bn7.4 skill and is
+# deliberately OUT OF SCOPE here. This lib's terminus is writing the
+# draft + KG-triple manifest to disk for the skill to file.
+#
+# Design source: drawer_loom_decisions_e43e3693c8ee82e3bc6e34c6
+# (loom/decisions wing). Tracks loom-bn7.1.
+#
+# Pipeline:
+#   1. HARVEST          — gh PRs (if authed) + git log commits + tags,
+#                         unified into source-tagged candidate records.
+#                         gh-absent degrades to git-only, never aborts.
+#   2. HEURISTIC GATE   — pure-bash scoring + threshold; no LLM.
+#   3. COST-PREVIEW gate— MANDATORY stdout preview; --dry-run stops
+#                         here; otherwise requires --yes / interactive y
+#                         before any LLM spend.
+#   4. LLM SALIENCE+DRAFT — per survivor, shell out to `claude -p`.
+#                         Trust gate: {"salient":false} → no draft.
+#   5. EMIT MANIFEST    — drafts.jsonl + kg-triples.jsonl (no palace
+#                         writes here — that's bn7.4).
+#
+# Conventions (mirrors lib/loom-upstream.sh):
+#   - This file is SOURCED, not executed. Sourcing has NO side effects.
+#   - NO `set -euo pipefail` at sourcing time — callers own shell opts.
+#   - Single-purpose functions; explicit returns.
+#   - jq-free JSON: extraction via sed/grep; emission via printf with
+#     manual escaping. The records we emit are simple flat objects.
+#
+# Entry point:
+#   loom_mine_history <repo-path> [flags]
+#     --since=DATE          only commits/PRs since DATE (git --since)
+#     --since-release=TAG   only history after TAG
+#     --max-units=N         cap survivors fed to the LLM pass
+#     --dry-run             stop after cost preview; zero spend
+#     --yes                 auto-confirm the cost gate
+#     --model=MODEL         claude model (default: a cheap tier)
+#     --out=DIR             write candidates/drafts/triples into DIR
+
+# Intentionally NO `set -euo pipefail` at source time.
+
+# Default cheap model tier for the salience pass.
+_LMH_DEFAULT_MODEL="claude-haiku-4-5"
+
+# ---------------------------------------------------------------------
+# JSON-string escaping (jq-free). Escapes backslash, quote, newline,
+# tab, carriage-return so a value can be embedded in our flat records.
+# ---------------------------------------------------------------------
+_lmh_json_escape() {
+  # Reads stdin, prints the escaped string (no surrounding quotes).
+  local s
+  s=$(cat)
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\t'/\\t}
+  s=${s//$'\r'/}
+  # Encode embedded newlines as \n.
+  s=${s//$'\n'/\\n}
+  printf '%s' "$s"
+}
+
+# Extract a flat string field from one of OUR candidate records (the
+# pipe-delimited internal format), NOT arbitrary JSON.
+
+# ---------------------------------------------------------------------
+# Heuristic scoring of a COMMIT.
+#   args: subject, body, files (newline-joined)
+#   echo: integer score; >=2 survives. Junk patterns force a hard drop
+#   (score 0) regardless of other signals.
+# ---------------------------------------------------------------------
+_lmh_score_commit() {
+  local subject="$1" body="$2" files="$3"
+  local score=0
+  local lc
+  lc=$(printf '%s' "$subject" | tr '[:upper:]' '[:lower:]')
+
+  # Hard-drop junk subjects.
+  case "$lc" in
+    wip*|*"wip:"*|fixup*|"fixup!"*|squash!*|typo*|*" typo"*|bump*|"merge main"*|"merge branch"*|revert*|*"revert \""*)
+      echo 0; return 0 ;;
+  esac
+  # Revert anywhere in subject.
+  if printf '%s' "$lc" | grep -qi 'revert'; then echo 0; return 0; fi
+
+  # Substantial message body (multi-line rationale).
+  local body_len
+  body_len=$(printf '%s' "$body" | wc -c)
+  [ "$body_len" -ge 40 ] && score=$((score + 1))
+
+  # Subject is reasonably descriptive (not a one-word stub).
+  local subj_words
+  subj_words=$(printf '%s' "$subject" | wc -w)
+  [ "$subj_words" -ge 3 ] && score=$((score + 1))
+
+  # Touches a decision-shaped file.
+  if _lmh_files_are_decisiony "$files"; then
+    score=$((score + 2))
+  fi
+
+  # Rationale-shaped language in body.
+  if printf '%s' "$body" | grep -qiE 'because|trade-?off|chose|decision|rfc|instead of|rather than'; then
+    score=$((score + 1))
+  fi
+
+  echo "$score"
+}
+
+# ---------------------------------------------------------------------
+# Heuristic scoring of a PR.
+#   args: title, body, labels (comma-joined), files (newline-joined),
+#         has_review (1/0)
+#   echo: integer score; >=2 survives.
+# ---------------------------------------------------------------------
+_lmh_score_pr() {
+  local title="$1" body="$2" labels="$3" files="$4" has_review="$5"
+  local score=0
+
+  # Review discussion present.
+  [ "$has_review" = "1" ] && score=$((score + 1))
+
+  # Body length.
+  local body_len
+  body_len=$(printf '%s' "$body" | wc -c)
+  [ "$body_len" -ge 60 ] && score=$((score + 1))
+
+  # Decision-flavored labels.
+  if printf '%s' "$labels" | grep -qiE 'breaking|design|rfc'; then
+    score=$((score + 2))
+  fi
+
+  # Closes an issue.
+  if printf '%s' "$body" | grep -qiE 'closes #|fixes #|resolves #'; then
+    score=$((score + 1))
+  fi
+
+  # Decision-shaped files.
+  if _lmh_files_are_decisiony "$files"; then
+    score=$((score + 1))
+  fi
+
+  # Rationale language in title/body.
+  if printf '%s\n%s' "$title" "$body" | grep -qiE 'because|trade-?off|chose|decision|rfc|instead of|rather than|adopt'; then
+    score=$((score + 1))
+  fi
+
+  echo "$score"
+}
+
+# True (rc 0) if any file path looks decision-shaped: schema,
+# migrations, *.proto, interface files, *config*.
+_lmh_files_are_decisiony() {
+  local files="$1"
+  printf '%s' "$files" | grep -qiE 'schema|migrat|\.proto$|interface|config' && return 0
+  return 1
+}
+
+# ---------------------------------------------------------------------
+# HARVEST: git commits + tags. Emits one TSV record per commit on
+# stdout: TYPE \t ID \t AUTHOR \t DATE \t SUBJECT \t BODY \t FILES \t ANCHOR
+# Body/subject/files have embedded newlines escaped to \n already, so
+# each record is exactly one line.
+# ---------------------------------------------------------------------
+_lmh_harvest_git() {
+  local repo="$1" since="$2" since_release="$3"
+  local rev_range=() log_args=()
+
+  if [ -n "$since_release" ]; then
+    rev_range=("${since_release}..HEAD")
+  fi
+  if [ -n "$since" ]; then
+    log_args+=("--since=$since")
+  fi
+
+  # Collect tag→commit map for release-commit tagging.
+  local tagged_shas
+  tagged_shas=$(git -C "$repo" for-each-ref --format='%(objectname:short) %(refname:short)' refs/tags 2>/dev/null)
+
+  # Use a unit separator between records and a field separator that
+  # won't appear in commit text. \x1f = field, \x1e = record.
+  git -C "$repo" log --no-merges \
+      --pretty=format:'%x1e%h%x1f%an%x1f%aI%x1f%s%x1f%b%x1f' \
+      "${log_args[@]}" "${rev_range[@]}" 2>/dev/null \
+  | awk 'BEGIN{RS="\x1e";FS="\x1f"} NF>=4 {
+      print $1 "\x1f" $2 "\x1f" $3 "\x1f" $4 "\x1f" $5
+    }' \
+  | while IFS=$'\x1f' read -r sha author date subject body; do
+      [ -z "$sha" ] && continue
+      local files
+      files=$(git -C "$repo" show --name-only --pretty=format: "$sha" 2>/dev/null | grep -v '^$' | tr '\n' ',')
+      # Tag this commit if it carries a release tag.
+      local is_tag=""
+      if printf '%s\n' "$tagged_shas" | grep -q "^$sha "; then
+        is_tag="tag"
+      fi
+      printf 'COMMIT\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$sha" "$author" "$date" \
+        "$(printf '%s' "$subject" | tr '\n\t' '  ')" \
+        "$(printf '%s' "$body" | tr '\n\t' '  ')" \
+        "$files" \
+        "${is_tag}"
+    done
+}
+
+# ---------------------------------------------------------------------
+# HARVEST: gh merged PRs. Emits one TSV record per PR:
+# TYPE \t NUMBER \t AUTHOR \t DATE \t TITLE \t BODY \t FILES \t URL \t LABELS \t HAS_REVIEW
+# Degrades to nothing (rc 0) when gh is unauthenticated/absent.
+# ---------------------------------------------------------------------
+_lmh_harvest_gh() {
+  local repo="$1"
+  # Detect gh access. If unauthenticated, degrade gracefully.
+  if ! command -v gh >/dev/null 2>&1; then return 0; fi
+  if ! gh auth status >/dev/null 2>&1; then return 0; fi
+
+  local json
+  json=$(gh pr list --state merged \
+           --json number,title,body,labels,files,author,mergedAt,url \
+           2>/dev/null)
+  [ -z "$json" ] && return 0
+  [ "$json" = "[]" ] && return 0
+
+  # jq-free parse: split the array into per-object chunks on '},{' and
+  # extract flat fields with sed. The harvest JSON is machine-emitted
+  # and stable enough for this; tests pin the exact shape.
+  # Normalize: strip outer brackets, split objects.
+  # NB: append a trailing newline (printf '%s\n') so `while read` does
+  # not drop the final object on an unterminated last line.
+  printf '%s\n' "$json" \
+    | sed 's/^\[//; s/\]$//' \
+    | sed 's/},[[:space:]]*{/}\n{/g' \
+    | while IFS= read -r obj; do
+        [ -z "$obj" ] && continue
+        local number title body url author date labels files has_review
+        number=$(printf '%s' "$obj" | sed -n 's/.*"number":\([0-9]*\).*/\1/p')
+        title=$(printf '%s' "$obj"  | sed -n 's/.*"title":"\([^"]*\)".*/\1/p')
+        body=$(printf '%s' "$obj"   | sed -n 's/.*"body":"\(.*\)","labels".*/\1/p')
+        [ -z "$body" ] && body=$(printf '%s' "$obj" | sed -n 's/.*"body":"\([^"]*\)".*/\1/p')
+        url=$(printf '%s' "$obj"    | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
+        author=$(printf '%s' "$obj" | sed -n 's/.*"login":"\([^"]*\)".*/\1/p')
+        date=$(printf '%s' "$obj"   | sed -n 's/.*"mergedAt":"\([^"]*\)".*/\1/p')
+        # Labels: collect every "name":"X" inside the labels array.
+        labels=$(printf '%s' "$obj" | grep -oE '"name":"[^"]*"' | sed 's/"name":"//; s/"$//' | tr '\n' ',')
+        # Files: collect every "path":"X".
+        files=$(printf '%s' "$obj"  | grep -oE '"path":"[^"]*"' | sed 's/"path":"//; s/"$//' | tr '\n' ',')
+        # Review discussion: probe gh api for review threads. The stub
+        # may return nothing; treat non-empty as has_review=1.
+        local rt
+        rt=$(gh api "repos/{owner}/{repo}/pulls/$number/comments" 2>/dev/null)
+        has_review=0
+        [ -n "$rt" ] && has_review=1
+        printf 'PR\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+          "$number" "$author" "$date" \
+          "$(printf '%s' "$title" | tr '\n\t' '  ')" \
+          "$(printf '%s' "$body"  | tr '\n\t' '  ')" \
+          "$files" "$url" "$labels" "$has_review"
+      done
+}
+
+# ---------------------------------------------------------------------
+# loom_mine_history <repo-path> [flags]
+# ---------------------------------------------------------------------
+loom_mine_history() {
+  local repo="" since="" since_release="" max_units="" out=""
+  local dry_run=0 yes=0
+  local model="$_LMH_DEFAULT_MODEL"
+
+  # First positional is the repo path; flags may follow.
+  if [ -n "${1:-}" ] && [ "${1#--}" = "$1" ]; then
+    repo="$1"; shift
+  fi
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --since=*)         since="${1#--since=}" ;;
+      --since-release=*) since_release="${1#--since-release=}" ;;
+      --max-units=*)     max_units="${1#--max-units=}" ;;
+      --dry-run)         dry_run=1 ;;
+      --yes)             yes=1 ;;
+      --model=*)         model="${1#--model=}" ;;
+      --model)           shift; model="${1:-$model}" ;;
+      --out=*)           out="${1#--out=}" ;;
+      --out)             shift; out="${1:-}" ;;
+      --since)           shift; since="${1:-}" ;;
+      --since-release)   shift; since_release="${1:-}" ;;
+      --max-units)       shift; max_units="${1:-}" ;;
+      *)
+        # Unrecognized — if repo unset, treat as repo path.
+        if [ -z "$repo" ]; then repo="$1"; fi ;;
+    esac
+    shift
+  done
+
+  if [ -z "$repo" ]; then
+    echo "loom_mine_history: missing <repo-path>" >&2
+    return 2
+  fi
+  if ! git -C "$repo" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "loom_mine_history: $repo is not a git repository" >&2
+    return 2
+  fi
+
+  # ---- STAGE 1: HARVEST ------------------------------------------
+  local harvest
+  harvest=$( { _lmh_harvest_gh "$repo"; _lmh_harvest_git "$repo" "$since" "$since_release"; } )
+  local harvested_count=0
+  [ -n "$harvest" ] && harvested_count=$(printf '%s\n' "$harvest" | grep -c .)
+
+  # ---- STAGE 2: HEURISTIC GATE -----------------------------------
+  # Survivors written to a temp file as TSV records (same shape as
+  # harvest). The candidate JSONL is built alongside.
+  local survivors candidates_jsonl
+  survivors=$(mktemp)
+  candidates_jsonl=$(mktemp)
+
+  printf '%s\n' "$harvest" | while IFS=$'\t' read -r typ id author date c1 c2 c3 c4 c5 c6; do
+    [ -z "$typ" ] && continue
+    local score=0 title="" body="" files="" url="" labels="" has_review="0"
+    if [ "$typ" = "COMMIT" ]; then
+      title="$c1"; body="$c2"; files="$c3"
+      score=$(_lmh_score_commit "$title" "$body" "$files")
+    elif [ "$typ" = "PR" ]; then
+      title="$c1"; body="$c2"; files="$c3"; url="$c4"; labels="$c5"; has_review="$c6"
+      score=$(_lmh_score_pr "$title" "$body" "$labels" "$files" "$has_review")
+    fi
+    if [ "${score:-0}" -ge 2 ]; then
+      # Survivor record (keep all fields for the LLM pass).
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$typ" "$id" "$author" "$date" "$title" "$body" "$files" "$url" "$labels" >> "$survivors"
+      # Candidate JSONL line.
+      printf '{"source_type":"%s","source_id":"%s","author":"%s","date":"%s","title":"%s","anchor":"%s"}\n' \
+        "$typ" \
+        "$(printf '%s' "$id" | _lmh_json_escape)" \
+        "$(printf '%s' "$author" | _lmh_json_escape)" \
+        "$(printf '%s' "$date" | _lmh_json_escape)" \
+        "$(printf '%s' "$title" | _lmh_json_escape)" \
+        "$(printf '%s' "${url:-$id}" | _lmh_json_escape)" >> "$candidates_jsonl"
+    fi
+  done
+
+  local gated_count=0
+  [ -f "$survivors" ] && gated_count=$(grep -c . "$survivors" 2>/dev/null || echo 0)
+
+  # Apply --max-units cap to survivors fed to the LLM pass.
+  if [ -n "$max_units" ] && [ "$max_units" -ge 0 ] 2>/dev/null; then
+    head -n "$max_units" "$survivors" > "${survivors}.capped" 2>/dev/null
+    mv "${survivors}.capped" "$survivors"
+    head -n "$max_units" "$candidates_jsonl" > "${candidates_jsonl}.capped" 2>/dev/null
+    mv "${candidates_jsonl}.capped" "$candidates_jsonl"
+    gated_count=$(grep -c . "$survivors" 2>/dev/null || echo 0)
+  fi
+
+  # Write candidates.jsonl if --out given.
+  if [ -n "$out" ]; then
+    mkdir -p "$out"
+    cp "$candidates_jsonl" "$out/candidates.jsonl"
+  fi
+
+  # ---- STAGE 3: COST-PREVIEW gate (MANDATORY) --------------------
+  echo "cost-preview: ${harvested_count} harvested -> ${gated_count} gated -> ~${gated_count} LLM reads, est <= ${gated_count} model calls (model=${model})"
+
+  if [ "$dry_run" -eq 1 ]; then
+    # Side-effect-free: print gated summary, stop. No LLM, no drafts.
+    echo "--dry-run: stopping before LLM pass (zero spend)."
+    if [ -s "$candidates_jsonl" ]; then
+      echo "gated candidates:"
+      cat "$candidates_jsonl"
+    else
+      echo "gated candidates: (none survived the heuristic gate)"
+    fi
+    rm -f "$survivors" "$candidates_jsonl"
+    return 0
+  fi
+
+  # Require confirmation before any LLM spend.
+  if [ "$yes" -ne 1 ]; then
+    if [ -t 0 ]; then
+      printf 'Proceed with %s LLM reads? [y/N] ' "$gated_count" >&2
+      local reply=""
+      read -r reply
+      case "$reply" in
+        y|Y|yes|YES) : ;;
+        *)
+          echo "loom_mine_history: aborted at cost gate (no confirmation)." >&2
+          rm -f "$survivors" "$candidates_jsonl"
+          return 3 ;;
+      esac
+    else
+      echo "loom_mine_history: aborted at cost gate — non-interactive and --yes not given." >&2
+      rm -f "$survivors" "$candidates_jsonl"
+      return 3
+    fi
+  fi
+
+  # ---- STAGE 4 + 5: LLM SALIENCE + DRAFT, EMIT MANIFEST ----------
+  local drafts_jsonl triples_jsonl
+  drafts_jsonl=$(mktemp)
+  triples_jsonl=$(mktemp)
+
+  while IFS=$'\t' read -r typ id author date title body files url labels; do
+    [ -z "$typ" ] && continue
+
+    # Build the source text passed to the model.
+    local source_text
+    source_text="Source type: $typ
+Identifier: $id
+Title: $title
+Body: $body
+Files touched: $files"
+
+    # Shell out to claude. Stub-interceptable shape.
+    local reply
+    reply=$(claude -p "$source_text" --model "$model" --output-format json 2>/dev/null)
+
+    # Tolerate an enveloped reply ({"result":"<json>"}): if "salient"
+    # isn't at top level, try to unwrap a nested result string.
+    local salient
+    salient=$(printf '%s' "$reply" | sed -n 's/.*"salient":[[:space:]]*\(true\|false\).*/\1/p' | head -1)
+
+    if [ "$salient" != "true" ]; then
+      # Trust gate: not salient (or unparseable) → emit NO draft.
+      continue
+    fi
+
+    local verbatim synthesis decision
+    verbatim=$(printf '%s' "$reply"  | sed -n 's/.*"verbatim":"\([^"]*\)".*/\1/p' | head -1)
+    synthesis=$(printf '%s' "$reply" | sed -n 's/.*"synthesis":"\([^"]*\)".*/\1/p' | head -1)
+    decision=$(printf '%s' "$reply"  | sed -n 's/.*"decision":"\([^"]*\)".*/\1/p' | head -1)
+    [ -z "$decision" ] && decision="$title"
+
+    local anchor="${url:-$id}"
+
+    # drawer_body = verbatim + separated synthesis + anchor line.
+    local drawer_body
+    drawer_body="${verbatim}"$'\n\n'"---"$'\n\n'"${synthesis}"$'\n\n'"Source: ${typ} ${id} (${anchor}) by ${author} on ${date}"
+
+    # EMIT one draft.
+    printf '{"source_id":"%s","source_type":"%s","anchor":{"id":"%s","url":"%s","date":"%s","author":"%s"},"verbatim":"%s","synthesis":"%s","drawer_body":"%s","room":"decisions","tags":["provenance:mined"]}\n' \
+      "$(printf '%s' "$id" | _lmh_json_escape)" \
+      "$typ" \
+      "$(printf '%s' "$id" | _lmh_json_escape)" \
+      "$(printf '%s' "$anchor" | _lmh_json_escape)" \
+      "$(printf '%s' "$date" | _lmh_json_escape)" \
+      "$(printf '%s' "$author" | _lmh_json_escape)" \
+      "$(printf '%s' "$verbatim" | _lmh_json_escape)" \
+      "$(printf '%s' "$synthesis" | _lmh_json_escape)" \
+      "$(printf '%s' "$drawer_body" | _lmh_json_escape)" \
+      >> "$drafts_jsonl"
+
+    # EMIT KG triples: subject = the decision; three predicates.
+    local subject="$decision"
+    printf '{"subject":"%s","predicate":"decided","object":"%s"}\n' \
+      "$(printf '%s' "$subject" | _lmh_json_escape)" \
+      "$(printf '%s' "$decision" | _lmh_json_escape)" >> "$triples_jsonl"
+    printf '{"subject":"%s","predicate":"mined_from","object":"%s"}\n' \
+      "$(printf '%s' "$subject" | _lmh_json_escape)" \
+      "$(printf '%s' "$repo" | _lmh_json_escape)" >> "$triples_jsonl"
+    printf '{"subject":"%s","predicate":"authored_by","object":"%s"}\n' \
+      "$(printf '%s' "$subject" | _lmh_json_escape)" \
+      "$(printf '%s' "$author" | _lmh_json_escape)" >> "$triples_jsonl"
+  done < "$survivors"
+
+  # Write manifest.
+  if [ -n "$out" ]; then
+    mkdir -p "$out"
+    cp "$drafts_jsonl" "$out/drafts.jsonl"
+    cp "$triples_jsonl" "$out/kg-triples.jsonl"
+  else
+    echo "=== drafts ==="
+    cat "$drafts_jsonl"
+    echo "=== kg-triples ==="
+    cat "$triples_jsonl"
+  fi
+
+  local n_drafts
+  n_drafts=$(grep -c . "$drafts_jsonl" 2>/dev/null || echo 0)
+  echo "emitted ${n_drafts} draft(s)."
+
+  rm -f "$survivors" "$candidates_jsonl" "$drafts_jsonl" "$triples_jsonl"
+  return 0
+}
