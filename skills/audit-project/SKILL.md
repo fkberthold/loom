@@ -174,6 +174,30 @@ project-onboarder use).
 
 ### Step 1 — resolve project root + flags + wing
 
+**Run the resolution helper first.** Invoke
+`scripts/loom-audit-resolve [--root <path>] [--wing <name>]` (passing
+through whatever `--root`/`--wing` the user gave) and read its
+`key=value` stdout:
+
+```
+root=<abs path>              # resolved per the precedence below
+wing=<name>                  # basename verbatim, or explicit --wing
+primitives=<csv>             # which of skills,commands,agents,hooks exist
+diataxis_optout=<0|1>        # <root>/docs/.no-diataxis present
+loom_managed=<0|1>           # .beads/ AND a docs Diataxis quadrant
+```
+
+This helper computes the deterministic resolution prelude
+(unit-tested at `lib/tests/loom-audit-resolve.test.sh`), so the rules
+below are documentation of what it does — **do not re-derive them by
+hand**; consume the helper's output. In particular the wing default is
+the basename **verbatim** (no `_`↔`-` substitution, no case-folding),
+the only rule correct for both underscore wings (`liza_base`) and dash
+wings (`golden-path`); Step 1b's variant-WARN backs this up for the
+divergence cases.
+
+For reference, the precedence the helper implements:
+
 Resolve the project root in this precedence order:
 
 1. Explicit `--root <path>` flag (absolute or relative; resolved to

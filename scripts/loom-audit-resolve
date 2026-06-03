@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# loom-audit-resolve — deterministic resolution prelude for the
+# audit-project skill (loom-6ah).
+#
+# The audit-project skill is Claude-executed prose, but the prelude it
+# runs before the checks is purely deterministic and bug-prone:
+#   - which project root to audit (--root precedence),
+#   - which MemPalace wing to query for citation checks (--wing default),
+#   - which primitive dirs exist (so absent classes are skipped, no
+#     spurious "0 hooks"),
+#   - whether the project opted out of Diataxis docs checks.
+# This helper extracts that prelude into testable bash so the skill can
+# call it once and read back resolved key=value lines, instead of
+# re-deriving the rules in prose (where the default-wing sanitization
+# silently diverged from scripts/loom-mine-history — see below).
+#
+# Mirrors scripts/loom-mine-history's resolution role (loom-bn7.4).
+#
+# Usage:
+#   scripts/loom-audit-resolve [--root <path>] [--wing <name>]
+#
+#   --root <path>   project root to audit. Precedence: explicit --root →
+#                   `git -C $PWD rev-parse --show-toplevel` → $PWD.
+#                   A nonexistent explicit --root is an error (exit 2).
+#   --wing <name>   MemPalace wing for citation checks. Default: the
+#                   project root's basename used VERBATIM — no `_`↔`-`
+#                   substitution, no case-folding. Matches
+#                   skills/audit-project/SKILL.md. Verbatim is the only
+#                   rule correct for BOTH underscore wings (liza_base,
+#                   hundred_acre_woods) and dash wings (golden-path,
+#                   dreamer-engine); any `_`↔`-` transform breaks one or
+#                   the other.
+#
+# Output (stdout, one key=value per line):
+#   root=<abs path>
+#   wing=<name>
+#   primitives=<csv subset of skills,commands,agents,hooks>
+#   diataxis_optout=<0|1>     docs/.no-diataxis present under root
+#   loom_managed=<0|1>        .beads/ AND a docs Diataxis quadrant dir
+
+set -uo pipefail
+
+root_flag=""
+wing_flag=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --root=*) root_flag="${1#--root=}" ;;
+    --root)   shift; root_flag="${1:-}" ;;
+    --wing=*) wing_flag="${1#--wing=}" ;;
+    --wing)   shift; wing_flag="${1:-}" ;;
+    *) echo "loom-audit-resolve: unrecognized argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# ---- resolve root --------------------------------------------------
+root=""
+if [ -n "$root_flag" ]; then
+  if [ ! -d "$root_flag" ]; then
+    echo "loom-audit-resolve: --root '$root_flag' is not a directory" >&2
+    exit 2
+  fi
+  root=$(cd "$root_flag" && pwd -P)
+else
+  root=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
+  [ -z "$root" ] && root="$PWD"
+fi
+
+# ---- resolve wing --------------------------------------------------
+# Default = basename used VERBATIM (no `_`↔`-` substitution, no
+# case-folding) — matches skills/audit-project/SKILL.md. Verbatim is the
+# only rule correct for both underscore wings (liza_base) and dash wings
+# (golden-path). Explicit --wing wins.
+wing="$wing_flag"
+if [ -z "$wing" ]; then
+  wing=$(basename "$root")
+fi
+
+# ---- primitive autodetect ------------------------------------------
+primitives=""
+for p in skills commands agents hooks; do
+  if [ -d "$root/$p" ]; then
+    if [ -n "$primitives" ]; then primitives="${primitives},${p}"; else primitives="$p"; fi
+  fi
+done
+
+# ---- diataxis opt-out ----------------------------------------------
+diataxis_optout=0
+[ -f "$root/docs/.no-diataxis" ] && diataxis_optout=1
+
+# ---- loom-managed heuristic ----------------------------------------
+# .beads/ present AND docs/ has at least one Diataxis quadrant dir.
+loom_managed=0
+if [ -d "$root/.beads" ]; then
+  for q in tutorials how-to reference explanation; do
+    if [ -d "$root/docs/$q" ]; then loom_managed=1; break; fi
+  done
+fi
+
+printf 'root=%s\n' "$root"
+printf 'wing=%s\n' "$wing"
+printf 'primitives=%s\n' "$primitives"
+printf 'diataxis_optout=%s\n' "$diataxis_optout"
+printf 'loom_managed=%s\n' "$loom_managed"
