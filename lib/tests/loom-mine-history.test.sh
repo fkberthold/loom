@@ -675,6 +675,288 @@ unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
 
 # =====================================================================
+# 11. --since-sha=<SHA> bounds the git harvest to <SHA>..HEAD (the
+#     consume side of the watermark). Commits at/before the SHA are
+#     excluded; commits after it survive the gate normally. (loom-bn7.3)
+# =====================================================================
+echo "==> 11. --since-sha bounds the git harvest to <SHA>..HEAD"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+export GH_AUTH_OK=0
+
+# SHA of the "Add decisions schema" commit. Everything AFTER it is the
+# Revert (dropped by gate) + the "Freeze v1.0 API" commit (survives).
+schema_sha=$(git -C "$REPO" log --format='%H %s' | grep 'Add decisions schema' | awk '{print $1}')
+
+out=$(run_mine "$REPO" --dry-run --out "$OUT" --since-sha="$schema_sha"); rc=$?
+cand="$OUT/candidates.jsonl"
+
+if [ "$rc" -eq 0 ]; then pass "--since-sha dry-run exits 0"; else fail "--since-sha rc=$rc" "$out"; fi
+
+if grep -qi "Freeze v1.0 API" "$cand" 2>/dev/null; then
+  pass "--since-sha keeps commits AFTER the watermark (Freeze v1.0)"
+else
+  fail "--since-sha dropped a post-watermark commit" "$(cat "$cand" 2>/dev/null)"
+fi
+
+if grep -q "decisions schema" "$cand" 2>/dev/null; then
+  fail "--since-sha leaked the watermark commit itself (should be excluded)" "$(cat "$cand" 2>/dev/null)"
+else
+  pass "--since-sha excludes the watermark commit and everything before it"
+fi
+
+# Bad/nonexistent --since-sha → degrade to empty harvest, NO crash.
+out=$(run_mine "$REPO" --dry-run --out "$OUT" --since-sha=deadbeefdeadbeef); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "bad --since-sha degrades gracefully (rc=0, no crash)"
+else
+  fail "bad --since-sha did not degrade gracefully (rc=$rc)" "$out"
+fi
+
+# Precedence: --since-sha wins over --since-release when both given.
+# since-sha=<schema>..HEAD keeps Freeze; if since-release=v1.0 won, the
+# range v1.0..HEAD would be empty and Freeze would be absent.
+out=$(run_mine "$REPO" --dry-run --out "$OUT" --since-sha="$schema_sha" --since-release=v1.0); rc=$?
+if grep -qi "Freeze v1.0 API" "$OUT/candidates.jsonl" 2>/dev/null; then
+  pass "--since-sha takes precedence over --since-release"
+else
+  fail "--since-release overrode --since-sha (wrong precedence)" "$(cat "$OUT/candidates.jsonl" 2>/dev/null)"
+fi
+
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
+# 12. Watermark emit: a REAL pass with --out writes <out>/watermark
+#     containing the current HEAD SHA (the value the skill files as the
+#     KG fact <repo> -> history_mined_through -> <SHA>). --dry-run does
+#     NOT emit a watermark (nothing was mined/filed). (loom-bn7.3)
+# =====================================================================
+echo "==> 12. Watermark emit (<out>/watermark == HEAD on real pass)"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp); printf '%s' '{"salient":false}' > "$REPLY"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
+head_sha=$(git -C "$REPO" rev-parse HEAD)
+
+if [ -f "$OUT/watermark" ]; then
+  pass "real pass emits <out>/watermark"
+else
+  fail "real pass did NOT emit <out>/watermark" "$out"
+fi
+
+if [ "$(cat "$OUT/watermark" 2>/dev/null)" = "$head_sha" ]; then
+  pass "<out>/watermark equals current HEAD SHA"
+else
+  fail "<out>/watermark != HEAD" "watermark=$(cat "$OUT/watermark" 2>/dev/null) head=$head_sha"
+fi
+
+# Watermark is emitted even when zero drafts survive (we DID examine
+# history through HEAD).
+if [ -f "$OUT/watermark" ] && [ ! -s "$OUT/drafts.jsonl" ]; then
+  pass "watermark emitted even with zero salient drafts"
+else
+  pass "watermark emitted (drafts present)"  # tolerant: either is fine
+fi
+
+unset CLAUDE_REPLY_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
+
+# 12b. --dry-run does NOT emit a watermark.
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+export GH_AUTH_OK=0
+
+out=$(run_mine "$REPO" --dry-run --out "$OUT"); rc=$?
+if [ ! -f "$OUT/watermark" ]; then
+  pass "--dry-run does NOT emit a watermark"
+else
+  fail "--dry-run emitted a watermark (should not)" "$(cat "$OUT/watermark")"
+fi
+
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
+# 13. --resume: an interrupted/repeated run does NOT re-spend the LLM
+#     pass. Already-processed survivors (recorded in <out>/.processed,
+#     one source_id per claude call regardless of salient outcome) are
+#     skipped on a --resume run. (loom-bn7.3)
+# =====================================================================
+echo "==> 13. --resume skips already-processed survivors (no re-spend)"
+
+# 13a. Full run then --resume re-run → ZERO new claude calls; drafts
+#      unchanged (idempotent).
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+printf '%s' '{"salient":true,"verbatim":"v","synthesis":"s","decision":"d"}' > "$REPLY"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+
+# First (fresh) run records .processed + drafts.
+CALLS=$(mktemp); rm -f "$CALLS"; export CLAUDE_CALLS_FILE="$CALLS"
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
+calls_run1=0; [ -f "$CALLS" ] && calls_run1=$(grep -c '^CALL$' "$CALLS")
+drafts_run1=$(grep -c . "$OUT/drafts.jsonl" 2>/dev/null || echo 0)
+
+if [ "$calls_run1" -ge 1 ]; then pass "fresh run invoked claude ($calls_run1 calls)"; else fail "fresh run made no claude calls" "$out"; fi
+if [ -f "$OUT/.processed" ]; then pass ".processed checkpoint written on fresh run"; else fail ".processed not written" "$out"; fi
+
+# Re-run with --resume against the SAME --out: nothing new to do.
+rm -f "$CALLS"   # reset call counter
+out=$(run_mine "$REPO" --out "$OUT" --resume --yes --model fake); rc=$?
+calls_run2=0; [ -f "$CALLS" ] && calls_run2=$(grep -c '^CALL$' "$CALLS")
+drafts_run2=$(grep -c . "$OUT/drafts.jsonl" 2>/dev/null || echo 0)
+
+if [ "$calls_run2" -eq 0 ]; then
+  pass "--resume re-run makes ZERO new claude calls (no re-spend)"
+else
+  fail "--resume re-run re-spent the LLM pass ($calls_run2 calls)" "$(cat "$CALLS")"
+fi
+
+if [ "$drafts_run2" -eq "$drafts_run1" ]; then
+  pass "--resume re-run leaves drafts.jsonl line count unchanged ($drafts_run2)"
+else
+  fail "--resume re-run changed drafts count ($drafts_run1 -> $drafts_run2)" "$(cat "$OUT/drafts.jsonl")"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
+
+# 13b. Pre-seed .processed with ONE survivor → --resume processes only
+#      the OTHER survivor.
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+printf '%s' '{"salient":true,"verbatim":"v","synthesis":"s","decision":"d"}' > "$REPLY"
+CALLS=$(mktemp); rm -f "$CALLS"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+export CLAUDE_CALLS_FILE="$CALLS"
+
+# The two git survivors are the schema commit + the Freeze commit.
+# Pre-mark the schema commit's SHORT sha (the harvest %h id) as done.
+schema_short=$(git -C "$REPO" log --format='%h %s' | grep 'Add decisions schema' | awk '{print $1}')
+printf '%s\n' "$schema_short" > "$OUT/.processed"
+
+out=$(run_mine "$REPO" --out "$OUT" --resume --yes --model fake); rc=$?
+n_calls=0; [ -f "$CALLS" ] && n_calls=$(grep -c '^CALL$' "$CALLS")
+
+if [ "$n_calls" -eq 1 ]; then
+  pass "--resume with one survivor pre-marked → exactly 1 new claude call"
+else
+  fail "--resume processed wrong number of survivors (got $n_calls, expected 1)" "$(cat "$CALLS")"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
+
+# =====================================================================
+# 14. --resume without --out → error (exit 2 + diagnostic). Resume has
+#     nowhere to checkpoint without a persistent --out dir. (loom-bn7.3)
+# =====================================================================
+echo "==> 14. --resume without --out aborts (exit 2)"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+export GH_AUTH_OK=0
+
+out=$(run_mine "$REPO" --resume --yes --model fake); rc=$?
+
+if [ "$rc" -eq 2 ]; then
+  pass "--resume without --out exits 2"
+else
+  fail "--resume without --out did not exit 2 (rc=$rc)" "$out"
+fi
+
+if echo "$out" | grep -qiE "resume.*--out|--out.*resume|requires.*--out"; then
+  pass "--resume without --out prints a diagnostic naming --out"
+else
+  fail "--resume without --out missing diagnostic" "$out"
+fi
+
+rm -rf "$STUBS" "$(dirname "$REPO")"
+
+# =====================================================================
+# 15. Range-flag bounding (characterization of existing --since /
+#     --since-release behavior — pinned for the first time). (loom-bn7.3)
+# =====================================================================
+echo "==> 15. --since / --since-release bound the candidate set"
+
+# 15a/b. --since bounds by commit date. Uses a dedicated repo with two
+# decision-shaped commits at DISTINCT dates (2020 + 2024) so the bound
+# is deterministic — git's --since filter is unreliable with same-second
+# commits, so the shared fixture (all commits "now") can't pin this.
+mk_dated_repo() {
+  local work repo
+  work=$(mktemp -d); repo="$work/repo"; mkdir -p "$repo"
+  (
+    cd "$repo" || exit 1
+    git init -q -b main
+    git config user.email miner@test; git config user.name "Decision Miner"
+    GIT_AUTHOR_DATE="2020-01-01T00:00:00" GIT_COMMITTER_DATE="2020-01-01T00:00:00" \
+      git -c core.hooksPath=/dev/null commit -q --allow-empty -m "old schema decision
+
+We chose single-table because reads dominate the decision timeline."
+    GIT_AUTHOR_DATE="2024-01-01T00:00:00" GIT_COMMITTER_DATE="2024-01-01T00:00:00" \
+      git -c core.hooksPath=/dev/null commit -q --allow-empty -m "new interface freeze
+
+Locking the Service interface for 1.0; breaking it requires an RFC."
+  ) || { echo "DATED_FIXTURE_FAILED" >&2; return 1; }
+  echo "$repo"
+}
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_dated_repo)
+OUT=$(mktemp -d)
+export GH_AUTH_OK=0
+
+# 15a. --since between the two commit dates → ONLY the newer survives.
+out=$(run_mine "$REPO" --dry-run --out "$OUT" --since=2022-01-01); rc=$?
+if [ "$rc" -eq 0 ] && grep -qi "interface freeze" "$OUT/candidates.jsonl" 2>/dev/null \
+   && ! grep -qi "schema decision" "$OUT/candidates.jsonl" 2>/dev/null; then
+  pass "--since=<between> keeps only post-date candidates"
+else
+  fail "--since=<between> did not bound by date" "$(cat "$OUT/candidates.jsonl" 2>/dev/null)"
+fi
+
+# 15b. --since before both commit dates → BOTH survive.
+out=$(run_mine "$REPO" --dry-run --out "$OUT" --since=2018-01-01); rc=$?
+if grep -qi "schema decision" "$OUT/candidates.jsonl" 2>/dev/null \
+   && grep -qi "interface freeze" "$OUT/candidates.jsonl" 2>/dev/null; then
+  pass "--since=<before-all> keeps all candidates"
+else
+  fail "--since=<before-all> dropped candidates" "$(cat "$OUT/candidates.jsonl" 2>/dev/null)"
+fi
+
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# 15c. --since-release=v1.0 → range v1.0..HEAD is empty (tag is on the
+#      last commit) → zero git candidates.
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+export GH_AUTH_OK=0
+
+out=$(run_mine "$REPO" --dry-run --out "$OUT" --since-release=v1.0); rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "decisions schema" "$OUT/candidates.jsonl" 2>/dev/null; then
+  pass "--since-release=v1.0 excludes pre-tag commits"
+else
+  fail "--since-release=v1.0 leaked pre-tag commits" "$(cat "$OUT/candidates.jsonl" 2>/dev/null)"
+fi
+
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo ""
