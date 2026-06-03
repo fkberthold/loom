@@ -46,6 +46,13 @@
 #                           in a prior run (recorded in <out>/.processed)
 #                           so an interrupted run does not re-spend the
 #                           LLM pass. Requires --out. (bn7.3)
+#     --synthesize          tier-2: after tier-1, cluster salient units by
+#                           shared decision-file-area; each cluster of >=2
+#                           gets ONE LLM call narrating a "narrative arc"
+#                           drawer that LINKS its constituents by anchor
+#                           (no tier-1 verbatim duplication). Opt-in (extra
+#                           per-cluster LLM cost); writes <out>/arcs.jsonl.
+#                           No-op on --dry-run. (bn7.2)
 #     --model=MODEL         claude model (default: a cheap tier)
 #     --out=DIR             write candidates/drafts/triples into DIR.
 #                           A real (non-dry-run) pass also writes
@@ -171,6 +178,26 @@ _lmh_files_are_decisiony() {
 }
 
 # ---------------------------------------------------------------------
+# TIER-2 clustering key for a salient unit (bn7.2). Deterministic, no
+# LLM: the first decision-shaped token its files match (in priority
+# order), else the top-level directory of its first file. Units sharing
+# a key are the same narrative arc.
+# ---------------------------------------------------------------------
+_lmh_cluster_key() {
+  local files="$1" lc tok first
+  lc=$(printf '%s' "$files" | tr '[:upper:]' '[:lower:]')
+  for tok in schema migrat proto interface config; do
+    if printf '%s' "$lc" | grep -q "$tok"; then echo "$tok"; return 0; fi
+  done
+  first=$(printf '%s' "$files" | tr ',' '\n' | grep -v '^$' | head -1)
+  case "$first" in
+    */*) echo "${first%%/*}" ;;
+    "")  echo "_misc" ;;
+    *)   echo "_root" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------
 # HARVEST: git commits + tags. Emits one TSV record per commit on
 # stdout: TYPE \t ID \t AUTHOR \t DATE \t SUBJECT \t BODY \t FILES \t ANCHOR
 # Body/subject/files have embedded newlines escaped to \n already, so
@@ -282,7 +309,7 @@ _lmh_harvest_gh() {
 # ---------------------------------------------------------------------
 loom_mine_history() {
   local repo="" since="" since_release="" since_sha="" max_units="" out=""
-  local dry_run=0 yes=0 resume=0
+  local dry_run=0 yes=0 resume=0 synthesize=0
   local model="$_LMH_DEFAULT_MODEL"
 
   # First positional is the repo path; flags may follow.
@@ -299,6 +326,7 @@ loom_mine_history() {
       --dry-run)         dry_run=1 ;;
       --yes)             yes=1 ;;
       --resume)          resume=1 ;;
+      --synthesize)      synthesize=1 ;;
       --model=*)         model="${1#--model=}" ;;
       --model)           shift; model="${1:-$model}" ;;
       --out=*)           out="${1#--out=}" ;;
@@ -446,6 +474,11 @@ loom_mine_history() {
     processed_file=$(mktemp)
   fi
 
+  # TIER-2 (bn7.2): accumulate one record per SALIENT unit for the
+  # optional --synthesize clustering pass: id \t files \t decision \t anchor.
+  local synth_units
+  synth_units=$(mktemp)
+
   while IFS=$'\t' read -r typ id author date title body files url labels; do
     [ -z "$typ" ] && continue
 
@@ -520,7 +553,86 @@ Files touched: $files"
     printf '{"subject":"%s","predicate":"authored_by","object":"%s"}\n' \
       "$(printf '%s' "$subject" | _lmh_json_escape)" \
       "$(printf '%s' "$author" | _lmh_json_escape)" >> "$triples_jsonl"
+
+    # Record this salient unit for the optional tier-2 clustering pass.
+    # Tabs/newlines in the fields were already collapsed to spaces at
+    # harvest, so one record == one line.
+    printf '%s\t%s\t%s\t%s\n' "$id" "$files" "$decision" "$anchor" >> "$synth_units"
   done < "$survivors"
+
+  # ---- TIER-2 SYNTHESIS (bn7.2, opt-in via --synthesize) -------------
+  # Cluster salient units by shared decision-file-area; clusters of >=2
+  # get ONE LLM call to narrate the arc. Arc drawer LINKS constituents
+  # by anchor and does NOT re-quote tier-1 verbatim. Never runs on
+  # --dry-run (we returned at the cost gate before reaching here).
+  local arcs_jsonl=""
+  if [ "$synthesize" -eq 1 ]; then
+    if [ -n "$out" ]; then arcs_jsonl="$out/arcs.jsonl"; : > "$arcs_jsonl"; else arcs_jsonl=$(mktemp); fi
+
+    # Key each salient unit, then find keys with >=2 members.
+    local keyed
+    keyed=$(mktemp)
+    while IFS=$'\t' read -r u_id u_files u_dec u_anchor; do
+      [ -z "$u_id" ] && continue
+      local k
+      k=$(_lmh_cluster_key "$u_files")
+      printf '%s\t%s\t%s\t%s\n' "$k" "$u_id" "$u_dec" "$u_anchor" >> "$keyed"
+    done < "$synth_units"
+
+    local clusters n_clusters
+    clusters=$(cut -f1 "$keyed" | sort | uniq -c | awk '$1>=2 {print $2}')
+    # NB: `grep -c` already prints 0 on no-match (exit 1); a trailing
+    # `|| echo 0` would APPEND a second 0 → "0\n0". Default via ${x:-0}.
+    if [ -n "$clusters" ]; then n_clusters=$(printf '%s\n' "$clusters" | grep -c .); else n_clusters=0; fi
+    echo "synthesis: ${n_clusters} cluster(s) (>=2 units) -> ~${n_clusters} arc LLM read(s) (model=${model})"
+
+    local key
+    for key in $clusters; do
+      # Gather this cluster's members.
+      local members
+      members=$(awk -F'\t' -v k="$key" '$1==k {print}' "$keyed")
+
+      # Build the constituent list + the LLM prompt. The prompt MUST
+      # contain "narrative arc" (the tier-2 trust/route marker).
+      local constituents_json="" constituents_block="" prompt_units=""
+      while IFS=$'\t' read -r c_key c_id c_dec c_anchor; do
+        [ -z "$c_id" ] && continue
+        if [ -n "$constituents_json" ]; then constituents_json="${constituents_json},"; fi
+        constituents_json="${constituents_json}\"$(printf '%s' "$c_id" | _lmh_json_escape)\""
+        constituents_block="${constituents_block}- ${c_id} (${c_anchor}): ${c_dec}"$'\n'
+        prompt_units="${prompt_units}- ${c_id}: ${c_dec}"$'\n'
+      done <<EOF
+$members
+EOF
+
+      local arc_reply arc_title narrative
+      arc_reply=$(claude -p "Synthesize a narrative arc from these related decisions (theme: ${key}). Return JSON {\"arc_title\":...,\"narrative\":...}:
+${prompt_units}" --model "$model" --output-format json 2>/dev/null)
+      arc_title=$(printf '%s' "$arc_reply" | sed -n 's/.*"arc_title":"\([^"]*\)".*/\1/p' | head -1)
+      narrative=$(printf '%s' "$arc_reply" | sed -n 's/.*"narrative":"\([^"]*\)".*/\1/p' | head -1)
+      [ -z "$arc_title" ] && arc_title="Arc: ${key}"
+
+      # Arc drawer_body = narrative + constituent links. NO tier-1
+      # verbatim duplication — references constituents by anchor only.
+      local arc_body
+      arc_body="${narrative}"$'\n\n'"Constituent decisions:"$'\n'"${constituents_block}"$'\n'"Theme: ${key} (mined from ${repo})"
+
+      printf '{"arc_title":"%s","theme":"%s","narrative":"%s","constituents":[%s],"drawer_body":"%s","room":"decisions","tags":["provenance:mined","synthesis:arc"]}\n' \
+        "$(printf '%s' "$arc_title" | _lmh_json_escape)" \
+        "$(printf '%s' "$key" | _lmh_json_escape)" \
+        "$(printf '%s' "$narrative" | _lmh_json_escape)" \
+        "$constituents_json" \
+        "$(printf '%s' "$arc_body" | _lmh_json_escape)" \
+        >> "$arcs_jsonl"
+    done
+
+    local n_arcs
+    n_arcs=$(grep -c . "$arcs_jsonl" 2>/dev/null); n_arcs=${n_arcs:-0}
+    echo "emitted ${n_arcs} arc(s)."
+    if [ -z "$out" ]; then echo "=== arcs ==="; cat "$arcs_jsonl"; rm -f "$arcs_jsonl"; fi
+    rm -f "$keyed"
+  fi
+  rm -f "$synth_units"
 
   # EMIT MANIFEST / WATERMARK.
   if [ -n "$out" ]; then
@@ -537,7 +649,7 @@ Files touched: $files"
   fi
 
   local n_drafts
-  n_drafts=$(grep -c . "$drafts_jsonl" 2>/dev/null || echo 0)
+  n_drafts=$(grep -c . "$drafts_jsonl" 2>/dev/null); n_drafts=${n_drafts:-0}
   echo "emitted ${n_drafts} draft(s)."
 
   # Clean up temp files only — never the persistent $out manifest.

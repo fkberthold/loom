@@ -99,7 +99,13 @@ EOF
   echo "CALL"                # one line per invocation — count this
   printf 'ARGV %s\n' "$*"    # detail line for --model/--output-format greps
 } >> "${CLAUDE_CALLS_FILE:-/dev/null}"
-if [ -n "${CLAUDE_REPLY_FILE:-}" ] && [ -f "$CLAUDE_REPLY_FILE" ]; then
+# tier-2 synthesis prompts carry the marker "narrative arc"; route them
+# to CLAUDE_ARC_REPLY_FILE when set so a single canned reply can serve
+# tier-1 salience AND tier-2 arc narration in the same run. (bn7.2)
+if printf '%s' "$*" | grep -qi 'narrative arc' \
+   && [ -n "${CLAUDE_ARC_REPLY_FILE:-}" ] && [ -f "$CLAUDE_ARC_REPLY_FILE" ]; then
+  cat "$CLAUDE_ARC_REPLY_FILE"
+elif [ -n "${CLAUDE_REPLY_FILE:-}" ] && [ -f "$CLAUDE_REPLY_FILE" ]; then
   cat "$CLAUDE_REPLY_FILE"
 else
   echo '{"salient":false}'
@@ -955,6 +961,241 @@ else
 fi
 
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
+# TIER-2 SYNTHESIS (loom-bn7.2): --synthesize clusters salient units by
+# shared decision-file-area, then one LLM call per cluster (>=2 units)
+# writes a narrative-arc drawer that LINKS its constituents by anchor.
+# Bash-cluster + LLM-narrate; opt-in flag; no duplication of tier-1
+# verbatim.
+# =====================================================================
+
+# A repo with two schema-area decision commits (cluster) + one auth-area
+# singleton (no arc). All three survive the gate + are marked salient.
+mk_synth_repo() {
+  local work repo
+  work=$(mktemp -d); repo="$work/repo"; mkdir -p "$repo"
+  (
+    cd "$repo" || exit 1
+    git init -q -b main
+    git config user.email miner@test; git config user.name "Decision Miner"
+    echo base > README.md
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "initial"
+
+    cat > schema.sql <<'SQL'
+CREATE TABLE decisions (id INT PRIMARY KEY, body TEXT);
+SQL
+    git add -A
+    git -c core.hooksPath=/dev/null commit -q -m "Add decisions schema
+
+We chose a single-table design because read latency on the decision
+timeline dominates; normalized EAV would require N joins."
+
+    cat > schema_v2.sql <<'SQL'
+ALTER TABLE decisions ADD COLUMN author TEXT;
+SQL
+    git add -A
+    git -c core.hooksPath=/dev/null commit -q -m "Migrate decisions schema to v2
+
+We chose to denormalize author onto the row because the join to the
+authors table dominated timeline render cost. Trade-off accepted."
+
+    mkdir -p auth
+    cat > auth/login.go <<'GO'
+package auth
+// config-driven login surface — frozen for downstream consumers.
+func Login() error { return nil }
+GO
+    git add -A
+    git -c core.hooksPath=/dev/null commit -q -m "Lock auth config surface
+
+We chose to freeze the login config contract for 1.0; breaking it
+requires an RFC because downstream consumers depend on it."
+  ) || { echo "SYNTH_FIXTURE_FAILED" >&2; return 1; }
+  echo "$repo"
+}
+
+# =====================================================================
+# 16. --synthesize OFF (default): no arcs.jsonl, no tier-2 LLM calls.
+# =====================================================================
+echo "==> 16. tier-2 is opt-in (no --synthesize → no arcs)"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_synth_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+printf '%s' '{"salient":true,"verbatim":"v","synthesis":"s","decision":"d"}' > "$REPLY"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
+
+if [ "$rc" -eq 0 ]; then pass "tier-1-only run exits 0"; else fail "rc=$rc" "$out"; fi
+if [ ! -f "$OUT/arcs.jsonl" ]; then
+  pass "no --synthesize → no arcs.jsonl written"
+else
+  fail "arcs.jsonl written without --synthesize" "$(cat "$OUT/arcs.jsonl")"
+fi
+
+unset CLAUDE_REPLY_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
+
+# =====================================================================
+# 17. --synthesize ON: cluster of 2 (schema-area) → exactly 1 arc that
+#     links BOTH constituents by anchor; the auth singleton gets NO arc.
+#     Cluster key = first decision-file token (schema|migrat|proto|
+#     interface|config) in a unit's files, else top-level dir. schema.sql
+#     + schema_v2.sql share key "schema" (cluster); auth/login.go → key
+#     "auth" (singleton). This is the GREEN target for the lib's tier-2.
+# =====================================================================
+echo "==> 17. --synthesize clusters >=2 same-area units into one linked arc"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_synth_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+printf '%s' '{"salient":true,"verbatim":"v","synthesis":"s","decision":"a decision"}' > "$REPLY"
+ARCREPLY=$(mktemp)
+printf '%s' '{"arc_title":"Decision schema evolution","narrative":"The schema moved from single-table to a denormalized author column as timeline render cost shifted."}' > "$ARCREPLY"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+export CLAUDE_ARC_REPLY_FILE="$ARCREPLY"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake --synthesize); rc=$?
+
+if [ "$rc" -eq 0 ]; then pass "--synthesize run exits 0"; else fail "rc=$rc" "$out"; fi
+if [ -s "$OUT/arcs.jsonl" ]; then pass "arcs.jsonl written with --synthesize"; else fail "no arcs.jsonl" "$out"; fi
+
+n_arcs=$(grep -c . "$OUT/arcs.jsonl" 2>/dev/null || echo 0)
+if [ "$n_arcs" -eq 1 ]; then
+  pass "exactly 1 arc produced (schema cluster; auth singleton excluded)"
+else
+  fail "expected 1 arc, got $n_arcs" "$(cat "$OUT/arcs.jsonl" 2>/dev/null)"
+fi
+
+# Collect the schema commits' SHAs + the auth singleton's SHA.
+schema1=$(git -C "$REPO" log --format='%h %s' | grep 'Add decisions schema' | awk '{print $1}')
+schema2=$(git -C "$REPO" log --format='%h %s' | grep 'Migrate decisions schema' | awk '{print $1}')
+authsha=$(git -C "$REPO" log --format='%h %s' | grep 'Lock auth config' | awk '{print $1}')
+arc=$(cat "$OUT/arcs.jsonl" 2>/dev/null)
+
+if printf '%s' "$arc" | grep -q "$schema1" && printf '%s' "$arc" | grep -q "$schema2"; then
+  pass "arc links BOTH schema constituents by anchor"
+else
+  fail "arc does not link both schema constituents" "arc=$arc s1=$schema1 s2=$schema2"
+fi
+if printf '%s' "$arc" | grep -q "$authsha"; then
+  fail "arc wrongly includes the auth singleton" "$arc"
+else
+  pass "auth singleton is NOT in any arc"
+fi
+
+# The arc carries the LLM narrative + provenance + a synthesis tag.
+if printf '%s' "$arc" | grep -qi "schema moved from single-table"; then
+  pass "arc carries the LLM-narrated story"
+else
+  fail "arc missing narrative" "$arc"
+fi
+if printf '%s' "$arc" | grep -q "provenance:mined" && printf '%s' "$arc" | grep -qi "arc"; then
+  pass "arc tagged provenance:mined + synthesis/arc"
+else
+  fail "arc missing tags" "$arc"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_ARC_REPLY_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY" "$ARCREPLY"
+
+# =====================================================================
+# 18. No duplication of tier-1 content: the arc drawer_body references
+#     constituents but does NOT re-quote their full verbatim blocks.
+# =====================================================================
+echo "==> 18. arc does not duplicate tier-1 verbatim"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_synth_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+# A distinctive verbatim string we can assert is ABSENT from the arc.
+printf '%s' '{"salient":true,"verbatim":"UNIQUEVERBATIMTOKEN_XYZ","synthesis":"s","decision":"d"}' > "$REPLY"
+ARCREPLY=$(mktemp)
+printf '%s' '{"arc_title":"Schema arc","narrative":"the schema story"}' > "$ARCREPLY"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+export CLAUDE_ARC_REPLY_FILE="$ARCREPLY"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake --synthesize); rc=$?
+arc=$(cat "$OUT/arcs.jsonl" 2>/dev/null)
+
+if printf '%s' "$arc" | grep -q "UNIQUEVERBATIMTOKEN_XYZ"; then
+  fail "arc duplicated tier-1 verbatim block" "$arc"
+else
+  pass "arc does NOT duplicate tier-1 verbatim (references only)"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_ARC_REPLY_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY" "$ARCREPLY"
+
+# =====================================================================
+# 19. --synthesize on --dry-run is a no-op (dry-run stops before any LLM
+#     pass) → no arcs.jsonl, no arc LLM calls. Cost preview surfaces the
+#     synthesis intent on a real run.
+# =====================================================================
+echo "==> 19. --synthesize + --dry-run is side-effect-free"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_synth_repo)
+OUT=$(mktemp -d)
+CALLS=$(mktemp); rm -f "$CALLS"
+export GH_AUTH_OK=0
+export CLAUDE_CALLS_FILE="$CALLS"
+
+out=$(run_mine "$REPO" --out "$OUT" --dry-run --synthesize); rc=$?
+
+if [ "$rc" -eq 0 ] && [ ! -f "$OUT/arcs.jsonl" ] && [ ! -f "$CALLS" ]; then
+  pass "--synthesize --dry-run: no arcs, no LLM calls"
+else
+  fail "--synthesize --dry-run had side effects" "rc=$rc arcs=$([ -f "$OUT/arcs.jsonl" ] && echo Y) calls=$([ -f "$CALLS" ] && cat "$CALLS")"
+fi
+
+unset CLAUDE_CALLS_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
+# 20. --synthesize with NO clusterable units (all distinct file-areas)
+#     → zero arcs, run still succeeds. Uses the base fixture: the schema
+#     commit (key "schema") and the Freeze commit (key "interface") do
+#     not share an area, so neither clusters.
+# =====================================================================
+echo "==> 20. --synthesize with all-singleton areas → zero arcs"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+printf '%s' '{"salient":true,"verbatim":"v","synthesis":"s","decision":"d"}' > "$REPLY"
+ARCREPLY=$(mktemp)
+printf '%s' '{"arc_title":"unused","narrative":"unused"}' > "$ARCREPLY"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+export CLAUDE_ARC_REPLY_FILE="$ARCREPLY"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake --synthesize); rc=$?
+
+if [ "$rc" -eq 0 ]; then pass "all-singleton --synthesize run exits 0"; else fail "rc=$rc" "$out"; fi
+n_arcs=0; [ -f "$OUT/arcs.jsonl" ] && { n_arcs=$(grep -c . "$OUT/arcs.jsonl" 2>/dev/null); n_arcs=${n_arcs:-0}; }
+if [ "$n_arcs" -eq 0 ]; then
+  pass "no clusterable units → zero arcs (singletons get no arc)"
+else
+  fail "produced arcs from singletons" "$(cat "$OUT/arcs.jsonl")"
+fi
+if echo "$out" | grep -qiE "synthesis:.*cluster"; then
+  pass "synthesis cost line surfaced even at 0 clusters"
+else
+  fail "synthesis cost line missing" "$out"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_ARC_REPLY_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY" "$ARCREPLY"
 
 # =====================================================================
 # Summary
