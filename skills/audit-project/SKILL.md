@@ -158,6 +158,15 @@ audit. This is a deliberately user-pulled workflow.
   is `liza`). Step 1b's wing-variant WARN catches the remaining
   divergence cases (capitalization that doesn't match, separator
   flip relative to a larger sibling wing).
+- `--mine-history` — after the audit report is presented, delegate to
+  the `/loom-mine-history` skill to mine the project's git/PR history
+  for unmined decisions (drawers + KG triples), behind its own
+  mandatory two-pass cost gate. Runs against the resolved `--root` /
+  `--wing`. WITHOUT this flag the audit only *flags* the gap
+  informationally — the `project-onboarder` decision-history line
+  reports the unmined-unit count, and the audit **never auto-mines**
+  (mining is an explicit, billable action the user opts into). See
+  "Step 6 — optional history mining" below.
 
 If no flag is given, the default is `--check=all` for projects with
 a Diataxis substrate (heuristic: `.beads/` exists AND `docs/`
@@ -1167,6 +1176,32 @@ Migration of pre-loom-lpy drawers (e.g. drawers in
 loom-b6o trial) is out of scope for this skill — those remain as
 historical artifacts. The new convention applies to all future
 audits.
+
+### Step 6 — optional history mining (`--mine-history`)
+
+This step runs **only when `--mine-history` was passed**. Without the
+flag, skip it entirely — the audit has already *flagged* the
+decision-history gap informationally (the `project-onboarder`
+decision-history line, which shells out to `scripts/loom-mine-history
+--dry-run` for the unmined-unit count). Mining is a separate, billable
+action the user opts into; the audit never auto-mines.
+
+When the flag IS set, after the report + interactive fixes are done,
+delegate to the `/loom-mine-history` skill against the resolved
+`--root` / `--wing`:
+
+1. Announce: "Mining <root> decision history into wing `<wing>` …".
+2. Invoke the `loom-mine-history` skill (it owns the mandatory
+   two-pass cost gate: a zero-spend `--dry-run` preview → explicit
+   user go-ahead → the paid LLM salience pass → MCP filing). Pass the
+   resolved `--root` and `--wing` through; do NOT re-implement the
+   engine or the cost gate here.
+3. Fold the mine's adoption summary (drawers filed / skipped-dup /
+   triples added) into the audit's closing summary.
+
+Do not bypass `loom-mine-history`'s cost gate — the audit delegating
+to it does not change the "preview-before-spend, explicit go-ahead"
+contract.
 
 ## Output format (drift items)
 

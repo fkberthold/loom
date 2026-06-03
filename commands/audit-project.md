@@ -33,6 +33,11 @@ parses them. Recognized flags:
   (default: basename of `--root`, used **verbatim** — no `_`↔`-`
   substitution, no case-folding; matches `scripts/loom-audit-resolve`
   and the skill).
+- `--mine-history` — after the audit report, delegate to the
+  `/loom-mine-history` engine to mine the project's git/PR history
+  for unmined decisions (behind its own two-pass cost gate). WITHOUT
+  this flag, the audit only *flags* the gap informationally (the
+  onboarder's decision-history line) and never mines.
 
 Step 1: dispatch the `project-onboarder` subagent with the absolute
 path to the resolved project root and the resolved project short
