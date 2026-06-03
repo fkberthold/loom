@@ -1198,6 +1198,79 @@ unset CLAUDE_REPLY_FILE CLAUDE_ARC_REPLY_FILE
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY" "$ARCREPLY"
 
 # =====================================================================
+# 21. Gate hard-drops routine commits (upgrade/update-packages/lint/
+#     chore) EVEN when they touch a decisiony file or carry a body —
+#     i.e. the drop must be unconditional like wip/bump, not merely a
+#     low score. Surfaced by the e2e-api-tests dogfood (loom-mec): such
+#     commits scored >=2 (config-file +2) and survived to the paid LLM
+#     pass. (loom-bn7.2 follow-up.)
+# =====================================================================
+echo "==> 21. gate hard-drops routine upgrade/lint/chore commits"
+
+mk_routine_repo() {
+  local work repo
+  work=$(mktemp -d); repo="$work/repo"; mkdir -p "$repo"
+  (
+    cd "$repo" || exit 1
+    git init -q -b main
+    git config user.email miner@test; git config user.name "Decision Miner"
+    echo base > README.md
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "initial"
+
+    # Each routine commit ALSO touches a decisiony (config) file + has a
+    # body, so without an unconditional hard-drop it would score >=2.
+    echo "v2" > config.yaml
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "upgrade ck go packages
+
+Bumped the ck go modules to the latest minor; regenerated config."
+    echo "v3" > config.yaml
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "fix lint errors in config handler
+
+Cleared the golangci-lint findings; no behavior change."
+    echo "v4" > schema.config
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "chore: update dependencies
+
+Routine dependency refresh across the config surface."
+
+    # A genuine decision commit must still survive (control).
+    cat > schema.sql <<'SQL'
+CREATE TABLE decisions (id INT PRIMARY KEY);
+SQL
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "Add decisions schema
+
+We chose single-table because reads dominate the timeline."
+  ) || { echo "ROUTINE_FIXTURE_FAILED" >&2; return 1; }
+  echo "$repo"
+}
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_routine_repo)
+OUT=$(mktemp -d)
+export GH_AUTH_OK=0
+
+out=$(run_mine "$REPO" --dry-run --out "$OUT"); rc=$?
+cand="$OUT/candidates.jsonl"
+
+if [ "$rc" -eq 0 ]; then pass "routine-repo dry-run exits 0"; else fail "rc=$rc" "$out"; fi
+
+for junk in "upgrade ck go packages" "fix lint errors" "update dependencies"; do
+  if grep -qi "$junk" "$cand" 2>/dev/null; then
+    fail "routine commit survived the gate: '$junk'" "$(cat "$cand" 2>/dev/null)"
+  else
+    pass "routine commit hard-dropped: '$junk'"
+  fi
+done
+
+# Control: the genuine decision commit still survives.
+if grep -qi "decisions schema" "$cand" 2>/dev/null; then
+  pass "genuine decision commit still survives (drop is targeted, not broad)"
+else
+  fail "drop too broad — killed the real decision commit" "$(cat "$cand" 2>/dev/null)"
+fi
+
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo ""

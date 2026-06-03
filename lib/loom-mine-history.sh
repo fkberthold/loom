@@ -97,11 +97,22 @@ _lmh_score_commit() {
   local lc
   lc=$(printf '%s' "$subject" | tr '[:upper:]' '[:lower:]')
 
-  # Hard-drop junk subjects.
+  # Hard-drop junk subjects — UNCONDITIONAL (must fire even when the
+  # commit touches a decisiony file or has a body, like bump/wip). The
+  # routine-churn patterns (upgrade / update-deps/packages / lint /
+  # chore / de-flake) were added after the e2e-api-tests dogfood
+  # (loom-mec) showed dependency-bump + lint commits scoring >=2 via a
+  # config-file touch and surviving to the paid LLM pass.
   case "$lc" in
     wip*|*"wip:"*|fixup*|"fixup!"*|squash!*|typo*|*" typo"*|bump*|"merge main"*|"merge branch"*|revert*|*"revert \""*)
       echo 0; return 0 ;;
+    upgrade*|*"upgrade "*|chore*|"chore:"*|lint*|*" lint "*|*"lint errors"*|*"lint fix"*|*"de-flake"*|*"deflake"*)
+      echo 0; return 0 ;;
   esac
+  # Routine dependency churn (update deps / update * packages / pkgs).
+  if printf '%s' "$lc" | grep -qiE 'update .*(deps|dependenc|packages|pkgs)|bump .*(deps|dependenc)'; then
+    echo 0; return 0
+  fi
   # Revert anywhere in subject.
   if printf '%s' "$lc" | grep -qi 'revert'; then echo 0; return 0; fi
 
