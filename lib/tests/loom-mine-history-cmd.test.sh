@@ -24,8 +24,8 @@
 #       [--since=DATE] [--since-release=TAG] [--max-units=N] \
 #       [--dry-run] [--model=MODEL]
 #   - repo resolution: --root override, else cwd git toplevel.
-#   - wing resolution: --wing override, else basename of repo with
-#     `-`→`_` sanitization (e.g. liza-base → liza_base).
+#   - wing resolution: --wing override, else basename of repo VERBATIM
+#     (no _↔- substitution; e.g. e2e-api-tests → e2e-api-tests). loom-kx2.
 #   - --dry-run  → invoke lib --dry-run, NO --out, zero spend.
 #   - real pass  → invoke lib --yes --out <dir>; writes drafts.jsonl +
 #     kg-triples.jsonl (from the lib) AND <dir>/wing (single line, the
@@ -293,25 +293,32 @@ rm -f "$CALLS"
 rm -rf "$STUBS" "$REPO" "$NONGIT"
 
 # =====================================================================
-# 4. Wing default sanitizes `-`→`_`; --wing overrides.
+# 4. Wing default = basename VERBATIM (no _↔- substitution); --wing
+#    overrides. Verbatim matches scripts/loom-audit-resolve + the
+#    audit-project skill, and is the only rule correct for both
+#    underscore wings (liza_base) AND dash wings (e2e-api-tests,
+#    golden-path). The old `-`→`_` mangled dash wings — loom-kx2,
+#    confirmed live by the e2e-api-tests dogfood (e2e-api-tests →
+#    e2e_api_tests, the wrong wing).
 # =====================================================================
-echo "==> 4. wing default sanitization + --wing override"
+echo "==> 4. wing default verbatim + --wing override"
 
 STUBS=$(mk_stubs_dir)
-REPO=$(mk_fixture_repo "liza-base")
+REPO=$(mk_fixture_repo "e2e-api-tests")
 OUT=$(mktemp -d)
 CALLS=$(mktemp)
 REPLY=$(mktemp)
 echo '{"salient":true,"verbatim":"v","synthesis":"s","decision":"d"}' > "$REPLY"
 export GH_AUTH_OK=0
 
-# 4a. default wing = sanitized basename: liza-base → liza_base.
+# 4a. DECIDING CASE: dash-named repo → wing preserved verbatim (NOT
+#     mangled to e2e_api_tests). This is the loom-kx2 regression.
 out=$(CLAUDE_CALLS_FILE="$CALLS" CLAUDE_REPLY_FILE="$REPLY" \
       run_wrapper "$REPO" "$STUBS" --out "$OUT"); rc=$?
-if [ "$(cat "$OUT/wing" 2>/dev/null)" = "liza_base" ]; then
-  pass "wing default sanitizes '-'→'_' (liza-base → liza_base)"
+if [ "$(cat "$OUT/wing" 2>/dev/null)" = "e2e-api-tests" ]; then
+  pass "wing default verbatim (e2e-api-tests stays e2e-api-tests, not e2e_api_tests)"
 else
-  fail "wing default not sanitized: got '$(cat "$OUT/wing" 2>/dev/null)'" "$out"
+  fail "wing default not verbatim: got '$(cat "$OUT/wing" 2>/dev/null)' want 'e2e-api-tests'" "$out"
 fi
 
 # 4b. --wing override wins.

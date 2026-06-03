@@ -20,8 +20,9 @@
 #       [--dry-run] [--model=MODEL] [--out <dir>]
 #
 #   --root <dir>          repo to mine (default: cwd's git toplevel)
-#   --wing <name>         MemPalace wing for filing (default: sanitized
-#                         basename of the repo root, `-`→`_`)
+#   --wing <name>         MemPalace wing for filing (default: the repo
+#                         root basename VERBATIM — no `_`↔`-` subst, no
+#                         case-fold; matches scripts/loom-audit-resolve)
 #   --since=DATE          only commits/PRs since DATE (git --since)
 #   --since-release=TAG   only history after TAG
 #   --max-units=N         cap survivors fed to the LLM pass
@@ -108,12 +109,16 @@ fi
 repo="$(cd "$repo" && pwd)"
 
 # --- Resolve wing ---------------------------------------------------------
-# Precedence: --wing override, else sanitized basename of the repo root
-# (`-`→`_`, mirroring the liza_base convention). The project's mined drawers
-# land in this wing's `decisions` room, distinguished by provenance:mined.
+# Precedence: --wing override, else the repo root basename used VERBATIM
+# (no `_`↔`-` substitution, no case-folding). Verbatim matches
+# scripts/loom-audit-resolve + the audit-project skill — REQUIRED so the
+# wing this miner FILES into is the same wing /audit-project SEARCHES for
+# citation drift. Verbatim is the only rule correct for both underscore
+# wings (liza_base) and dash wings (e2e-api-tests, golden-path); the old
+# `-`→`_` mangled dash wings (loom-kx2, confirmed live by the
+# e2e-api-tests dogfood: e2e-api-tests → e2e_api_tests, the wrong wing).
 if [ -z "$wing" ]; then
   wing="$(basename "$repo")"
-  wing="${wing//-/_}"
 fi
 
 # --- Invoke the engine ----------------------------------------------------
