@@ -168,6 +168,16 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Embed the `gh auth status` stderr in the report so the user sees the specific failure mode (missing binary vs expired token vs no host configured).
     - Lineage: loom-k2g (2026-05-27). Surfaced during the upstream-a-bead design — every upstream recipe step assumes `gh` is authenticated, so the audit must catch the unauthenticated case before the user trips it mid-recipe.
 
+19. **Unmined decision history (informational)**
+    - A brownfield project starts with an empty MemPalace but a rich decision record already sitting in its git/PR history. This line surfaces how much is unmined; it never mines (mining is billable — opted into via `/audit-project --mine-history` or `/loom-mine-history` directly).
+    - Procedure: shell out to `bash <loom-root>/scripts/loom-mine-history --dry-run --root <root>` (zero spend — the engine's `--dry-run` stops at the cost-preview before any LLM call). Parse its `cost-preview: N harvested -> M gated -> ...` line for the gated count `M`.
+    - **Verdict matrix:**
+      - PASS = `M` is 0 (no unmined decision-shaped history — nothing to capture).
+      - INFO = `M ≥ 1` → report `M units of unmined decision history in git/PRs — run \`/loom-mine-history\` (or \`/audit-project --mine-history\`) to capture`.
+    - **No AUTOFIX tag** — mining is an explicit, billable LLM action gated by `/loom-mine-history`'s own two-pass cost preview; it must never be auto-applied by `--apply-onboarding`. INFO/PASS only, never WARN/MISS.
+    - Degrade-safe: if `scripts/loom-mine-history` is absent or the dry-run errors (e.g. not a git repo), emit INFO `(decision-history probe skipped)` and continue — never fail the checklist on this line.
+    - Lineage: loom-bn7.5 (2026-06-03); engine loom-bn7.1, entry loom-bn7.4. Mirrors item 8's informational, opt-in-fix shape.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
