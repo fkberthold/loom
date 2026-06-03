@@ -30,7 +30,9 @@ parses them. Recognized flags:
   root, then cwd). Lets the slash command run against any
   loom-managed project, not just loom itself.
 - `--wing <name>` — MemPalace wing for drawer-citation resolution
-  (default: basename of `--root`, lowercased, `_`→`-`).
+  (default: basename of `--root`, used **verbatim** — no `_`↔`-`
+  substitution, no case-folding; matches `scripts/loom-audit-resolve`
+  and the skill).
 
 Step 1: dispatch the `project-onboarder` subagent with the absolute
 path to the resolved project root and the resolved project short
