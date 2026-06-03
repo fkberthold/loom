@@ -36,11 +36,22 @@
 #   loom_mine_history <repo-path> [flags]
 #     --since=DATE          only commits/PRs since DATE (git --since)
 #     --since-release=TAG   only history after TAG
+#     --since-sha=SHA       only history after SHA — the *consume* side
+#                           of the watermark; harvests SHA..HEAD. Takes
+#                           precedence over --since-release. (bn7.3)
 #     --max-units=N         cap survivors fed to the LLM pass
 #     --dry-run             stop after cost preview; zero spend
 #     --yes                 auto-confirm the cost gate
+#     --resume              with --out, skip survivors already processed
+#                           in a prior run (recorded in <out>/.processed)
+#                           so an interrupted run does not re-spend the
+#                           LLM pass. Requires --out. (bn7.3)
 #     --model=MODEL         claude model (default: a cheap tier)
-#     --out=DIR             write candidates/drafts/triples into DIR
+#     --out=DIR             write candidates/drafts/triples into DIR.
+#                           A real (non-dry-run) pass also writes
+#                           <out>/watermark (the HEAD mined through, for
+#                           the skill to file as the KG fact
+#                           <repo> -> history_mined_through -> <SHA>).
 
 # Intentionally NO `set -euo pipefail` at source time.
 
@@ -166,10 +177,15 @@ _lmh_files_are_decisiony() {
 # each record is exactly one line.
 # ---------------------------------------------------------------------
 _lmh_harvest_git() {
-  local repo="$1" since="$2" since_release="$3"
+  local repo="$1" since="$2" since_release="$3" since_sha="$4"
   local rev_range=() log_args=()
 
-  if [ -n "$since_release" ]; then
+  # --since-sha is the watermark consume side; it takes precedence over
+  # --since-release (if you have a watermark you don't also need a tag
+  # bound). Both express a <rev>..HEAD range.
+  if [ -n "$since_sha" ]; then
+    rev_range=("${since_sha}..HEAD")
+  elif [ -n "$since_release" ]; then
     rev_range=("${since_release}..HEAD")
   fi
   if [ -n "$since" ]; then
@@ -265,8 +281,8 @@ _lmh_harvest_gh() {
 # loom_mine_history <repo-path> [flags]
 # ---------------------------------------------------------------------
 loom_mine_history() {
-  local repo="" since="" since_release="" max_units="" out=""
-  local dry_run=0 yes=0
+  local repo="" since="" since_release="" since_sha="" max_units="" out=""
+  local dry_run=0 yes=0 resume=0
   local model="$_LMH_DEFAULT_MODEL"
 
   # First positional is the repo path; flags may follow.
@@ -276,17 +292,20 @@ loom_mine_history() {
 
   while [ $# -gt 0 ]; do
     case "$1" in
-      --since=*)         since="${1#--since=}" ;;
+      --since-sha=*)     since_sha="${1#--since-sha=}" ;;
       --since-release=*) since_release="${1#--since-release=}" ;;
+      --since=*)         since="${1#--since=}" ;;
       --max-units=*)     max_units="${1#--max-units=}" ;;
       --dry-run)         dry_run=1 ;;
       --yes)             yes=1 ;;
+      --resume)          resume=1 ;;
       --model=*)         model="${1#--model=}" ;;
       --model)           shift; model="${1:-$model}" ;;
       --out=*)           out="${1#--out=}" ;;
       --out)             shift; out="${1:-}" ;;
-      --since)           shift; since="${1:-}" ;;
+      --since-sha)       shift; since_sha="${1:-}" ;;
       --since-release)   shift; since_release="${1:-}" ;;
+      --since)           shift; since="${1:-}" ;;
       --max-units)       shift; max_units="${1:-}" ;;
       *)
         # Unrecognized — if repo unset, treat as repo path.
@@ -303,10 +322,15 @@ loom_mine_history() {
     echo "loom_mine_history: $repo is not a git repository" >&2
     return 2
   fi
+  # --resume needs a persistent dir to checkpoint into.
+  if [ "$resume" -eq 1 ] && [ -z "$out" ]; then
+    echo "loom_mine_history: --resume requires --out (nowhere to checkpoint)" >&2
+    return 2
+  fi
 
   # ---- STAGE 1: HARVEST ------------------------------------------
   local harvest
-  harvest=$( { _lmh_harvest_gh "$repo"; _lmh_harvest_git "$repo" "$since" "$since_release"; } )
+  harvest=$( { _lmh_harvest_gh "$repo"; _lmh_harvest_git "$repo" "$since" "$since_release" "$since_sha"; } )
   local harvested_count=0
   [ -n "$harvest" ] && harvested_count=$(printf '%s\n' "$harvest" | grep -c .)
 
@@ -397,12 +421,39 @@ loom_mine_history() {
   fi
 
   # ---- STAGE 4 + 5: LLM SALIENCE + DRAFT, EMIT MANIFEST ----------
-  local drafts_jsonl triples_jsonl
-  drafts_jsonl=$(mktemp)
-  triples_jsonl=$(mktemp)
+  # Output targets. With --out the manifest + checkpoint persist in
+  # $out (enabling --resume); without --out we accumulate in temp files
+  # and dump to stdout. The .processed checkpoint records every
+  # processed source_id (salient or not) so a resumed run skips them.
+  local drafts_jsonl triples_jsonl processed_file
+  if [ -n "$out" ]; then
+    mkdir -p "$out"
+    drafts_jsonl="$out/drafts.jsonl"
+    triples_jsonl="$out/kg-triples.jsonl"
+    processed_file="$out/.processed"
+    if [ "$resume" -eq 1 ]; then
+      # Resume: preserve prior manifest + checkpoint; append + skip done.
+      [ -f "$drafts_jsonl" ]   || : > "$drafts_jsonl"
+      [ -f "$triples_jsonl" ]  || : > "$triples_jsonl"
+      [ -f "$processed_file" ] || : > "$processed_file"
+    else
+      # Fresh run: start clean.
+      : > "$drafts_jsonl"; : > "$triples_jsonl"; : > "$processed_file"
+    fi
+  else
+    drafts_jsonl=$(mktemp)
+    triples_jsonl=$(mktemp)
+    processed_file=$(mktemp)
+  fi
 
   while IFS=$'\t' read -r typ id author date title body files url labels; do
     [ -z "$typ" ] && continue
+
+    # Resume: skip survivors already processed in a prior run (no
+    # re-spend on the LLM pass).
+    if [ "$resume" -eq 1 ] && grep -qxF "$id" "$processed_file" 2>/dev/null; then
+      continue
+    fi
 
     # Build the source text passed to the model.
     local source_text
@@ -415,6 +466,10 @@ Files touched: $files"
     # Shell out to claude. Stub-interceptable shape.
     local reply
     reply=$(claude -p "$source_text" --model "$model" --output-format json 2>/dev/null)
+
+    # Checkpoint this unit as processed BEFORE the trust gate, so a
+    # salient=false unit (which emits no draft) is not re-spent on resume.
+    printf '%s\n' "$id" >> "$processed_file"
 
     # Tolerate an enveloped reply ({"result":"<json>"}): if "salient"
     # isn't at top level, try to unwrap a nested result string.
@@ -467,11 +522,13 @@ Files touched: $files"
       "$(printf '%s' "$author" | _lmh_json_escape)" >> "$triples_jsonl"
   done < "$survivors"
 
-  # Write manifest.
+  # EMIT MANIFEST / WATERMARK.
   if [ -n "$out" ]; then
-    mkdir -p "$out"
-    cp "$drafts_jsonl" "$out/drafts.jsonl"
-    cp "$triples_jsonl" "$out/kg-triples.jsonl"
+    # drafts/triples already written in place. Record the watermark: the
+    # HEAD we mined through, for the skill to file as the KG fact
+    # <repo> -> history_mined_through -> <SHA> after the drawers land.
+    # Emitted even with zero salient drafts — we DID examine through HEAD.
+    git -C "$repo" rev-parse HEAD > "$out/watermark" 2>/dev/null || true
   else
     echo "=== drafts ==="
     cat "$drafts_jsonl"
@@ -483,6 +540,10 @@ Files touched: $files"
   n_drafts=$(grep -c . "$drafts_jsonl" 2>/dev/null || echo 0)
   echo "emitted ${n_drafts} draft(s)."
 
-  rm -f "$survivors" "$candidates_jsonl" "$drafts_jsonl" "$triples_jsonl"
+  # Clean up temp files only — never the persistent $out manifest.
+  if [ -z "$out" ]; then
+    rm -f "$drafts_jsonl" "$triples_jsonl" "$processed_file"
+  fi
+  rm -f "$survivors" "$candidates_jsonl"
   return 0
 }
