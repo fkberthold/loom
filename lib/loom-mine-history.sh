@@ -499,24 +499,35 @@ loom_mine_history() {
       continue
     fi
 
-    # Build the source text passed to the model.
+    # Build the prompt: a salience INSTRUCTION + output schema, THEN the
+    # source unit. Without the instruction the model has no task and
+    # won't emit the schema; the e2e-api-tests dogfood hit 0/787 drafts
+    # partly because the prompt was raw source text only. (loom-bzl)
     local source_text
-    source_text="Source type: $typ
+    source_text="You are mining a software project's history for DESIGN DECISIONS. Decide whether the source below records a real decision WITH A STATED RATIONALE (a why, not merely a what). If it states no rationale, respond with exactly {\"salient\":false}. Otherwise respond with ONLY a JSON object (no prose, no markdown) with keys: \"salient\":true, \"verbatim\" (the exact decision/rationale text quoted from the source), \"synthesis\" (a 1-2 sentence paraphrase), \"decision\" (the decision stated in a few words).
+
+Source type: $typ
 Identifier: $id
 Title: $title
 Body: $body
 Files touched: $files"
 
-    # Shell out to claude. Stub-interceptable shape.
+    # Shell out to claude with --output-format TEXT (not json): the json
+    # envelope's .result is an ESCAPED string (\"salient\") the sed parse
+    # below cannot match through; text returns the raw model reply. Then
+    # strip a ```json ... ``` markdown fence the model adds even when
+    # asked for raw JSON, so the per-field sed sees clean JSON. (loom-bzl)
     local reply
-    reply=$(claude -p "$source_text" --model "$model" --output-format json 2>/dev/null)
+    reply=$(claude -p "$source_text" --model "$model" --output-format text 2>/dev/null)
+    reply=$(printf '%s' "$reply" | sed -e 's/^```[a-zA-Z]*[[:space:]]*$//' -e 's/^```[[:space:]]*$//')
 
     # Checkpoint this unit as processed BEFORE the trust gate, so a
     # salient=false unit (which emits no draft) is not re-spent on resume.
     printf '%s\n' "$id" >> "$processed_file"
 
-    # Tolerate an enveloped reply ({"result":"<json>"}): if "salient"
-    # isn't at top level, try to unwrap a nested result string.
+    # Extract fields. Patterns tolerate a SPACE after the colon — real
+    # claude pretty-prints `"verbatim": "..."` (the bare-JSON stub had no
+    # space, which is why this shipped green). (loom-bzl)
     local salient
     salient=$(printf '%s' "$reply" | sed -n 's/.*"salient":[[:space:]]*\(true\|false\).*/\1/p' | head -1)
 
@@ -526,9 +537,9 @@ Files touched: $files"
     fi
 
     local verbatim synthesis decision
-    verbatim=$(printf '%s' "$reply"  | sed -n 's/.*"verbatim":"\([^"]*\)".*/\1/p' | head -1)
-    synthesis=$(printf '%s' "$reply" | sed -n 's/.*"synthesis":"\([^"]*\)".*/\1/p' | head -1)
-    decision=$(printf '%s' "$reply"  | sed -n 's/.*"decision":"\([^"]*\)".*/\1/p' | head -1)
+    verbatim=$(printf '%s' "$reply"  | sed -n 's/.*"verbatim":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+    synthesis=$(printf '%s' "$reply" | sed -n 's/.*"synthesis":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+    decision=$(printf '%s' "$reply"  | sed -n 's/.*"decision":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
     [ -z "$decision" ] && decision="$title"
 
     local anchor="${url:-$id}"
