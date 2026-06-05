@@ -648,12 +648,15 @@ else
   fail "integration did not invoke claude" "$out"
 fi
 
-# claude was called with --model fake and --output-format json.
+# claude was called with --model fake and --output-format text.
+# (loom-bzl: text, NOT json — the json envelope escapes the inner JSON
+# so the salience sed parse misses \"salient\"; text returns the raw
+# model reply, unescaped.)
 if grep -q -- "--model fake" "$CALLS" 2>/dev/null && \
-   grep -q -- "--output-format json" "$CALLS" 2>/dev/null; then
-  pass "claude invoked with --model fake --output-format json"
+   grep -q -- "--output-format text" "$CALLS" 2>/dev/null; then
+  pass "claude invoked with --model fake --output-format text"
 else
-  fail "claude invocation shape wrong" "$(cat "$CALLS" 2>/dev/null)"
+  fail "claude invocation shape wrong (want --output-format text)" "$(cat "$CALLS" 2>/dev/null)"
 fi
 
 if [ -s "$OUT/drafts.jsonl" ] && [ -s "$OUT/kg-triples.jsonl" ]; then
@@ -1269,6 +1272,78 @@ else
 fi
 
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
+# 22. LIVE-SHAPED reply parse (loom-bzl). Real `claude -p` returns the
+#     model's reply as a ```json-fenced block with a SPACE after each
+#     colon ("verbatim": "...") and (under --output-format json) an
+#     ESCAPED envelope. The engine must: (a) instruct the model in the
+#     prompt, (b) request --output-format text (unescaped), (c) strip
+#     the fence, (d) extract fields tolerating the space-after-colon.
+#     The e2e-api-tests dogfood hit 0/787 drafts because none of this
+#     held against real claude (the stub emitted bare unfenced JSON).
+# =====================================================================
+echo "==> 22. live-shaped (fenced + spaced) reply parses into a full draft"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo)
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+# Exactly what `claude -p ... --output-format text` returns: a json
+# fence + pretty-printed UNescaped JSON with a space after each colon.
+cat > "$REPLY" <<'LIVE'
+```json
+{
+  "salient": true,
+  "verbatim": "We chose single-table over EAV because reads dominate.",
+  "synthesis": "Read-latency-driven schema choice.",
+  "decision": "single-table decisions schema"
+}
+```
+LIVE
+CALLS=$(mktemp); rm -f "$CALLS"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+export CLAUDE_CALLS_FILE="$CALLS"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
+draft=$(head -1 "$OUT/drafts.jsonl" 2>/dev/null)
+
+if [ "$rc" -eq 0 ]; then pass "live-shaped run exits 0"; else fail "rc=$rc" "$out"; fi
+
+# A draft must be emitted (salient parsed through the fence+space).
+if [ -n "$draft" ]; then pass "draft emitted from live-shaped reply"; else fail "no draft from live-shaped reply (0/787 regression)" "$out"; fi
+
+# verbatim must be NON-EMPTY — the space after the colon broke the old
+# `"verbatim":"` pattern (this is the field-extraction half of the bug).
+if echo "$draft" | grep -q "single-table over EAV"; then
+  pass "verbatim extracted despite space-after-colon"
+else
+  fail "verbatim empty/missing — field pattern not space-tolerant" "$draft"
+fi
+if echo "$draft" | grep -q "Read-latency-driven"; then
+  pass "synthesis extracted despite space-after-colon"
+else
+  fail "synthesis empty/missing — field pattern not space-tolerant" "$draft"
+fi
+
+# The ```json fence must NOT leak into any extracted field.
+if echo "$draft" | grep -q '```'; then
+  fail "json fence leaked into the draft" "$draft"
+else
+  pass "json fence stripped (no leak into draft)"
+fi
+
+# The prompt sent to claude must carry a salience INSTRUCTION + the
+# output schema — not just the raw source text.
+if grep -qiE 'salient|respond .*json|json.*salient' "$CALLS" 2>/dev/null; then
+  pass "prompt instructs the model (salience criteria + JSON schema)"
+else
+  fail "prompt has no instruction — model gets only raw source text" "$(grep '^ARGV' "$CALLS" | head -1)"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
 
 # =====================================================================
 # Summary
