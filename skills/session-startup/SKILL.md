@@ -67,6 +67,19 @@ it before running the rest of this skill.
    - `bd memories <project-keyword>` — pulls one-line tribal facts that auto-injected at `bd prime` but may need re-surfacing if the keyword wasn't in the prime context. Boundary (per the workflow infrastructure plan): `bd memories` for tribal one-liners; MemPalace drawers for multi-paragraph decisions.
 5. **Reconcile.** Compare what `bd ready` says with what the most recent diary/decision drawers recommend as the entry point. They should agree. If they don't (e.g., a drawer points at a now-closed bead), flag the divergence to the user.
 6. **Pick a bead.** Default = top of `bd ready`. If user named a bead, use that. Run `bd show <id>` for context.
+
+6a. **Propose a parallel wave when ready beads are independent (fan-out detector).** Run `scripts/loom-fanout-detect`. It reads `bd ready --json` + each candidate's `bd show <id> --json`, and emits — one wave per line, space-separated IDs — each group of ready beads that have **NO dependency edge between them AND NO overlapping `Files:` path**. Beads with no `Files:` line declared are excluded (conservative: footprint unknown → not provably disjoint). When it emits a wave of ≥2 beads, surface this as the **DEFAULT** proposal *before* falling back to the serial single-bead pick from step 6:
+
+   ```
+   loom-X / loom-Y / loom-Z are independent (no dep edge, disjoint Files:).
+   Dispatch N parallel workers? [y / edit / serial]
+   ```
+
+   - `y` → hand off to `superpowers:dispatching-parallel-agents`, one worker per bead in the wave.
+   - `edit` → let the user prune/add beads, then dispatch the adjusted set.
+   - `serial` → fall back to the single-bead pick (step 6).
+
+   This is a **proposal, not an auto-dispatch** — central never fans out workers without the user's go-ahead (loom's nudge-not-block design). Why this step exists: `bd ready` is otherwise popped as a serial queue, so independence computed at bead *creation* (the splitting heuristic) is never re-surfaced at *work* time, and central does parallelizable beads one-at-a-time inline (loom-yb5; the bn7 session was all-inline/all-serial — exhibit A). The detector only sees beads that declare `Files:`; nudge under-declaring beads toward the convention rather than silently dropping them. Tolerance: if `scripts/loom-fanout-detect` is absent, `jq` is missing, or it errors, emit nothing and continue to step 7. **Never fail the skill on this step.**
 7. **Surface the right process skill** for the chosen bead BEFORE acting:
 
 | Bead shape | Skill to invoke |
