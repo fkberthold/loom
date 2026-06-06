@@ -95,6 +95,13 @@ slash commands.
   beads in HAW or any other project.
 - **One bead = one branch (`frank/<bead-id>`) = one worktree** when
   the change is non-trivial. Skip worktree for ≤1-line tweaks.
+- **Worker-dispatch is the default for the variable middle.** Any
+  bead whose middle has a RED→GREEN cycle defaults to a dispatched
+  worker; inline (central edits directly) is the explicit exception,
+  waved through without justification only when the change is ≤ ~15
+  lines AND touches a single non-test file AND adds no new test. See
+  the "Dispatch discipline" section of `bead-lifecycle-shell` for the
+  full threshold + the `workflow-state` `dispatch` field recording.
 - **Splitting heuristic at bead creation.** When filing 2+ candidate
   items, ask: are they independent (no shared files, no sequential
   dependency)? If yes, file as sibling beads under an umbrella

@@ -76,7 +76,7 @@ assert_contains_literal() {
 
 echo "==> Phase B dispatch-discipline boilerplate present (verbatim)"
 assert_contains_literal "boilerplate: dispatch discipline opener" \
-  "Dispatch discipline (uniform across all recipes): Phase B is worker territory."
+  "Dispatch discipline (uniform across all recipes): Phase B is worker territory"
 assert_contains_literal "boilerplate: brief a single worker via Agent + isolation worktree" \
   "Brief a single worker via Agent + isolation: worktree covering the full variable middle in one dispatch."
 assert_contains_literal "boilerplate: do NOT use Edit/Write/MultiEdit between claim and close" \
@@ -87,6 +87,32 @@ assert_contains_literal "boilerplate: parallel code-work forbidden in central" \
   "do NOT start parallel code-work in the central session"
 assert_contains_literal "boilerplate: worker returns; you review; re-dispatch only on surprises" \
   "The worker returns; you review; you re-dispatch only on surprises."
+
+# =====================================================================
+# 1b. Worker-dispatch default + mechanical inline-exception threshold
+# =====================================================================
+#
+# loom-mcy (T4 of loom-yb5): worker-dispatch is the stated DEFAULT for
+# any RED→GREEN-cycle bead; inline is the explicit exception, allowed
+# without justification only under a mechanical, checkable threshold.
+
+echo "==> Worker-dispatch default + mechanical inline-exception threshold"
+assert_contains "default: worker-dispatch is the DEFAULT for RED→GREEN beads" \
+  '[Ww]orker-dispatch is the DEFAULT'
+assert_contains "default: keyed to RED→GREEN cycle" \
+  'RED→GREEN cycle|RED→GREEN-shaped'
+assert_contains "exception: inline is the explicit/justified exception" \
+  '[Ii]nline is the explicit'
+assert_contains "threshold: ≤ ~15 lines bound" \
+  '≤ ?~?15 lines|15 lines'
+assert_contains "threshold: single non-test file" \
+  'single non-test file'
+assert_contains "threshold: adds no new test" \
+  'no new test|adds no new test'
+assert_contains "recording: workflow-state dispatch field" \
+  'workflow-state.*dispatch field|dispatch=worker|dispatch=inline'
+assert_contains "cross-ref: dispatch-nudge hook (loom-h5s)" \
+  'dispatch-nudge hook|loom-h5s'
 
 # =====================================================================
 # 2. While-worker-runs allowed/forbidden explicit lists
