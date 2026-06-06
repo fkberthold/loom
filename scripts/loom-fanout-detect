@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# loom-fanout-detect — propose parallel worker waves at bead selection.
+#
+# loom-asr (T3 of epic loom-yb5: restore central-agent dispatch posture).
+#
+# THE PROBLEM. `bd ready` is popped as a serial queue. Bead independence
+# is computed once, at bead CREATION (the splitting heuristic in
+# CLAUDE.md), then never re-surfaced at WORK time — so central does
+# ready beads one at a time, inline + serial, even when several are
+# trivially parallelizable. This detector re-derives independence at
+# selection time and PROPOSES a parallel wave, so the
+# session-startup / working-a-bead router can offer
+# "loom-X/Y/Z are independent — dispatch N parallel workers?" as the
+# default instead of waiting to be told.
+#
+# WHAT "INDEPENDENT" MEANS. Two ready beads are safe to dispatch in the
+# same wave iff:
+#   1. there is NO dependency edge between them (neither lists the other
+#      in its `bd show --json` .dependencies[].id), AND
+#   2. their declared `Files:` paths are DISJOINT (no shared path — the
+#      bn7.2/bn7.3 case, where both touched lib/loom-mine-history.sh and
+#      so could NOT run in parallel without clobbering each other).
+# A bead with NO `Files:` line is "unknown" — we cannot prove its file
+# footprint is disjoint, so it is EXCLUDED from any proposed wave
+# (conservative-by-default; see the Files: convention in CLAUDE.md).
+#
+# CONTRACT. Mirrors scripts/loom-mine-history + scripts/loom-audit-resolve:
+# deterministic resolution logic in a fixture-testable bash script, so
+# the router prose calls it and reads back the proposed group rather
+# than re-deriving dep-graph + Files-overlap arithmetic in prose.
+#
+#   Input  : `bd ready --json` (candidate set) + `bd show <id> --json`
+#            per candidate (dep edges + the `Files:` line in
+#            .description). bd is invoked from PATH, so it is stubbable
+#            in tests.
+#   Output : one PROPOSED WAVE per line on stdout — space-separated bead
+#            IDs, sorted, only waves of size >= 2 (a lone bead is not a
+#            parallel proposal). Empty stdout == no wave found.
+#   Exit   : always 0 — this is a DETECTOR, not a gate (loom's
+#            nudge-not-block design: blocks become bypass-magnets).
+#
+# Usage:
+#   scripts/loom-fanout-detect            # uses live `bd`
+#   BD_FIXTURE_DIR=... (tests stub bd)    # see lib/tests/loom-fanout-detect.test.sh
+#
+# Requires: jq (for robust JSON parsing of bd output).
+
+set -uo pipefail
+
+err() { echo "loom-fanout-detect: $*" >&2; }
+
+if ! command -v jq >/dev/null 2>&1; then
+  err "jq not found on PATH — required for JSON parsing"
+  exit 0   # detector, not a gate: degrade silently to "no wave"
+fi
+
+# --- 1. Candidate set: ready bead IDs --------------------------------
+ready_json="$(bd ready --json 2>/dev/null)"
+if [ -z "$ready_json" ]; then
+  exit 0
+fi
+
+# bd ready may emit either a bare array or {"issues":[...]} depending on
+# version; tolerate both.
+ids="$(printf '%s' "$ready_json" | jq -r '
+  (if type=="array" then . else (.issues // []) end) | .[].id' 2>/dev/null)"
+[ -n "$ids" ] || exit 0
+
+# --- 2. Per-bead facts: deps[] + Files: paths ------------------------
+# We accumulate, per candidate bead:
+#   DEPS[id]  = space-separated dependency IDs (.dependencies[].id)
+#   FILES[id] = newline-separated normalized Files: paths ("" + a flag
+#               distinguishes "declared none" from "no Files: line")
+#   HASFILES[id] = 1 if the description carried a `Files:` line
+declare -A DEPS
+declare -A FILES
+declare -A HASFILES
+
+# Normalize a single Files: path: trim whitespace, strip a trailing
+# parenthetical annotation (e.g. "commands/working-a-bead.md (router)"),
+# drop bracket annotations, collapse a trailing slash.
+norm_path() {
+  local p="$1"
+  # strip trailing "(...)" or "[...]" annotation
+  p="${p%%(*}"
+  p="${p%%[*}"
+  # trim surrounding whitespace
+  p="$(printf '%s' "$p" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  # drop a leading "optional " marker sometimes used in Files: lists
+  p="${p#optional }"
+  # collapse trailing slash
+  p="${p%/}"
+  printf '%s' "$p"
+}
+
+candidates=()
+for id in $ids; do
+  show_json="$(bd show "$id" --json 2>/dev/null)"
+  [ -n "$show_json" ] || continue
+
+  # bd show --json emits a single-element array.
+  obj="$(printf '%s' "$show_json" | jq -c '
+    (if type=="array" then .[0] else . end)' 2>/dev/null)"
+  [ -n "$obj" ] && [ "$obj" != "null" ] || continue
+
+  # Dependency IDs.
+  dep_ids="$(printf '%s' "$obj" | jq -r '
+    (.dependencies // []) | .[].id' 2>/dev/null | tr '\n' ' ')"
+  DEPS["$id"]="$dep_ids"
+
+  # Description → the `Files:` line. Match a line beginning (after
+  # optional leading whitespace) with "Files:" (case-insensitive).
+  descr="$(printf '%s' "$obj" | jq -r '.description // ""' 2>/dev/null)"
+  files_line="$(printf '%s\n' "$descr" \
+    | grep -iE '^[[:space:]]*Files:' | head -1)"
+
+  if [ -z "$files_line" ]; then
+    HASFILES["$id"]=0
+    FILES["$id"]=""
+  else
+    HASFILES["$id"]=1
+    # strip the "Files:" label, split on commas, normalize each.
+    rest="$(printf '%s' "$files_line" | sed -E 's/^[[:space:]]*[Ff]iles:[[:space:]]*//')"
+    paths=""
+    local_oldifs="$IFS"
+    IFS=','
+    for raw in $rest; do
+      np="$(norm_path "$raw")"
+      [ -n "$np" ] && paths="$paths$np"$'\n'
+    done
+    IFS="$local_oldifs"
+    FILES["$id"]="$paths"
+  fi
+  candidates+=("$id")
+done
+
+# --- 3. Eligible set: only beads that DECLARED a Files: line ----------
+eligible=()
+for id in "${candidates[@]}"; do
+  [ "${HASFILES[$id]:-0}" = "1" ] || continue
+  eligible+=("$id")
+done
+
+# Need at least two eligible beads to form any wave.
+[ "${#eligible[@]}" -ge 2 ] || exit 0
+
+# --- 4. Compatibility predicate --------------------------------------
+# compatible(a,b): no dep edge between them AND no shared Files: path.
+has_dep_edge() {
+  local a="$1" b="$2" d
+  for d in ${DEPS[$a]:-}; do [ "$d" = "$b" ] && return 0; done
+  for d in ${DEPS[$b]:-}; do [ "$d" = "$a" ] && return 0; done
+  return 1
+}
+
+files_overlap() {
+  local a="$1" b="$2" pa
+  # Any path in a's set that also appears in b's set → overlap.
+  while IFS= read -r pa; do
+    [ -n "$pa" ] || continue
+    if printf '%s' "${FILES[$b]:-}" | grep -Fxq -- "$pa"; then
+      return 0
+    fi
+  done <<< "${FILES[$a]:-}"
+  return 1
+}
+
+compatible() {
+  local a="$1" b="$2"
+  has_dep_edge "$a" "$b" && return 1
+  files_overlap "$a" "$b" && return 1
+  return 0
+}
+
+# --- 5. Greedy wave construction (clique cover) ----------------------
+# Partition eligible beads into waves where EVERY pair within a wave is
+# mutually compatible. Greedy first-fit: for each bead, drop it into the
+# first existing wave it is compatible with all members of; else start a
+# new wave. Good enough for the small ready-queue sizes we ever face;
+# the result is a set of conservatively-safe parallel groups.
+waves=()        # each element: space-separated bead IDs
+
+for id in "${eligible[@]}"; do
+  placed=0
+  for i in "${!waves[@]}"; do
+    ok=1
+    for member in ${waves[$i]}; do
+      if ! compatible "$id" "$member"; then ok=0; break; fi
+    done
+    if [ "$ok" = "1" ]; then
+      waves[$i]="${waves[$i]} $id"
+      placed=1
+      break
+    fi
+  done
+  if [ "$placed" = "0" ]; then
+    waves+=("$id")
+  fi
+done
+
+# --- 6. Emit waves of size >= 2, IDs sorted within each line ----------
+for w in "${waves[@]}"; do
+  # count members
+  set -- $w
+  [ "$#" -ge 2 ] || continue
+  printf '%s\n' "$w" | tr ' ' '\n' | grep -v '^$' | sort | tr '\n' ' ' | sed 's/ $//'
+  echo
+done
+
+exit 0

@@ -104,6 +104,23 @@ slash commands.
   recipe-middle within-bead parallel nudge in `bead-lifecycle-shell`
   ("Decision: parallel vs sequential" → "Within-bead") catches what
   slips through; this heuristic prevents the slip at the source.
+- **Declare `Files:` in every bead description (loom-asr).** Add a
+  `Files:` line listing the paths the bead is expected to touch, e.g.
+  `Files: scripts/loom-foo, lib/tests/loom-foo.test.sh`. This is the
+  input the fan-out detector (`scripts/loom-fanout-detect`, surfaced
+  at selection by session-startup step 6a + the `/working-a-bead`
+  router) uses to decide which ready beads are safe to dispatch as a
+  parallel worker wave: two beads are wave-compatible iff they have
+  NO dependency edge between them AND their `Files:` sets are
+  DISJOINT. The detector **degrades conservative** without the line —
+  a bead with no `Files:` declared is treated as "footprint unknown,
+  not provably disjoint" and is EXCLUDED from any proposed wave, so
+  it silently never gets parallelized. Format: comma-separated paths
+  on a single line beginning `Files:`; trailing parenthetical/bracket
+  annotations (`(router)`, `[optional]`) and a leading `optional `
+  marker are tolerated and stripped during matching. Use relative
+  repo paths (matching the worktree-relative convention dispatched
+  workers use).
 - **Capture decisions** in MemPalace drawers (`loom/decisions`
   room). The drawer is the design source-of-truth; this repo is the
   implementation source-of-truth. When they diverge, the drawer

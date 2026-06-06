@@ -13,8 +13,18 @@ Parse the slash-command argument. Two cases:
 - **Bead-id given** (e.g., `/working-a-bead loom-foo`): treat that as
   the chosen bead. Continue to Step 2.
 - **No argument**: run `bd ready` and surface the top of the queue.
-  Confirm with the user which bead to work BEFORE dispatching. Then
-  re-enter Step 2 with the chosen bead-id.
+  Before confirming a single bead, run `scripts/loom-fanout-detect`
+  (the fan-out detector). If it emits a wave of ≥2 independent ready
+  beads (no dep edge between them + disjoint `Files:`), propose
+  parallelizing them as the **default** —
+  "loom-X / loom-Y / loom-Z are independent — dispatch N parallel
+  workers? [y / edit / serial]" — handing `y` off to
+  `superpowers:dispatching-parallel-agents`. On `serial` (or if the
+  detector emits no wave), confirm with the user which single bead to
+  work BEFORE dispatching, then re-enter Step 2 with the chosen
+  bead-id. The detector is a proposal, never an auto-dispatch; if it's
+  absent or errors, skip silently and fall back to the single-bead
+  flow. (See session-startup SKILL.md step 6a for the full contract.)
 
 Optional second argument: `--recipe=<name>` (where `<name>` is one of
 `bugfix`, `feature`, `refactor`, `research`, `cleanup`, `docs`).
