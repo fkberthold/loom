@@ -4,6 +4,7 @@
 # Usage:
 #   workflow-state get <field>            # read one field
 #                                         # supports nested guest.<x>
+#                                         # + compound dispatch_counts
 #   workflow-state set k=v [k=v ...]      # atomic merge update
 #   workflow-state init                   # ensure state file exists (idle)
 #   workflow-state path                   # echo state-file path
@@ -47,6 +48,14 @@ __ws_get() {
     guest.*)
       echo "workflow-state: unknown nested key '$field'" >&2
       exit 2
+      ;;
+    dispatch_counts)
+      # Compound read (loom-0zr): "inline:N/dispatched:M" from the two
+      # session drift counters. Missing counters read as 0.
+      local _di _dd
+      _di=$(workflow_state_get inline "$@")
+      _dd=$(workflow_state_get dispatched "$@")
+      printf 'inline:%s/dispatched:%s\n' "${_di:-0}" "${_dd:-0}"
       ;;
     *)
       workflow_state_get "$field" "$@"
