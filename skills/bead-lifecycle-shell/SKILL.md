@@ -241,13 +241,36 @@ When the recipe finishes its middle, return here for phase B.
 ### Dispatch discipline — central agent briefs a worker (loom-7p6)
 
 Dispatch discipline (uniform across all recipes): Phase B is worker
-territory. Brief a single worker via Agent + isolation: worktree
-covering the full variable middle in one dispatch. Do NOT use
-Edit/Write/MultiEdit yourself between bead-claim and bead-close.
-While the worker runs (background): answer user questions, pre-stage
-the next bead, or revise the contract — but do NOT start parallel
-code-work in the central session. The worker returns; you review;
-you re-dispatch only on surprises.
+territory **by default**. Worker-dispatch is the DEFAULT for any bead
+whose variable middle has a RED→GREEN cycle (writes code AND tests).
+Brief a single worker via Agent + isolation: worktree covering the
+full variable middle in one dispatch. Do NOT use Edit/Write/MultiEdit
+yourself between bead-claim and bead-close. While the worker runs
+(background): answer user questions, pre-stage the next bead, or
+revise the contract — but do NOT start parallel code-work in the
+central session. The worker returns; you review; you re-dispatch only
+on surprises.
+
+**Inline is the explicit, justified EXCEPTION.** Working the variable
+middle inline (central edits directly, no worker) is allowed
+**without** justification ONLY when ALL of these hold:
+
+- the change is ≤ ~15 lines, AND
+- it touches a single non-test file, AND
+- it adds no new test.
+
+Pure docs/config/prose edits qualify. **Anything with a RED→GREEN
+cycle defaults to worker** — no exception waved through on "feels
+trivial" or "contained." Going inline on a bead that fails any clause
+above is a deliberate override: record the reason (below) and own it.
+
+**Recording the choice.** Central records the decision in
+`workflow-state`'s `dispatch` field (bead loom-0zr / T1):
+`dispatch=worker` for the default, or `dispatch=inline:<reason>` for
+a justified exception. The dispatch-nudge hook (bead loom-h5s / T2)
+reads this field and prompts when a bead with a RED→GREEN-shaped
+variable middle is about to be worked inline without a recorded
+`inline:<reason>`.
 
 **Allowed while the worker runs (central session):**
 - Answer the user's questions; explain in-flight decisions.
