@@ -72,6 +72,9 @@ BEAD=$(workflow_state_get bead "$CWD")
 STAGE=$(workflow_state_get stage "$CWD")
 UPDATED=$(workflow_state_get updated "$CWD")
 PAR=$(workflow_state_get parallel_candidates "$CWD")
+DISPATCH=$(workflow_state_get dispatch "$CWD")
+DISPATCHED=$(workflow_state_get dispatched "$CWD")
+INLINE=$(workflow_state_get inline "$CWD")
 ACTIVITY="${ACTIVITY:-idle}"
 STAGE="${STAGE:-idle}"
 
@@ -110,6 +113,19 @@ fi
 # found N>0 parallelizable siblings at claim time.
 if [ -n "$PAR" ] && [ "$PAR" != "0" ] && [ "$PAR" != "null" ]; then
   printf ' | PAR:%s' "$PAR"
+fi
+
+# Dispatch cue (loom-0zr): surface how the current bead was worked
+# (worker | inline:<reason>) plus the session drift tally
+# "inline:N/dispatched:M". Shown when the dispatch field is set OR
+# either counter is non-zero — silent otherwise.
+DISPATCHED="${DISPATCHED:-0}"; [ "$DISPATCHED" = "null" ] && DISPATCHED=0
+INLINE="${INLINE:-0}"; [ "$INLINE" = "null" ] && INLINE=0
+if [ -n "$DISPATCH" ] && [ "$DISPATCH" != "null" ]; then
+  printf ' | dispatch:%s' "$DISPATCH"
+fi
+if [ "$DISPATCHED" != "0" ] || [ "$INLINE" != "0" ]; then
+  printf ' | inline:%s/dispatched:%s' "$INLINE" "$DISPATCHED"
 fi
 
 printf '\n'

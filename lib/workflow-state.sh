@@ -12,6 +12,10 @@
 #     "stage":    "idle" | "claim" | "research" | "tdd-red" |
 #                 "tdd-green" | "verify" | "review" | "commit" |
 #                 "wrap-up" | "close",
+#     "parallel_candidates": <int>,   # seam-scan result (loom-z3m.5)
+#     "dispatch":   "worker" | "inline:<reason>" | null,  # loom-0zr
+#     "dispatched": <int>,   # session tally of dispatch=worker sets
+#     "inline":     <int>,   # session tally of dispatch=inline:... sets
 #     "updated":  "ISO-8601 UTC"
 #   }
 #
@@ -141,6 +145,30 @@ workflow_state_set() {
             jq_filter="$jq_filter | .parallel_candidates = 0"
           fi
           ;;
+        dispatch)
+          # Per-bead dispatch field (loom-0zr). Latest-write-wins
+          # string: `worker` or `inline:<reason>`. Empty/null clears
+          # it. As a side effect, increments a session-scoped drift
+          # counter: `dispatch=worker` bumps `dispatched`,
+          # `dispatch=inline:...` bumps `inline`. The counters are
+          # running tallies (not overwritten), so the central session
+          # can read off how often it diverged from the dispatch
+          # default.
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            jq_filter="$jq_filter | .dispatch = null"
+          else
+            jq_filter="$jq_filter | .dispatch = \$dispatch"
+            jq_args+=(--arg dispatch "$v")
+            case "$v" in
+              worker)
+                jq_filter="$jq_filter | .dispatched = ((.dispatched // 0) + 1)"
+                ;;
+              inline:*)
+                jq_filter="$jq_filter | .inline = ((.inline // 0) + 1)"
+                ;;
+            esac
+          fi
+          ;;
         *) ;;
       esac
     done
@@ -149,17 +177,23 @@ workflow_state_set() {
   else
     # No jq fallback: read current values, apply overrides, rewrite.
     local cur_v cur_mode cur_activity cur_bead cur_stage cur_pc
+    local cur_dispatch cur_dispatched cur_inline
     cur_v=$(workflow_state_get v "$start_dir")
     cur_mode=$(workflow_state_get mode "$start_dir")
     cur_activity=$(workflow_state_get activity "$start_dir")
     cur_bead=$(workflow_state_get bead "$start_dir")
     cur_stage=$(workflow_state_get stage "$start_dir")
     cur_pc=$(workflow_state_get parallel_candidates "$start_dir")
+    cur_dispatch=$(workflow_state_get dispatch "$start_dir")
+    cur_dispatched=$(workflow_state_get dispatched "$start_dir")
+    cur_inline=$(workflow_state_get inline "$start_dir")
     [ -z "$cur_v" ] && cur_v=1
     [ -z "$cur_mode" ] && cur_mode=full
     [ -z "$cur_activity" ] && cur_activity=idle
     [ -z "$cur_stage" ] && cur_stage=idle
     [ -z "$cur_pc" ] && cur_pc=0
+    [ -z "$cur_dispatched" ] && cur_dispatched=0
+    [ -z "$cur_inline" ] && cur_inline=0
 
     local kv k v
     for kv in "${pairs[@]}"; do
@@ -178,6 +212,19 @@ workflow_state_set() {
             cur_pc=0
           fi
           ;;
+        dispatch)
+          # See jq branch above (loom-0zr). Latest-write-wins string;
+          # increments the matching session counter as a side effect.
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            cur_dispatch=""
+          else
+            cur_dispatch="$v"
+            case "$v" in
+              worker)     cur_dispatched=$((cur_dispatched + 1)) ;;
+              inline:*)   cur_inline=$((cur_inline + 1)) ;;
+            esac
+          fi
+          ;;
       esac
     done
 
@@ -188,8 +235,16 @@ workflow_state_set() {
       bead_json="\"$cur_bead\""
     fi
 
-    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"updated":"%s"}\n' \
-      "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$cur_pc" "$now" \
+    local dispatch_json
+    if [ -z "$cur_dispatch" ] || [ "$cur_dispatch" = "null" ]; then
+      dispatch_json=null
+    else
+      dispatch_json="\"$cur_dispatch\""
+    fi
+
+    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"updated":"%s"}\n' \
+      "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$cur_pc" \
+      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$now" \
       > "$path.tmp.$$"
     mv "$path.tmp.$$" "$path"
   fi
