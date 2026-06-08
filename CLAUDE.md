@@ -241,6 +241,32 @@ slash commands.
   are a downstream projection rendered from the substrate, never the
   substrate itself — precedence system/beads/MemPalace > docs, per
   loom-9z1.10).
+- **`/explore` is the SUB-design exploration primitive — upstream of
+  the design cycle (loom-ld1q).** `/explore <idea>` opens "an
+  exploration": an above-bead, SUB-design phase that blends FOUR
+  source tiers — Tier 1 self/current-context, Tier 2 repo+docs, Tier
+  3 web common-usage, Tier 4 peer-reviewed literature — to converge
+  WITH the user on shared understanding. It is the front-door to
+  `/design-a-cycle` the way `/design-a-cycle` is the front-door to
+  `create-beads`; the ladder is **explore → design → build**. It is
+  **NOT a bead and NOT a design cycle** — it has no soundness gate
+  (lighter than design-a-cycle by construction) and no epic emission.
+  The loop is HYBRID (honors dispatch-v2 lean-central, loom-5m94):
+  light tiers 1+2 run in-thread, heavy tiers 3+4 are dispatched as a
+  `deep-research` round when the conversation calls for one, and
+  central writes nothing but the capture. Memory is ONE drawer in the
+  `loom/decisions` room tagged **`exploration`** — the tag, NOT a
+  dedicated room, so bug-family-search reaches it (precedent:
+  loom-mine-history's `provenance:mined`). Two USER-DECLARED exits,
+  no gate: **REST** → `status=rested` (the drawer stands as standing
+  understanding); **PROMOTE** → opens `/design-a-cycle` whose
+  decisions are wired `grounded_in` this drawer, `status=promoted`.
+  Either exit clears it from the session-startup active-explorations
+  scan. The soft KG predicate set (recommended, not locked, mirroring
+  loom-tdua) is `explores`, `grounded_in`, `surfaced_finding`,
+  `has_open_thread`, `informs_design_of`. v1 is prompt/skill-only
+  with no hook backstop (nudge-not-block, loom-yb5). Full reference:
+  `docs/reference/explore.md`.
 
 ## Tools
 
