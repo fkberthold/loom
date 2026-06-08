@@ -238,21 +238,54 @@ Hand control back to the activity recipe that pointed you here. The
 recipe specifies the steps and stages between phase A and phase B.
 When the recipe finishes its middle, return here for phase B.
 
-### Dispatch discipline — central agent briefs a worker (loom-7p6)
+### Dispatch discipline — central orchestrates a pipeline (loom-6bv1)
 
-Dispatch discipline (uniform across all recipes): Phase B is worker
-territory **by default**. Worker-dispatch is the DEFAULT for any bead
-whose variable middle has a RED→GREEN cycle (writes code AND tests).
-Brief a single worker via Agent + isolation: worktree covering the
-full variable middle in one dispatch. Do NOT use Edit/Write/MultiEdit
-yourself between bead-claim and bead-close. While the worker runs
-(background): answer user questions, pre-stage the next bead, or
+Dispatch discipline (uniform across all recipes): the variable middle
+is dispatched, never typed in the central thread. **The DEFAULT is
+`/dispatch-middle`** — it runs the middle as a pipeline of INDEPENDENT
+subagents in one shared worktree: the **test-author THEN implementer
+(DIFFERENT agents)**, with an optional verifier. The test-author
+writes the RED test and commits it; the implementer inherits that test
+as an ARTIFACT (a file on disk — never the author's reasoning, mind, or
+conversation) and makes it GREEN. Because the two roles are different
+agents, the test-author == code-author anti-pattern is solved by
+construction. **Central writes NOTHING in the middle** — no test, no
+line of code: it invokes `/dispatch-middle <bead>` once and hands back
+for integration. (This supersedes the old loom-yb5 model where one
+worker covered the full RED→GREEN in a single dispatch; the split into
+two independent agents is the v2 change.) Do NOT use
+Edit/Write/MultiEdit yourself between bead-claim and bead-close. While
+the pipeline runs: answer user questions, pre-stage the next bead, or
 revise the contract — but do NOT start parallel code-work in the
-central session. The worker returns; you review; you re-dispatch only
-on surprises.
+central session. The pipeline returns; you integrate; you re-dispatch
+only on surprises.
+
+**The sharpened central/worker line.** Central does ONLY three things:
+**conversation** (executive function + dialogue with the user),
+**contract-lock** (M1 = the genuine user dialogue that pins the bead's
+`RED:` line / spec / acceptance), and **integration** (verify + merge
++ close + capture — the cwd-sensitive, bd-authoritative steps only
+central can do safely). Everything in between — the **RED-test +
+GREEN-code + research + review** — is worker work, each agent briefed
+with ONLY its MINIMAL scoped slice of context (the locked contract for
+the test-author; the RED-test-as-file for the implementer). Central
+never writes a test or a line of code. See `dispatch-middle` for the
+pipeline mechanics, the two brief templates, and the context-scoping
+discipline.
+
+**Friction-inversion — why the default flipped (loom-5m94).**
+loom-yb5 was a *push* (a nudge pressuring toward dispatch); central
+still defaulted to inline because dispatching used to mean
+write-a-brief + wait + verify + merge — high friction. `/dispatch-
+middle` is the *pull*: dispatch is now a **single cheap command** that
+runs the whole middle. With friction inverted, **inline's only
+remaining justification is the mechanical threshold** — and even when
+that threshold is met, **`/dispatch-middle` is still preferred**;
+inline is the deliberate exception you reach for, not the comfortable
+default.
 
 **Inline is the explicit, justified EXCEPTION.** Working the variable
-middle inline (central edits directly, no worker) is allowed
+middle inline (central edits directly, no dispatch) is allowed
 **without** justification ONLY when ALL of these hold:
 
 - the change is ≤ ~15 lines, AND
@@ -260,81 +293,70 @@ middle inline (central edits directly, no worker) is allowed
 - it adds no new test.
 
 Pure docs/config/prose edits qualify. **Anything with a RED→GREEN
-cycle defaults to worker** — no exception waved through on "feels
-trivial" or "contained." Going inline on a bead that fails any clause
-above is a deliberate override: record the reason (below) and own it.
+cycle defaults to `/dispatch-middle`** — no exception waved through on
+"feels trivial" or "contained," and even a change that clears the
+threshold above still prefers `/dispatch-middle` over inline. Going
+inline on a bead that fails any clause above is a deliberate override:
+record the reason (below) and own it.
 
 **Recording the choice.** Central records the decision in
-`workflow-state`'s `dispatch` field (bead loom-0zr / T1):
-`dispatch=worker` for the default, or `dispatch=inline:<reason>` for
-a justified exception. The dispatch-nudge hook (bead loom-h5s / T2)
-reads this field and prompts when a bead with a RED→GREEN-shaped
-variable middle is about to be worked inline without a recorded
-`inline:<reason>`.
+`workflow-state`'s `dispatch` field (bead loom-0zr): `dispatch=worker`
+for the `/dispatch-middle` default, or `dispatch=inline:<reason>` for
+a justified exception. The dispatch-nudge hook (bead loom-h5s; updated
+in T3 to point at `/dispatch-middle`) reads this field and prompts when
+a bead with a RED→GREEN-shaped variable middle is about to be worked
+inline without a recorded `inline:<reason>`.
 
-**Allowed while the worker runs (central session):**
+**Allowed while the pipeline runs (central session):**
 - Answer the user's questions; explain in-flight decisions.
 - Pre-stage the next bead (read its description, surface prior art,
-  draft the next worker brief — but do not claim it yet).
+  draft the next contract — but do not claim it yet).
 - Revise the in-flight contract if the user clarifies intent (capture
   in a follow-up note for the re-dispatch, do not edit code).
 - Read-only investigation: `bd show`, `git log`, MemPalace search.
 
-**Forbidden while the worker runs (central session):**
+**Forbidden while the pipeline runs (central session):**
 - Edit, Write, or MultiEdit on any file in the worktree.
 - Parallel code-work on the same bead in the main repo.
 - Closing the bead, merging the branch, or pushing.
-- Starting a second worker on the same bead's variable middle.
+- Starting a second pipeline on the same bead's variable middle.
 
-#### Worker-brief template (inline; copy-paste, adapt per bead)
+#### Brief templates — delegated to `/dispatch-middle`
 
-Keep total length ≤ 250 words. Recipes cite this template by
-reference; they do not duplicate it.
-
-- **Subject** — `<bead-id>: <one-line title>`.
-- **Context** — 2-3 sentences from the bead description, plus any
-  provenance drawer IDs (`drawer_<project>_decisions_<hash>`) the
-  worker should read before touching code. Cite siblings only when
-  the lineage is load-bearing.
-- **Scope** — the variable-middle steps in the order the recipe
-  prescribes (M1 → Mn). One sentence per step; reference the bead's
-  acceptance criteria verbatim.
-- **Anti-scope** — what NOT to touch: files outside the bead's
-  surface area, follow-up beads' work, drive-by refactors.
-- **Voice** — tone calibration for doc-shaped work (e.g. "match
-  sibling skill's economy; no abstract preamble"). Omit for pure
-  code work.
-- **Dispatch hygiene** — run the pre-flight smoke battery
-  (`.claude/rules/dispatched-agents.md`) as the first bash call;
-  use relative file paths only; rename the branch to `frank/<id>`;
-  run `bd update <id> --claim`; commit on the branch but do not
-  merge, push, or close — central handles integration; return a
-  ≤ 250-word summary (files changed, test results RED→GREEN, commit
-  hash, branch name).
-- **Stop-and-report triggers** — escalate to central rather than
-  push through when: the brief's premise is wrong (file already
-  matches, bead is duplicate); the scope blows past ~2× the
-  estimated diff; a NEW failure mode surfaces that the brief did
-  not anticipate; the pre-flight smoke battery fails.
+The middle's brief templates live in `dispatch-middle`, not here:
+the **test-author brief** (locked contract + interface under test) and
+the **implementer brief** (RED-test file path + code area). Both
+carry the pre-flight smoke battery (`.claude/rules/dispatched-
+agents.md`) as the first bash call, run in the shared `frank/<id>`
+worktree, and instruct each agent to **commit on the branch but not
+merge, push, or close — central handles integration**. The shell does
+not duplicate the templates; recipes and central reference
+`/dispatch-middle` by name and let it own the template shape. Each
+brief gets ONLY its slice of context — no session-history dump.
 
 #### Re-dispatch decision rule
 
-When the worker returns, central reviews the diff + the worker's
-summary, then chooses:
+When the pipeline returns, central reviews the diff + the pipeline's
+summary (RED output, GREEN counts, commit SHAs, any stop-and-report
+flags), then chooses:
 
 - **Clean** — verification GREEN, diff matches scope, no surprises.
   Advance to phase B (verification) and onward to C/D. No
   re-dispatch.
 - **Minor polish (≤ 3 lines)** — typo, wording nit, missing
-  citation. Central edits in place. Do not spin up a fresh worker
-  for ≤ 3 lines.
+  citation. Central edits in place. Do not re-run the pipeline for
+  ≤ 3 lines.
 - **Substantive rework** — wrong design, missed scope, new failure
-  mode surfaced. Brief a **fresh worker** with the corrected
-  contract. Do not chain edits onto the original worker's session.
+  mode surfaced. **Re-brief** a fresh test-author or implementer with
+  the corrected contract. Do not chain edits onto a returned agent's
+  session. If the implementer hit a stop-and-report (the test looked
+  wrong), central resolves the contract dispute — re-lock the contract
+  or re-brief the test-author — rather than letting the implementer
+  weaken the test.
 
-Central re-runs the activity's verification harness after the worker
+Central re-runs the activity's verification harness after the pipeline
 returns regardless of which branch above fires — trust-but-verify
-per `superpowers:verification-before-completion`. The worker's
+per `superpowers:verification-before-completion`. The pipeline's
 RED→GREEN counts in the summary are evidence to spot-check, not to
 take on faith.
 
@@ -343,11 +365,11 @@ take on faith.
 - **A1 (bug-family search):** SUBAGENT — `bug-family-researcher`,
   auto-dispatched by the `bd update --claim` PreToolUse hook.
 - **A2 / A3 (claim + worktree):** CENTRAL — short ceremony, no
-  worker dispatch needed.
-- **B (variable middle):** WORKER — dispatched via Agent +
-  isolation: worktree per the discipline above. Central does not
-  Edit/Write here.
-- **C (commit + finish-branch):** CENTRAL — the worker commits on
+  dispatch needed.
+- **B (variable middle):** PIPELINE — the test-author→implementer
+  split run via `/dispatch-middle` in one shared worktree. Central
+  does not Edit/Write here; it invokes once and writes nothing.
+- **C (commit + finish-branch):** CENTRAL — the pipeline commits on
   the branch; central reviews, runs phase B verification, then
   drives `superpowers:finishing-a-development-branch` for
   integration.

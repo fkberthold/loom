@@ -110,7 +110,7 @@ assert_contains_literal "boilerplate: default is /dispatch-middle" \
 assert_contains_literal "boilerplate: test-author THEN implementer, different agents" \
   "test-author THEN implementer (DIFFERENT agents)"
 assert_contains_literal "boilerplate: central writes nothing in the middle" \
-  "central writes NOTHING in the middle"
+  "Central writes NOTHING in the middle"
 assert_contains_literal "boilerplate: do NOT use Edit/Write/MultiEdit between claim and close" \
   "Do NOT use Edit/Write/MultiEdit yourself between bead-claim and bead-close."
 assert_contains_literal "boilerplate: while the pipeline runs" \
@@ -154,7 +154,7 @@ assert_contains "central: integration is cwd-sensitive + bd-authoritative" \
 assert_contains "worker line: RED-test + GREEN-code + research + review" \
   'RED-?test.*GREEN-?code.*research.*review'
 assert_contains "worker line: minimal scoped context" \
-  '[Mm]inimal.*(scoped|slice).*context|minimal scoped'
+  '[Mm]inimal.*(scoped|slice).*context|[Mm]inimal scoped|MINIMAL.*(scoped|slice).*context'
 
 # =====================================================================
 # 1c. Friction-inversion rationale + mechanical inline exception
