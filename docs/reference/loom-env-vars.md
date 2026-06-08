@@ -93,6 +93,36 @@ in-play option.
 - [anthropics/claude-code#23750](https://github.com/anthropics/claude-code/issues/23750)
   — request for project-level toggle for the auto-memory feature.
 
+## Loom bypass env vars (`LOOM_*_SKIP`)
+
+Separate from the two harness vars above: each loom hook (and a few
+scripts) ships an opt-out environment variable. Setting it to the
+literal `1` disables that one guard, leaving every other loom guard
+in force. These are escape hatches, not configuration — prefer the
+narrower per-target bypasses (marker files, `--force` flags) where a
+hook offers one.
+
+> Most `LOOM_*_SKIP` vars match the **literal string `1`** only
+> (`=yes` / `=true` / `=0` / empty are all rejected, per loom-b1l).
+> Hook-installed PreToolUse guards read the env at `claude` fork
+> time, so an in-session `export` does NOT take effect — set the var
+> before launching `claude`, or use the hook's marker-file bypass
+> where one exists.
+
+| Env var | Disables | Reference |
+|---|---|---|
+| `LOOM_CWD_DRIFT_GUARD_SKIP` | `cwd-drift-guard.sh` — central-op refusal when cwd is inside a worktree | [cwd-drift-guard](cwd-drift-guard.md) |
+| `LOOM_BD_WORKTREE_PRESEED_SKIP` | `bd-worktree-preseed.sh` — fresh-worktree dolt preseed | [bd-worktree-preseed](bd-worktree-preseed.md) |
+| `LOOM_DISPATCH_NUDGE_SKIP` | `dispatch-nudge.sh` — inline-vs-dispatch nudge (non-blocking) | [Hooks](hooks/index.md) |
+| `LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP` | `edit-after-failure-guard.sh` — post-failure source-edit block | [edit-after-failure-guard](hooks/edit-after-failure-guard.md) |
+| `LOOM_EDIT_WRITE_GUARD_SKIP` | `edit-write-pwd-guard.sh` — out-of-worktree write block | [edit-write-pwd-guard](edit-write-pwd-guard.md) |
+| `LOOM_BD_PRECLOSE_STRICT_SKIP` | `bd-preflight-docs-strict.sh` — `mkdocs build --strict` at `bd close`/`bd preflight` | [bd-preflight-docs-strict](hooks/bd-preflight-docs-strict.md) |
+| `LOOM_BD_POST_REWRITE_SKIP` | `post-rewrite.sh` — re-export jsonl from dolt after rebase/amend (full no-op) | [bd-state integrity](bd-state-integrity.md) |
+| `LOOM_BD_POST_REWRITE_NO_COMMIT` | `post-rewrite.sh` — re-export the working tree but skip the auto-commit | [bd-state integrity](bd-state-integrity.md) |
+| `LOOM_PRE_PUSH_MKDOCS_SKIP` | `pre-push-mkdocs-strict.sh` — `mkdocs build --strict` at `git push` (WARN-only anyway) | [Hooks](hooks/index.md) |
+| `LOOM_SKILL_REDIRECT_SKIP` | `skill-redirect.sh` — `superpowers:brainstorming` → `beadpowers:brainstorming` redirect | [Hooks](hooks/index.md) |
+| `LOOM_SUBAGENT_LEAN` | `bd-prime-wrapper.sh` + `workflow-mode-onboarding.sh` SessionStart hooks (lean subagent payloads, loom-b1l/w58) | [loom-subagent-lean](loom-subagent-lean.md) |
+
 ## How `install.sh` wires it
 
 When run from the main loom checkout, `install.sh` deep-merges the

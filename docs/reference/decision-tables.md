@@ -30,11 +30,40 @@ loom-shipped surface that handles it.
 
 ## Parallel vs sequential beads
 
+Two ready beads are wave-compatible iff they have NO dependency edge
+between them AND their declared `Files:` sets are DISJOINT.
+`scripts/loom-fanout-detect` computes this from each bead's `Files:`
+line (loom-asr) and surfaces a proposed wave at selection time; a
+bead with no `Files:` line is treated as footprint-unknown and
+excluded from any wave (degrades conservative).
+
 | Situation | Use |
 |---|---|
-| 2+ unblocked beads on disjoint files | `superpowers:dispatching-parallel-agents` |
-| Beads share files or have logical dependency | Sequential (one recipe per bead) |
-| 43-bead epic across 3 architectural layers | Agent teams (experimental; Phase 4 deferred) |
+| 2+ unblocked beads, disjoint `Files:` sets, no dependency edge | `superpowers:dispatching-parallel-agents` (wave proposed by `scripts/loom-fanout-detect`) |
+| Beads share files or have a dependency edge | Sequential (one recipe per bead) |
+| A bead with no `Files:` line declared | Excluded from any proposed wave until the line is added |
+
+## Within-bead dispatch posture
+
+How to work a single bead's variable RED→GREEN middle. Worker
+dispatch is the default; inline is the explicit, narrow exception.
+Central records the call in the `workflow-state` `dispatch` field.
+
+| Middle shape | Posture | `dispatch` field |
+|---|---|---|
+| Any RED→GREEN cycle (the default) | Dispatch a worker via `/dispatch-middle <bead>` | `dispatch=worker` |
+| Change is ≤ ~15 lines AND single non-test file AND adds no new test | Inline (central edits directly) — waved through without justification | `dispatch=inline:<reason>` |
+| Anything above the inline threshold | Dispatch (inline is not an option) | `dispatch=worker` |
+
+## Design cycle vs activity recipe
+
+Above-bead generative work vs a single contracted change.
+
+| Work shape | Use |
+|---|---|
+| Open / advance generative design for a topic that will become beads | `/design-a-cycle <topic>` (above-bead orchestrator; emits an epic) |
+| A single, already-contracted change to one bead | An `<activity>-a-bead` recipe (or `/working-a-bead <id>` to route) |
+| A locked Tier-1 decision needs to become an implementation bead | `create-beads` handoff (carries the decision's `RED:` line) |
 
 ## Skill vs hook
 

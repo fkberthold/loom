@@ -18,8 +18,17 @@ explicit user `/...` invocation triggers them.
 | `/working-a-bead [bead-id] [--recipe=<name>]` | User-typed | Activity recipe selected by `bead.type` + description heuristics |
 | `/bugfix-a-bead [bead-id]` | User-typed | `bugfix-a-bead` skill |
 | `/research-a-bead [bead-id]` | User-typed | `research-a-bead` skill |
+| `/upstream-a-bead [bead-id] [--issue-only\|--issue+pr]` | User-typed | `upstream-a-bead` skill (upstream-contribution recipe) |
+| `/dispatch-middle <bead>` | User-typed | `dispatch-middle` skill — runs the bead's RED→GREEN middle as a test-author → implementer (→ optional verify) subagent pipeline |
+| `/design-a-cycle <topic>` | User-typed | `design-a-cycle` skill — above-bead campaign/arc orchestrator over the layered design substrate |
+| `/docs-scaffold` | User-typed (manual only) | `docs-scaffold` skill — copies `templates/diataxis/` into the project with per-file approval |
+| `/loom-mine-history` | User-typed (manual only) | `loom-mine-history` skill — mines git/PR history for uncaptured decisions behind a two-pass cost gate |
+| `/check-loom-upstream` | User-typed | Read-only sweep of the project's `upstream:loom`-labeled beads against loom's closed beads; suggest-only |
+| `/check-upstream-prs` | User-typed (schedulable) | Sweeps `upstream:watch` beads, queries `gh` per PR, auto-closes MERGED watch-beads |
+| `/loom-guest [on\|off]` | User-typed | Toggles guest mode (no-host-tree-pollution guardrails) for the current repo |
+| `/loom-upstream-gc` | User-typed | Interactive prune of stale `~/.loom/upstream/<owner>/<repo>/` clones; never auto-destructive |
 | `/wrap-up` | User-typed | Close-time ritual; preflight + drawer/KG drafting + close + push |
-| `/audit-project` | User-typed (manual only) | `project-onboarder` subagent + interactive fix loop |
+| `/audit-project [--apply-onboarding]` | User-typed (manual only) | `project-onboarder` subagent + interactive fix loop |
 | `/lineage <topic>` | User-typed | `bug-family-researcher` subagent |
 
 Skills `feature-a-bead`, `refactor-a-bead`, `cleanup-a-bead`, and

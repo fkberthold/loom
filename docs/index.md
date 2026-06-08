@@ -57,9 +57,21 @@ why you're here.
 ## Status
 
 v1.5 (workflow modes + state file + status line, shipped 2026-05-03).
-v2 activity-shaped recipes in flight; bugfix and research are live,
-feature/refactor/cleanup/docs queued.
+All six activity-shaped recipes ship — `bugfix-a-bead`,
+`feature-a-bead`, `refactor-a-bead`, `research-a-bead`,
+`cleanup-a-bead`, `docs-a-bead` — plus the `upstream-a-bead`
+contribution recipe and the `/working-a-bead` router.
 
-The canonical design lives in MemPalace drawer "WORKFLOW
-INFRASTRUCTURE PLAN" (hundred_acre_woods/decisions wing). When the
-docs and the design diverge, MemPalace is design truth.
+The current frontier is two above-bead pieces (2026-06-07): the
+`/design-a-cycle` orchestrator (epic loom-tdua) that drives a design
+cycle's Plan→Research→Architect cadence over the layered design
+substrate and gates on two-tier soundness before handing off to
+`create-beads`; and the `/dispatch-middle` friction-inversion
+pipeline (epic loom-5m94) that runs a bead's RED→GREEN middle as a
+test-author → implementer pipeline of independent subagents so
+dispatch becomes cheaper than inline.
+
+The canonical loom design wing is now `loom/decisions` in MemPalace;
+lineage to the v1/v1.5/v2 drawers in
+`hundred_acre_woods/decisions` is carried by cross-project tunnels.
+When the docs and the design diverge, MemPalace is design truth.
