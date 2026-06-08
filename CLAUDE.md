@@ -188,6 +188,59 @@ slash commands.
   similar `git config merge.bd-export.driver` step (handled by
   `/audit-project` on first run). Composes orthogonally with the
   bd-worktree-preseed hook (loom-x4m).
+- **Design-cycle KG predicate set — SOFT recommendation, not a
+  locked schema (loom-tdua).** A design cycle's L1 spine (the
+  queryable knowledge-graph layer of the layered design substrate)
+  is the structured home for its locked structure + invariants. The
+  recommended design-predicate vocabulary is `supersedes_design_of`
+  (a new decision retires an earlier one), `grounded_in` (a decision
+  rests on a finding / prior decision / external reference),
+  `emits_bead` (a locked decision spawns the implementation bead that
+  carries it forward), `soundness_tier` (which of the two-tier model
+  the decision reached — see the RED: bullet below), and
+  `depends_on_invariant` (a decision is contingent on a structural
+  invariant holding). This is a *recommendation*, NOT a fixed schema:
+  the KG is open, so these predicates compose with whatever
+  project-local predicates already exist; a cycle that needs a
+  different shape is free to deviate. The set exists so independent
+  cycles converge on a shared vocabulary by default, not so the
+  vocabulary is enforced.
+- **`RED:` spec-line on beads spawned from a Tier-1 design decision
+  (loom-tdua, lineage loom-5w6).** Soundness is two-tier: Tier 0 is
+  coherence (the always-on floor); Tier 1 is *executable-spec
+  emission* — an OPTIONAL ceiling where a locked decision that has a
+  natural testable altitude carries its spec forward as the handoff
+  bead's RED test. When a bead is filed from such a decision, add a
+  `RED:` line to its description carrying the decision's executable
+  spec verbatim — a behavioral Given-When-Then scenario, or a
+  structural `INVARIANT: …`. This is parallel to the loom-asr `Files:`
+  line: a single structured line in the bead description that a
+  downstream consumer reads. The implementation bead *inherits its
+  RED test from this line* — the recipe's RED→GREEN middle starts
+  from the `RED:` text rather than re-deriving the acceptance
+  criterion. A decision with no testable altitude carries Tier 0 only
+  and its bead omits the line (expected, not a gap); forcing a `RED:`
+  on every bead would re-import the design→build mismatch loom-l0f
+  diagnosed, so the line is optional by construction. Format:
+  single line beginning `RED:`.
+- **A design cycle is an above-bead orchestrator, NOT a bead/epic
+  (loom-tdua).** Do not file a design cycle as a bead or epic. Its
+  state lives in the layered substrate — the L2 design-doc drawer's
+  header (status, in-flight reasoning, locked-decision sections) plus
+  the L1 KG (structure + invariants, queryable + update-in-place).
+  The cycle *emits* beads (via `emits_bead`) once decisions lock; it
+  is not itself one. The governing posture is **reason-in-prose,
+  precipitate-into-structure**: in-flight thinking happens on a
+  permissive prose surface, and as decisions firm up they precipitate
+  into the structured destination (KG facts + drawer locked-decision
+  sections + `RED:`/`Files:` lines on emitted beads). Loom is
+  **opinionated about the structured destination + cadence**
+  (where locked structure lands and when), **permissive about the
+  prose reasoning surface** (how you get there is yours), and
+  **generative about human Diataxis** (the four-quadrant human docs
+  are a downstream projection rendered from the substrate, never the
+  substrate itself — precedence system/beads/MemPalace > docs, per
+  loom-9z1.10).
 
 ## Tools
 
