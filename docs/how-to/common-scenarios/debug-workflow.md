@@ -43,6 +43,35 @@ like the workflow is not behaving as expected, follow these steps.
    reference the smoke-test output and the resolved mode in the
    description.
 
+## Diagnose a blocking guard hook
+
+When a tool call is refused unexpectedly, identify which guard fired
+from its stderr message — each guard names itself and prints its
+bypass. Common ones:
+
+- **dispatch-nudge** — prompts when a RED→GREEN bead is about to be
+  worked inline without a recorded `dispatch=inline:<reason>`. Either
+  record the reason (`~/.claude/scripts/workflow-state set
+  dispatch=inline:<reason>`) or switch to `/dispatch-middle`. Bypass:
+  `LOOM_DISPATCH_NUDGE_SKIP=1`.
+- **edit-after-failure-guard** — blocks an Edit/Write that follows a
+  failing test run. It now ignores **zero-count GREEN summaries**
+  (a `0 failed` / `0 failures` line no longer trips it), so a passing
+  run does not falsely block the next edit. With no `transcript_path`
+  in the event it **fails open** (passes through — it cannot tell).
+  Bypass: `LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1`, or the in-session
+  marker `touch .claude/no-edit-after-failure-guard`.
+- **cwd-drift-guard** — symptom is a `git merge` / `git push` /
+  `bd close` / `bd update` refused with a message naming a
+  `.claude/worktrees/agent-*/` worktree root. It fires when central's
+  cwd silently drifted into a returned worker's worktree. Run
+  `cd <main-root>` (the message prints it) and retry. Bypass:
+  `LOOM_CWD_DRIFT_GUARD_SKIP=1`.
+
+All bypass env vars require the literal value `1`. See
+[Bypass workflow ceremony](../bypass-workflow-ceremony.md) for the
+full guard-bypass table.
+
 ## Outcome
 
 The misbehavior is either explained (mode resolution, hot-reload
