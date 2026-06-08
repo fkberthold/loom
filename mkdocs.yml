@@ -70,11 +70,14 @@ nav:
       - Getting started: tutorials/getting-started.md
       - Bug walkthrough: tutorials/bug-walkthrough.md
       - Feature walkthrough: tutorials/feature-walkthrough.md
+      - Design-cycle walkthrough: tutorials/design-cycle-walkthrough.md
   - How-to:
       - how-to/index.md
       - Install loom: how-to/install.md
       - Open a session: how-to/open-a-session.md
+      - Open a design cycle: how-to/open-a-design-cycle.md
       - Claim a bead: how-to/claim-a-bead.md
+      - Run the dispatch-middle pipeline: how-to/run-dispatch-middle.md
       - Finish a bead: how-to/finish-a-bead.md
       - Stop a session: how-to/stop-a-session.md
       - Bypass workflow ceremony: how-to/bypass-workflow-ceremony.md
@@ -106,7 +109,26 @@ nav:
       - Hooks:
           - reference/hooks/index.md
           - All hooks: reference/hooks/all-hooks.md
+          - edit-after-failure-guard: reference/hooks/edit-after-failure-guard.md
+          - bd-preflight-docs-strict: reference/hooks/bd-preflight-docs-strict.md
+      - Dispatch & design cycle:
+          - dispatch-middle: reference/dispatch-middle.md
+          - design-a-cycle: reference/design-a-cycle.md
+          - Design-doc template: reference/design-doc-template.md
+      - Worktree-isolation guards:
+          - cwd-drift-guard: reference/cwd-drift-guard.md
+          - edit-write-pwd-guard: reference/edit-write-pwd-guard.md
+          - bd-worktree-preseed: reference/bd-worktree-preseed.md
+          - loom-rebase-worktree: reference/loom-rebase-worktree.md
+          - loom-worktree-python: reference/loom-worktree-python.md
+      - Helper scripts & internals:
+          - Helper scripts: reference/helper-scripts.md
+          - bd-state integrity: reference/bd-state-integrity.md
+          - bd prime wrapper: reference/bd-prime-wrapper.md
+          - bd remember guest guard: reference/bd-remember-guest-guard.md
+          - loom-subagent-lean: reference/loom-subagent-lean.md
       - Path-scoped rules: reference/path-scoped-rules.md
+      - Project constitution: reference/project-constitution.md
       - bd CLI: reference/bd-cli.md
       - MemPalace MCP: reference/mempalace-mcp.md
       - Loom env vars: reference/loom-env-vars.md
