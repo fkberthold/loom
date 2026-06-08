@@ -21,8 +21,8 @@ override):
 - **full** — run all 9 steps below. Default.
 - **light** — run an abbreviated routine: `bd stats` + `bd ready -n 10` +
   in-progress RESUME header (step 1a) + since-last-session digest (step 1b,
-  only fires on >3-day gap) + CI health (step 1c) + `bd list --status=in_progress`
-  + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
+  only fires on >3-day gap) + CI health (step 1c) + active-design-cycle scan
+  (step 1d) + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
   unless the user asks. Tell the user: "workflow mode is light; abbreviated
   startup."
 - **off** — skip the skill entirely. Acknowledge: "workflow mode is off;
@@ -55,6 +55,14 @@ it before running the rest of this skill.
    Print as one block under a "Since you were last here:" header. Threshold rationale: 3-day gaps are where the user reliably loses local state ("get me up to speed" — loom-z3m.1 f2, HAW user away >1 week). **Skip the digest entirely when the gap is <=3 days** — recent sessions don't need a digest, the user still has the context. Tolerance: if any sub-call errors (no transcript dir, mempalace offline, git log fails), degrade that sub-line to `(<tool> unavailable)` and continue. **Never fail the skill on this step.** Stays in `light` mode (cheap when triggered, silent when not).
 
 1c. **Check CI health.** Run `gh run list --limit 3 --branch main --json status,conclusion,name,headSha,createdAt,databaseId` (or the equivalent for the project's default branch). If any of the last 3 runs has `conclusion: failure`, surface to the user as a single warning line: workflow name, short commit SHA, age. **Only when a failure is detected**, additionally run `gh run view <databaseId> --json conclusion,jobs` for the latest failing run and print the first non-success job's name plus a one-line failure summary (failure line / failing step name) inline with the warning. Skip the `gh run view` call when CI is green (don't burn API calls on healthy state). A red workflow from a prior session that sat unnoticed is the failure mode this step exists to prevent (loom-59w: Deploy docs sat red for 2 days before being noticed); the inline job-name + summary keeps the user from a follow-up roundtrip (loom-z3m.1 f1: "the build keeps failing in GHA. Building docs I believe."). Tolerance: if `gh` is not installed, not authenticated, or the call errors for any reason, emit `(gh unavailable — CI check skipped)` and continue. **Never fail the skill on this step.** The check stays in `light` mode too (cheap, high-signal); `off` mode skips it along with the rest of the skill.
+
+1d. **Surface active design cycles — "ACTIVE DESIGN CYCLE" header.** A `/design-a-cycle` orchestrator is an *above-bead* unit: it iterates, spawns research beads + an implementation epic, and has no single RED→GREEN — so it is **not a bead**, and `bd ready` / `bd list --status=in_progress` will never surface it. Its state lives in an L2 **DESIGN DOC** drawer in the project's `<wing>/decisions` room, under a STATE HEADER block. Discover any *active* cycle so a cold-start resumes the design, not just the bead queue. Scan via `mempalace_search` (or `mempalace_list_drawers` for the project wing) for DESIGN DOC drawers — e.g. search `"DESIGN DOC STATE HEADER [CLARIFICATION] soundness"` scoped to the project wing — and treat a cycle as **active** when its STATE HEADER shows EITHER unresolved `[CLARIFICATION]` markers OR `soundness-status` != `green`. For each active cycle, print one line:
+
+   ```
+   ACTIVE DESIGN CYCLE: <topic> — cycle N, soundness <status>, M open markers, K research beads open
+   ```
+
+   Derive each field from the STATE HEADER block (`cycle-number`, `soundness-status`, the `open [CLARIFICATION] markers` list → M, the `spawned research-bead IDs` list → K; count K's still-open IDs via `bd list` when cheap, else report the listed count). A drawer whose STATE HEADER is fully resolved (no open markers AND soundness green) is *complete* — skip it. Resume a half-finished design cycle the same way an in-progress bead outranks fresh-ready work: an open cycle with unresolved markers is usually the right next move. This step is **INFO-only** — it surfaces context, it never claims or advances a cycle on its own. **Skip the header entirely when no active design cycle is found** — don't emit an empty "ACTIVE DESIGN CYCLE" block on every cold-start. Tolerance: if MemPalace is offline, the search errors, or the project has no design drawers, emit `(design-cycle check skipped)` (or nothing) and continue. **Never fail the skill on this step.** Stays in `light` mode too (cheap MemPalace scan, high-signal); `off` mode skips it along with the rest of the skill.
 2. **Check in-progress.** Run `bd list --status=in_progress`. Anything there outranks the ready queue — finish what was started.
 3. **Prime palace.** Call `mempalace_status` and `mempalace_kg_stats`. Note wing/room shape; flag anything weird (zero drawers, zero current facts).
 4. **Recover recent context.** Three sub-steps:
