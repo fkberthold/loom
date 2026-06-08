@@ -22,7 +22,7 @@ override):
 - **light** — run an abbreviated routine: `bd stats` + `bd ready -n 10` +
   in-progress RESUME header (step 1a) + since-last-session digest (step 1b,
   only fires on >3-day gap) + CI health (step 1c) + active-design-cycle scan
-  (step 1d) + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
+  (step 1d) + active-explorations scan (step 1e) + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
   unless the user asks. Tell the user: "workflow mode is light; abbreviated
   startup."
 - **off** — skip the skill entirely. Acknowledge: "workflow mode is off;
@@ -63,6 +63,14 @@ it before running the rest of this skill.
    ```
 
    Derive each field from the STATE HEADER block (`cycle-number`, `soundness-status`, the `open [CLARIFICATION] markers` list → M, the `spawned research-bead IDs` list → K; count K's still-open IDs via `bd list` when cheap, else report the listed count). A drawer whose STATE HEADER is fully resolved (no open markers AND soundness green) is *complete* — skip it. Resume a half-finished design cycle the same way an in-progress bead outranks fresh-ready work: an open cycle with unresolved markers is usually the right next move. This step is **INFO-only** — it surfaces context, it never claims or advances a cycle on its own. **Skip the header entirely when no active design cycle is found** — don't emit an empty "ACTIVE DESIGN CYCLE" block on every cold-start. Tolerance: if MemPalace is offline, the search errors, or the project has no design drawers, emit `(design-cycle check skipped)` (or nothing) and continue. **Never fail the skill on this step.** Stays in `light` mode too (cheap MemPalace scan, high-signal); `off` mode skips it along with the rest of the skill.
+
+1e. **Surface active explorations — "ACTIVE EXPLORATION" header.** An *exploration* (opened via `/explore <idea>`) is a NEW above-bead, SUB-design primitive — the permissive front-door to `/design-a-cycle`, with NO soundness gate. Like a design cycle, an exploration is **not a bead** and has no single RED→GREEN, so `bd ready` / `bd list --status=in_progress` will never surface it. Its memory is ONE drawer in the project's `<wing>/decisions` room (loom's own lives in wing `loom`, room `decisions`), tagged `exploration` (tag-not-room), carrying a STATUS of `active` | `rested` | `promoted`. Discover any *active* exploration so a cold-start resumes the thinking, not just the bead queue. Scan via `mempalace_search` (or `mempalace_list_drawers` for the project wing) for drawers tagged `exploration` — the same way step 1d scans DESIGN DOC drawers — e.g. tag-filter on `exploration` scoped to the project wing, and treat an exploration as **active** only when its `status=active`. For each active exploration, print one line:
+
+   ```
+   ACTIVE EXPLORATION: <topic> — <N> open threads · understanding: "<current-understanding snippet>"
+   ```
+
+   Derive each field from the exploration drawer (the topic, the `open threads` list → N open-threads count, the `current understanding` section → snippet). **SKIP rested and promoted explorations** — `rested` and `promoted` are terminal states (a `rested` exploration was deliberately set aside; a `promoted` one already opened a `/design-a-cycle`), so surfacing them would be noise. Resume a half-finished exploration the same way an open design cycle outranks fresh-ready work: an `active` exploration is usually the right next move. This step is **INFO-only** — it surfaces context, it never claims or advances an exploration on its own. **Skip the header entirely when no active exploration is found** — don't emit an empty "ACTIVE EXPLORATION" block on every cold-start. Tolerance: if MemPalace is offline, the search errors, or the project has no exploration drawers, emit `(exploration scan skipped)` (or nothing) and continue. **Never fail the skill on this step.** Stays in `light` mode too (cheap MemPalace scan, high-signal); `off` mode skips it along with the rest of the skill.
 2. **Check in-progress.** Run `bd list --status=in_progress`. Anything there outranks the ready queue — finish what was started.
 3. **Prime palace.** Call `mempalace_status` and `mempalace_kg_stats`. Note wing/room shape; flag anything weird (zero drawers, zero current facts).
 4. **Recover recent context.** Three sub-steps:
