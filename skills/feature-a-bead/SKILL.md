@@ -128,25 +128,47 @@ common way features cause cleanup work three months later.
 
 ### Variable middle — M1 → M5 (recipe owns)
 
-The variable middle is **worker territory**, per `bead-lifecycle-shell
-§ Dispatch discipline — central agent briefs a worker`. Central
-designs the contract at M1 (the design dialogue is user-interaction-
-shaped — stays in the central session), then dispatches ONE worker
-via `Agent` + `isolation: "worktree"` to own M2-M5 in a single
-dispatch. The steps below are **scope items for the worker brief**,
-not central's to-do list. Central does not Edit/Write between
-bead-claim and bead-close; while the worker runs, central may
-answer user questions, pre-stage the next bead, or revise the
-contract — but does not parallel-code the variable middle.
+The variable middle is **dispatch territory**, and its RED→GREEN core
+runs through **`/dispatch-middle`** (loom-8crd / epic loom-5m94): the
+RED test and the GREEN implementation are authored by **two different,
+independent dispatched agents** in one shared worktree — NOT one
+worker doing both. A feature has no symptom, only a *desired
+contract*; if the same agent writes the contract test and the
+implementation, the test pins whatever the implementer already
+intended to build, and the RED→GREEN cycle verifies nothing.
+`/dispatch-middle` solves it by construction: the implementer
+inherits the RED test as an **artifact** (a committed file), never the
+test-author's reasoning.
 
-After the worker returns, apply the re-dispatch decision rule from
-the shell: **clean** → advance; **≤3-line polish** → central edits
-in place; **substantive rework** → brief a fresh worker with the
-corrected contract. Central re-runs verification regardless.
+Central designs the contract at M1 (the design dialogue is
+user-interaction-shaped — stays in the central session), then drives
+the rest as a split pipeline:
+- **M2** (plan if multi-task) — a central decision, made before any
+  dispatch (multi-task work files child beads instead).
+- **M3 (RED)** — dispatch the **test-author** via `/dispatch-middle`.
+  Its contract slot is the **M1 contract**, carried verbatim. It pins
+  that contract in a RED test and commits it; it does NOT implement.
+- **M4 (GREEN)** — dispatch the **implementer** via the same
+  `/dispatch-middle` pipeline, in the same worktree, **independent of
+  the test-author** — it works from the **RED test file** alone,
+  never the author's reasoning, and makes the minimal GREEN change.
+- **M5** (negative cases + integration) — the implementer (or a
+  follow-on test-author for fresh negative-case contracts) extends
+  coverage.
 
-The worker brief follows the template in the shell. Cite the M-steps
-below as scope items and instruct the worker to write the stage
-markers in the table above at each M-boundary it crosses.
+Central does NOT Edit/Write between bead-claim and bead-close; while
+the pipeline runs, central may answer user questions, pre-stage the
+next bead, or revise the contract — but does not parallel-code the
+variable middle. After each agent returns, apply the re-dispatch
+decision rule from the shell: **clean** → advance; **≤3-line polish**
+→ central edits in place; **substantive rework** → brief a fresh
+agent with the corrected contract. Central re-runs verification
+regardless.
+
+The test-author and implementer briefs follow the templates in
+`skills/dispatch-middle/SKILL.md`. Cite the M-steps below as scope
+items and instruct each agent to write the stage markers in the table
+above at each M-boundary it crosses.
 
 #### M1. Brainstorm the design (central — pre-dispatch)
 
@@ -179,17 +201,19 @@ refactor-shaped (the contract already exists; you're fixing or
 restructuring it), pause here and switch recipes BEFORE dispatching.
 Mis-typed beads waste the worker's entire dispatch.
 
-When the contract is locked, set stage `designing` and write the
-worker brief. The brief carries the locked contract verbatim plus
-the M2-M5 scope items below.
+When the contract is locked, set stage `designing`. The locked
+contract is the **test-author's contract slot** at M3 — it is carried
+verbatim into the test-author brief (and from there reaches the
+implementer only as the committed RED test, never as reasoning).
 
 #### M2. Plan if multi-task (scope item — brief decision)
 
 Decide BEFORE dispatching whether the work is single-task or
 multi-task. Single-task means one branch, one verification pass, one
-commit family — one worker dispatch covers M2-M5. Multi-task means
-the contract from M1 decomposes into discrete pieces with their own
-verification surfaces — and the dispatch shape differs accordingly.
+commit family — the M3 test-author + M4 implementer pipeline covers
+it. Multi-task means the contract from M1 decomposes into discrete
+pieces with their own verification surfaces — and the dispatch shape
+differs accordingly (each child bead runs its own RED→GREEN pipeline).
 
 For multi-task work, invoke `superpowers:writing-plans` in central
 (planning is design-dialogue-shaped — stays with central):
@@ -203,26 +227,31 @@ For multi-task work, invoke `superpowers:writing-plans` in central
   own claim, with its own worker dispatch. Do NOT dispatch a single
   mega-worker for the multi-bead plan.
 
-For single-task work, skip `superpowers:writing-plans` and have the
-worker brief cover M3-M5 in one dispatch. Don't invent ceremony for
-a one-step implementation.
+For single-task work, skip `superpowers:writing-plans` and run the
+M3 test-author → M4 implementer pipeline directly. Don't invent
+ceremony for a one-step implementation.
 
 The judgment call: if the feature would land in more than ~3 commits
 or cross more than ~2 service boundaries, plan it. Otherwise inline.
-Have the worker write stage `planning` only if M2 produced
-intra-bead planning artifacts the worker is consuming; otherwise the
-brief skips this stage marker and goes straight to `red`.
+Have the test-author write stage `planning` only if M2 produced
+intra-bead planning artifacts it is consuming; otherwise the
+pipeline skips this stage marker and goes straight to `red`.
 
-#### M3. RED — pin the desired contract (scope item)
+#### M3. RED — pin the desired contract (dispatch the TEST-AUTHOR)
 
-Have the worker invoke `superpowers:test-driven-development`, write
-stage `red`, and author the failing test that pins the contract from
-M1 (carried verbatim in the brief).
+Dispatch the **test-author** via `/dispatch-middle` (the test-author
+brief template lives in `skills/dispatch-middle/SKILL.md`). Its
+contract slot is the **M1 contract**, carried verbatim — the
+test-author writes the RED test from that contract and nothing else,
+not from any implementation. It invokes
+`superpowers:test-driven-development`, writes stage `red`, authors the
+failing test that pins the contract, commits ONLY the test, and does
+NOT implement.
 
 This is the conceptual hinge of the recipe — call it out explicitly
-in the brief. The test is initially red not because of a bug but
-because the feature doesn't exist yet. The brief should instruct the
-worker that the test must describe the *contract*, not the
+in the test-author brief. The test is initially red not because of a
+bug but because the feature doesn't exist yet. The brief instructs the
+test-author that the test must describe the *contract*, not the
 implementation:
 - For an API: pin the request/response shape and the observable
   state change, not the internal call sequence.
@@ -231,46 +260,56 @@ implementation:
 - For a module: pin the public function signatures and their
   behavior under representative inputs, not private helpers.
 
-The brief should require the worker to run the test, watch it fail
+The brief requires the test-author to run the test, watch it fail
 with the *expected* failure (typically "undefined symbol" or
 "function returns nil" before any implementation exists), and
 include the failure verbatim in its return summary. If the test
 fails for a different reason (test setup is broken, the contract
-assumes something that isn't true), the worker must fix that before
-writing implementation — a mis-RED test produces a deceptive GREEN.
+assumes something that isn't true), the test-author must fix that
+before committing — a mis-RED test produces a deceptive GREEN.
 A pre-empted-RED failure is a stop-and-report trigger if the cause
 suggests the contract is wrong; surface to central for re-dispatch.
 
-#### M4. GREEN — minimal implementation (scope item)
+#### M4. GREEN — minimal implementation (dispatch the IMPLEMENTER, independent of the author)
 
-Have the worker write stage `green` and add the smallest
-implementation that satisfies the M3 contract test. The brief should
-explicitly cap scope to what the M3 test exercises — the worker
-should resist building out the full feature surface in this step so
-the contract→implementation lineage stays legible in git history.
+Dispatch the **implementer** via the same `/dispatch-middle` pipeline,
+in the same shared worktree so the committed RED test is on disk. The
+implementer is a **different agent** that **never sees the
+test-author's reasoning or the M1 contract dialogue** — it works from
+the **RED test file** alone, as an artifact. That independence is what
+makes the contract→implementation lineage a real verification rather
+than a tautology. It writes stage `green` and adds the smallest
+implementation that satisfies the M3 contract test. The brief caps
+scope to what the M3 test exercises — the implementer resists building
+out the full feature surface in this step so the lineage stays legible
+in git history. It must NOT modify or weaken the test; if the test
+looks wrong it STOPS and reports to central rather than "fixing" it.
 
-The brief should require the worker to re-run the M3 test to confirm
+The brief requires the implementer to re-run the M3 test to confirm
 GREEN. If M3 produced multiple contract tests (a feature with
 several observable behaviors), all must be GREEN before advancing —
-but the brief must prohibit adding behaviors the tests don't
-exercise.
+but the brief prohibits adding behaviors the tests don't exercise.
 
-The git log after M4 should show: one commit-shaped diff that adds
-the failing test, then one commit-shaped diff that makes it pass.
-This is auditable evidence the contract drove the implementation,
-not the other way around. The brief may permit a later
-`git commit --fixup`/squash if the project's convention prefers a
-single commit, but the RED→GREEN order should be visible during the
-worker's session.
+The git log after M4 should show: the test-author's commit that adds
+the failing test, then the implementer's commit that makes it pass.
+Because RED and GREEN are authored by **two different agents**, that
+ordering is auditable evidence the contract drove the implementation,
+not the other way around — the independence is baked into the history.
+A later `git commit --fixup`/squash is permitted if the project's
+convention prefers a single commit, but the RED→GREEN order should be
+visible across the two dispatches before any squash.
 
-#### M5. Negative cases + integration test (scope item)
+#### M5. Negative cases + integration test (implementer, or a follow-on author)
 
-Have the worker write stage `integration`. New contracts introduce
-new failure modes; this step covers them. The brief should list both
-sub-deliverables.
+The implementer writes stage `integration` (or, when the negative
+cases form a fresh contract worth independent authoring, central
+dispatches a follow-on test-author for the negative tests and feeds
+them back to the implementer — the same RED→GREEN split as M3→M4).
+New contracts introduce new failure modes; this step covers them.
+The brief should list both sub-deliverables.
 
 **Negative cases** — for each input dimension the contract names,
-the worker writes a test for the failure path:
+a test for the failure path is written:
 - For input validation: the malformed-input case, the empty-input
   case, the boundary cases on either side of any limit.
 - For partial failures: the case where a downstream dependency
@@ -305,10 +344,12 @@ everything — that's a unit test wearing a costume. A worker that
 discovers the integration boundary is unmockable-real should
 stop-and-report rather than mock-around it.
 
-The brief closes by reminding the worker: commit on the branch with
-the RED→GREEN order visible, surface the M3 RED output + M4 GREEN
-counts + M5 negative-case and integration-test counts in the return
-summary, do NOT merge / push / close — central handles integration.
+Each brief closes by reminding its agent: commit on the branch (the
+test-author commits the RED test, the implementer commits the GREEN
+fix — the RED→GREEN order is visible across the two dispatches),
+surface the M3 RED output + M4 GREEN counts + M5 negative-case and
+integration-test counts in the return summary, and do NOT merge /
+push / close — central handles integration.
 
 ### Phase B — verification (delegate to shell, with feature extension)
 

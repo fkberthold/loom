@@ -96,21 +96,47 @@ alignment after the search caught the family.
 
 ### Variable middle — M1 → M6 (recipe owns the scope, worker owns the work)
 
-**Dispatch posture.** The variable middle is worker territory. Brief
-ONE worker via `Agent` + `isolation: "worktree"` covering M1 → M6 in
-a single dispatch; do NOT Edit/Write in the central session between
-bead-claim and bead-close. See `bead-lifecycle-shell` §Dispatch
-discipline for the worker-brief template, the allowed/forbidden
-central-session actions while the worker runs, the re-dispatch
+**Dispatch posture — RED and GREEN are SEPARATE agents.** The
+variable middle is dispatch territory, and its RED→GREEN core runs
+through **`/dispatch-middle`** (loom-8crd / epic loom-5m94): the RED
+test and the GREEN fix are authored by **two different, independent
+dispatched agents** in one shared worktree — NOT one worker doing
+both. This is the anti-tautology guarantee. When the same agent
+writes the test and the fix, the test is shaped to match the
+implementation that agent already has in mind, and the RED→GREEN
+cycle verifies nothing. `/dispatch-middle` solves it by construction:
+the implementer inherits the RED test as an **artifact** (a committed
+file), never the test-author's reasoning. Do NOT Edit/Write in the
+central session between bead-claim and bead-close.
+
+The middle therefore splits into roles:
+- **M1–M2** (verify the read + assumption audit) — diagnosis work.
+  Run inline in central or as a short scout dispatch; this is *not*
+  the RED→GREEN core, so it stays out of the `/dispatch-middle`
+  pipeline.
+- **M3 (RED)** — dispatch the **test-author** via `/dispatch-middle`.
+  It writes the RED test from the bug's reproduction/contract
+  (verbatim symptom string) and commits it; it does NOT implement.
+- **M4 (GREEN)** — dispatch the **implementer** via the same
+  `/dispatch-middle` pipeline, in the same worktree, **independent of
+  the test-author** — it sees only the committed RED test file, never
+  the author's reasoning. It makes the minimal GREEN change.
+- **M5–M6** (bug-class coverage + enshrined sweep) — extend the test
+  surface and sweep. Keep as the **implementer** for tightly-coupled
+  bug-class tests, or hand to a **follow-on test-author** when the
+  class coverage is a fresh contract worth independent authoring.
+
+See `skills/dispatch-middle/SKILL.md` for the test-author and
+implementer brief templates + central's sequence, and
+`bead-lifecycle-shell` §Dispatch discipline for the allowed/forbidden
+central-session actions while the pipeline runs, the re-dispatch
 decision rule, and the full Phase A/B/C/D ownership table.
 
-The M-steps below are **scope items for the worker brief**, not a
-to-do list for central. Translate each into one sentence in the
-brief's Scope section (the template targets ≤ 250 words total).
-Preserve the discipline verbatim — RED before GREEN, bug-class
-coverage, enshrined-test sweep — that's WHAT the worker does, not
-WHO does it. Stage transitions named below are written by the worker
-inside the worktree as each step begins; the worker's return summary
+The M-steps below are **scope items for the dispatched briefs**, not
+a to-do list for central. Preserve the discipline verbatim — RED
+before GREEN, bug-class coverage, enshrined-test sweep — that's WHAT
+each agent does, not WHO. Stage transitions named below are written
+inside the worktree as each step begins; each agent's return summary
 should call them out so central can spot-check the lineage.
 
 #### M1. Verify the bug's read
@@ -137,27 +163,38 @@ descriptions become load-bearing-but-wrong (HAW yho, 2026-05). The
 worker's return summary should note any reframing so central can
 review the new framing.
 
-#### M3. TDD — RED first
+#### M3. TDD — RED first (dispatch the TEST-AUTHOR)
 
-Have the worker set stage `tdd-red`, invoke
-`superpowers:test-driven-development`, and write the failing test
-that reproduces the symptom — using a verbatim string from a
-transcript or log line where possible, since those make the most
-stable regression tests. The worker runs the test, watches it fail
-with the expected message, and surfaces the failure output in its
-return summary as evidence that RED preceded GREEN.
+Dispatch the **test-author** via `/dispatch-middle` (the test-author
+brief template lives in `skills/dispatch-middle/SKILL.md`). Its
+contract slot is the bug's reproduction/contract — the verbatim
+symptom string from the M1 diagnosis. The test-author sets stage
+`tdd-red`, invokes `superpowers:test-driven-development`, writes the
+failing test that reproduces the symptom (preferring a verbatim
+string from a transcript or log line, since those make the most
+stable regression tests), runs it to confirm RED, commits ONLY the
+test, and returns the failure output verbatim as evidence that RED
+preceded GREEN. It does NOT implement the fix.
 
-#### M4. GREEN — minimal fix
+#### M4. GREEN — minimal fix (dispatch the IMPLEMENTER, independent of the author)
 
-Have the worker set stage `tdd-green` and make the smallest change
-that turns the test green, then re-run just the new test to confirm
-GREEN. The worker should resist the urge to clean up adjacent code —
-keep the diff focused so the bug-fix lineage stays legible. Pass/fail
-counts and the diff summary go in the worker's return.
+Dispatch the **implementer** via the same `/dispatch-middle` pipeline,
+in the same shared worktree so the committed RED test is on disk. The
+implementer is a **different agent** that **never sees the
+test-author's reasoning** — it inherits the RED test as an artifact
+(the file), which is what makes the RED→GREEN cycle a real
+verification rather than a tautology. It sets stage `tdd-green`,
+reads the RED test, makes the smallest change that turns it green, and
+re-runs just that test to confirm GREEN. It must NOT modify, weaken,
+or skip the test; if the test looks wrong it STOPS and reports to
+central rather than "fixing" the test itself. It resists cleaning up
+adjacent code — keep the diff focused so the bug-fix lineage stays
+legible. Pass/fail counts + the diff summary go in its return.
 
 #### M5. Bug-class coverage
 
-Have the worker set stage `bug-class` and add a second test
+The implementer (or a follow-on test-author — see the dispatch
+posture above) sets stage `bug-class` and adds a second test
 exercising the bug *class*, not just the instance:
 - For convention-mismatch bugs: parameterize over every value in the
   affected set.
@@ -167,21 +204,21 @@ exercising the bug *class*, not just the instance:
   on-boundary case.
 
 Frank's durable rule from HAW 13p.3.11 deploy day: *"write a test for
-the bug AND for the bug class."* The worker should name the class
+the bug AND for the bug class."* The agent should name the class
 shape in its return summary so central can confirm the coverage
 matches the bug's family.
 
 #### M6. Full suite — find tests that enshrined the bug
 
-Have the worker set stage `enshrined-sweep` and run the full test
+The implementer sets stage `enshrined-sweep` and runs the full test
 suite. Failures here are usually tests that locked in the buggy
 contract — **update them, don't work around them.** The 0qw fix
 surfaced 14 such tests; each was evidence the workaround had spread.
 
 If a previously-passing test now fails because it asserted the buggy
-behavior, the worker fixes the test to assert the correct contract.
-If the worker can't tell whether a test was wrong or right, it should
-stop and escalate to central via its return summary rather than
+behavior, the implementer fixes the test to assert the correct
+contract. If it can't tell whether a test was wrong or right, it
+stops and escalates to central via its return summary rather than
 silently weaken or skip the test — that's a stop-and-report trigger
 in the brief.
 
