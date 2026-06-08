@@ -19,48 +19,86 @@ context7-plugin@context7-marketplace     # docs lookup for libraries
 
 ## `~/.claude/` tree (loom-owned files)
 
+The tree below is a **representative subset** — it shows the
+structure and one or two entries per directory, not the full
+inventory. At the commit these docs were last edited, loom ships
+**14 skills, 15 commands, 15 hooks, 4 subagents, and 14 scripts**
+plus the `templates/` tree. For the live, complete list at any
+commit, see the auto-generated catalogue pages
+([Skills](skills/index.md), [Slash commands](slash-commands/index.md),
+[Subagents](subagents/index.md), [Hooks](hooks/index.md)) — they
+are generated from the filesystem at build time, so they never drift.
+
 ```
 ~/.claude/
 ├── settings.json                 # permissions, plugins, hooks, statusLine
 ├── lib/
 │   ├── workflow-mode.sh          # mode resolver (sourceable lib)
 │   └── workflow-state.sh         # state-file r/w (sourceable lib)
-├── scripts/
+├── scripts/                      # 14 helper scripts — see Helper scripts ref
 │   ├── workflow-state            # CLI wrapper for skills/agents
-│   └── statusline.sh             # Claude Code statusLine target
-├── skills/
+│   ├── statusline.sh             # Claude Code statusLine target
+│   ├── loom-fanout-detect        # disjoint-Files: parallel-wave detector
+│   ├── loom-rebase-worktree      # WIP-preserving worktree rebase
+│   ├── loom-worktree-python      # PYTHONPATH-corrected python in a worktree
+│   ├── loom-doctor               # install/config health check
+│   ├── bd-merge-driver.sh        # git merge driver: re-export jsonl from dolt
+│   └── …                         # (8 more — see Helper scripts reference)
+├── skills/                       # 14 skills (one SKILL.md per subdir)
 │   ├── session-startup/SKILL.md
 │   ├── bead-lifecycle-shell/SKILL.md
 │   ├── bugfix-a-bead/SKILL.md
-│   ├── feature-a-bead/SKILL.md
-│   ├── refactor-a-bead/SKILL.md
-│   ├── research-a-bead/SKILL.md
-│   ├── cleanup-a-bead/SKILL.md
-│   ├── docs-a-bead/SKILL.md
+│   ├── … (feature/refactor/research/cleanup/docs/upstream-a-bead)
+│   ├── dispatch-middle/SKILL.md
+│   ├── design-a-cycle/SKILL.md
+│   ├── docs-scaffold/SKILL.md
+│   ├── loom-mine-history/SKILL.md
 │   └── audit-project/SKILL.md
-├── agents/
+├── agents/                       # 4 subagents
 │   ├── bug-family-researcher.md
 │   ├── drawer-author.md
 │   ├── kg-relationship-extractor.md
 │   └── project-onboarder.md
-├── commands/
+├── commands/                     # 15 slash commands
 │   ├── working-a-bead.md
 │   ├── bugfix-a-bead.md
 │   ├── research-a-bead.md
+│   ├── upstream-a-bead.md
+│   ├── dispatch-middle.md
+│   ├── design-a-cycle.md
+│   ├── … (docs-scaffold, loom-mine-history, check-loom-upstream,
+│   │       check-upstream-prs, loom-guest, loom-upstream-gc)
 │   ├── audit-project.md
 │   ├── lineage.md
 │   └── wrap-up.md
-└── hooks/
-    ├── bd-claim-research.sh
-    ├── bd-close-capture.sh
-    ├── git-push-bd-sync.sh
-    └── workflow-mode-onboarding.sh
+├── hooks/                        # 15 hooks
+│   ├── bd-claim-research.sh
+│   ├── bd-close-capture.sh
+│   ├── git-push-bd-sync.sh
+│   ├── workflow-mode-onboarding.sh
+│   ├── dispatch-nudge.sh
+│   ├── edit-after-failure-guard.sh
+│   ├── edit-write-pwd-guard.sh
+│   ├── cwd-drift-guard.sh
+│   ├── bd-worktree-preseed.sh
+│   ├── bd-preflight-docs-strict.sh
+│   ├── pre-push-mkdocs-strict.sh
+│   ├── post-rewrite.sh
+│   ├── skill-redirect.sh
+│   └── … (bd-prime-wrapper, bd-remember-guest-guard)
+└── templates/                    # scaffold sources (copied, not symlinked)
+    ├── design-doc/               # L2 design-doc drawer scaffold
+    │   └── DESIGN-DOC.md.template
+    ├── project-constitution.md   # per-project constitution scaffold
+    └── diataxis/                 # Diataxis docs/ tree (used by /docs-scaffold)
 ```
 
 The full list of skills, commands, agents, and hooks shipped at any
 given commit is auto-included on the catalogue pages
 ([Skills](skills/index.md), [Slash commands](slash-commands/index.md),
-[Subagents](subagents/index.md), [Hooks](hooks/index.md)).
+[Subagents](subagents/index.md), [Hooks](hooks/index.md)). The
+`scripts/loom-*` helper family is documented on the
+[Helper scripts](helper-scripts.md) reference page.
 
 ## Per-project files
 

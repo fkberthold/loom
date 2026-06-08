@@ -57,13 +57,20 @@ For each Edit/Write/MultiEdit tool call:
    - `^FAIL:\s`
    - `\bFAILED\s+\S+(?:::|/)` (pytest brief, e.g. `FAILED tests/foo.py::test_bar`)
    - `^--- FAIL:` (Go test verbose)
-   - `\b\d+\s+(?:tests?\s+)?failed\b` (pytest summary, e.g. `1 failed`)
+   - `\b[1-9]\d*\s+(?:tests?\s+)?failed\b` (pytest summary, e.g. `1 failed`; non-zero leading digit required — loom-9ng)
    - `\bassertion\s+(?:failed|error)\b`
    - `^Error:\s`
    - `\bTraceback \(most recent call last\)`
    - `^panic:\s` (Go panic)
-   - `\bTests?:.*\bfailed\b`
+   - `\bTests?:.*\b[1-9]\d*\s+(?:tests?\s+)?failed\b` (non-zero leading digit required — loom-9ng)
    - `\bexit code:\s*[1-9]`
+
+   > **Green-run false positive fixed (loom-9ng).** The two
+   > count-based matchers above require a NON-ZERO leading digit, so
+   > a passing run that reports `N passed, 0 failed` or a bare
+   > `0 failed` no longer trips the guard. Before loom-9ng the lax
+   > `\d+` matched `0 failed` and blocked the next source edit even
+   > though nothing had failed.
 
    Two whitelist classes never latch and never clear (skipped
    entirely, leaving the prior state intact):
@@ -224,6 +231,11 @@ False-positive seams worth watching:
   per-project marker-file bypass). Test fixture also unsets
   `LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP` at startup so tests are
   hermetic from the user's shell env.
+- Bug-class follow-up: loom-9ng — the two count-based matchers
+  (`\b\d+…failed\b` and `\bTests?:.*\bfailed\b`) tightened to
+  require a non-zero leading digit (`\b[1-9]\d*…`), so a green run
+  reporting `N passed, 0 failed` / `0 failed` no longer latches a
+  false failure and blocks the next source edit.
 - Origin: loom-z3m retrospective dig (Phase 1, 14 improvement beads
   filed)
 - Companion (out of scope for loom; upstream PRs in loom-ki5):
