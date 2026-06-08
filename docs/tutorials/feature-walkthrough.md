@@ -19,6 +19,12 @@
 > what every loom-1ab session produced. Where this walkthrough is
 > aspirational rather than observed, a note flags it.
 >
+> **Updated 2026-06-07 for the dispatched middle** — the M3/M4
+> RED→GREEN core now runs through `/dispatch-middle` as a test-author →
+> implementer pipeline of two independent subagents (epic loom-5m94).
+> Central locks the contract at M1, then briefs each agent with only
+> its slice. §6 and §7 below show the split.
+>
 > Why feature-a-bead instead of bugfix? `loom-1ab` introduces a new
 > behavior (a router) where none existed; there is no symptom to
 > reproduce, only a contract to pin. That's the central inversion vs.
@@ -260,10 +266,54 @@ fork decisions are enough.*
 explicitly so future-me reviewing the recipe execution understands
 the skip wasn't oversight.*
 
-### 6. M3 — RED that pins desired contract
+### 5b. Decision — dispatch the middle, or go inline?
 
-**Claude:** *(invokes `superpowers:test-driven-development`,
-adapted for the prose-heavy primitive)*
+*Before pinning any contract, central makes one explicit call: does
+the RED→GREEN middle go through `/dispatch-middle` (the default), or
+inline (central edits directly)? The threshold is mechanical. Inline
+is allowed only when ALL of: the change is ≤ ~15 lines, AND it touches
+a single non-test file, AND it adds no new test. Even when the
+threshold is met, `/dispatch-middle` is still preferred — inline is a
+deliberate exception, not the comfortable default.*
+
+**Claude:**
+
+> `loom-1ab` is a new 150-ish-line markdown file plus a contract that
+> needs its own pinning — it fails the inline threshold (well over 15
+> lines, and the contract IS a new test surface). So this middle goes
+> through `/dispatch-middle`: a test-author pins the contract, then a
+> separate implementer writes the router. Recording the default.
+
+*If central had chosen inline (say, a one-line tweak to an existing
+command), it would record the exception in workflow state so the
+deviation is auditable:*
+
+```bash
+# Only when staying inline on a sub-threshold change:
+~/.claude/scripts/workflow-state set dispatch=inline:"1-line trigger-phrase tweak, no new test"
+```
+
+*Here, central takes the default — no `dispatch=inline` recorded. The
+middle is dispatched.*
+
+### 6. M3 — RED that pins desired contract (the dispatched TEST-AUTHOR)
+
+*Central locked the contract at M1. It now dispatches a **test-author**
+via `/dispatch-middle` into the worktree. The brief carries ONLY the
+M1 contract, verbatim, plus the interface under test — not central's
+brainstorm, not session history. The test-author writes the RED test
+that pins that contract and nothing else.*
+
+**Claude:** *(dispatches the test-author)*
+
+> Dispatching the test-author into `frank/loom-1ab`. Its contract is
+> the three M1 assertions, carried verbatim. It will write the RED
+> test, commit it, and return the failure output. It will NOT
+> implement the router.
+
+*Inside the worktree, the test-author invokes
+`superpowers:test-driven-development` (adapted for the prose-heavy
+primitive), sets stage `red`, and pins the contract:*
 
 > The router has no Python or bash code path to unit-test directly;
 > it's a markdown body Claude reads + follows. The "RED" pins the
@@ -291,37 +341,52 @@ ls commands/working-a-bead.md
 ls: cannot access 'commands/working-a-bead.md': No such file or directory
 ```
 
-**[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
-stage=red`.
-
-*RED confirmed. The contract is pinned; the file is absent.*
-
-*A note on the limitation: this contract is enforced by the live
-recipe-execution path, not a programmatic test runner. A future
-loom test fixture might fire a real `Skill` dispatch through a
-mock harness, but for loom v2 the contract is verified by walking
-the dispatch table at phase B (and by the live recipe firing on
-the first feature-shaped bead that uses `/working-a-bead`).*
-
-### 7. M4 — Minimal GREEN implementation
-
-**Claude:**
-
-> Writing `commands/working-a-bead.md` minimally — 5 numbered steps
-> matching the locked design. Each step has the exact behavior the
-> contract assertions need.
+*The test-author commits the pinned contract (as a checklist-style
+test fixture for loom's prose primitives) and returns the failure
+evidence to central:*
 
 ```bash
-$EDITOR commands/working-a-bead.md
+git add tests/router-contract.md
+git commit -m "loom-1ab: RED — /working-a-bead dispatch contract (3 assertions)"
 ```
 
-*Claude writes the router body. Step 1 resolves the bead-id
-argument (or runs `bd ready` if none given). Step 2 inspects via
-`bd show <id>`. Step 3 scores against the six recipes — `type=bug`
-→ `bugfix-a-bead`, `type=feature` → `feature-a-bead`, `type=epic`
-→ epic-guard message (refer to children), `type=task` → keyword
-scoring. Step 4 dispatches via `Skill(<recipe>-a-bead)`. Step 5
-hands off cleanly.*
+**[v1.5]** *Stage update written inside the worktree:*
+`~/.claude/scripts/workflow-state set stage=red`.
+
+*RED confirmed. The contract is pinned; the implementation file is
+absent. A note on the limitation: this contract is enforced by the
+live recipe-execution path, not a programmatic test runner. A future
+loom test fixture might fire a real `Skill` dispatch through a mock
+harness, but for loom v2 the contract is verified by walking the
+dispatch table at phase B. That limitation is independent of the
+dispatch split — even with two agents, the contract surface is prose.*
+
+### 7. M4 — Minimal GREEN implementation (the SEPARATE IMPLEMENTER)
+
+*Central now dispatches a **different agent** — the implementer — into
+the same worktree, where the committed RED contract is already on disk.
+The implementer's brief carries the RED-test file path and the code
+area. It does **not** carry the test-author's reasoning OR the M1
+contract dialogue — it works from the committed RED test alone, as an
+artifact. That is the anti-tautology guarantee: the implementer
+satisfies a public spec it cannot have shaped, not a private intent.*
+
+**Claude:** *(dispatches the implementer via the same pipeline)*
+
+> Dispatching the implementer into the same worktree. Spec: the
+> committed RED contract at `tests/router-contract.md`. Code area:
+> `commands/working-a-bead.md` (new file). It will write the minimal
+> router that satisfies the three assertions. It must NOT modify the
+> contract — if it looks wrong, it STOPS and reports to me.
+
+*Inside the worktree, the implementer sets stage `green` and writes
+`commands/working-a-bead.md` minimally — 5 numbered steps matching the
+contract. Step 1 resolves the bead-id argument (or runs `bd ready` if
+none given). Step 2 inspects via `bd show <id>`. Step 3 scores against
+the six recipes — `type=bug` → `bugfix-a-bead`, `type=feature` →
+`feature-a-bead`, `type=epic` → epic-guard message (refer to
+children), `type=task` → keyword scoring. Step 4 dispatches via
+`Skill(<recipe>-a-bead)`. Step 5 hands off cleanly.*
 
 ```bash
 ls commands/working-a-bead.md
@@ -331,10 +396,18 @@ ls commands/working-a-bead.md
 commands/working-a-bead.md
 ```
 
-**[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
-stage=green`.
+*The implementer commits ONLY the implementation:*
 
-*The file exists. Walking the dispatch table:*
+```bash
+git add commands/working-a-bead.md
+git commit -m "loom-1ab: GREEN — /working-a-bead router satisfies dispatch contract"
+```
+
+**[v1.5]** *Stage update written inside the worktree:*
+`~/.claude/scripts/workflow-state set stage=green`.
+
+*The file exists. The implementer walks the dispatch table to confirm
+GREEN:*
 
 | Test bead | Expected route |
 |---|---|
@@ -346,7 +419,12 @@ stage=green`.
 
 ### 8. M5 — Negative cases + integration coverage
 
-**Claude:**
+*Negative-case + integration coverage extends the same surface, so it
+stays with the implementer (central would hand to a follow-on
+test-author only if the negative cases were a genuinely fresh contract
+worth independent authoring).*
+
+**Claude:** *(implementer, stage `integration`)*
 
 > Negative cases for the router are non-trivial — what counts as a
 > "wrong dispatch" failure mode? Three categories worth covering:
@@ -379,8 +457,13 @@ in step 3. That's intentional: the body is read + executed by
 Claude, not a literal switch statement. Each negative case is
 covered in prose.*
 
-**[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
-stage=integration`.
+**[v1.5]** *Stage update written inside the worktree:*
+`~/.claude/scripts/workflow-state set stage=integration`.
+
+*With M5 done, the implementer hands the pipeline's summary back to
+central: RED output, GREEN counts, both commit SHAs, no
+stop-and-report. Central now owns verify + merge + close + capture — it
+does not re-do the middle.*
 
 ### 9. Multi-task / per-task review — N/A
 
@@ -389,7 +472,7 @@ This is a single-file feature. Skip.*
 
 ### 10. Verification before completion
 
-**Claude:** *(invokes `superpowers:verification-before-completion`)*
+**Claude:** *(central invokes `superpowers:verification-before-completion`)*
 
 > Re-running smoke checks from a clean shell + checking diff scope.
 
@@ -424,33 +507,34 @@ contract assertions trace to specific lines.*
 **[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
 stage=verify`.
 
-### 11. Commit
+### 11. Commit — already split across two agents
+
+*The pipeline already produced two commits in the worktree: the
+test-author's RED commit (the dispatch contract) and the implementer's
+GREEN commit (the router). Central reviews the combined log rather than
+re-committing.*
 
 ```bash
-git add commands/working-a-bead.md
-git commit -m "loom-1ab: /working-a-bead router — dispatch by bead.type + heuristics
-
-The router replaces the v1 bugfix-only working-a-bead command. It
-inspects the bead via bd show, scores against the six activity
-recipes, and dispatches via the Skill tool. type=bug → bugfix;
-type=feature → feature; type=epic → guard message (refer to
-children); type=task → keyword scoring across refactor, cleanup,
-docs, research with bugfix as fallback. Ties surface a numbered
-candidate list with one-line because per recipe and prompt the user
-to pick or pass --recipe=<name> override.
-
-Design source: 'RECIPE SHAPES — ACTIVITY MATRIX' drawer
-(hundred_acre_woods/decisions, 2026-05-02), Frank's 6 locked
-decisions. Sibling drawer: 'V2 SIBLING RECIPES SHIPPED'
-(loom/decisions, 2026-05-03).
-
-Verification: dispatch table walked manually for type=bug,
-type=task with cleanup keywords, type=task with refactor+cleanup
-tie. End-to-end smoke through a real Skill dispatch deferred to
-next session.
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+git log --oneline frank/loom-1ab -2
 ```
+
+```
+da939e6 loom-1ab: GREEN — /working-a-bead router satisfies dispatch contract
+9c4e7b1 loom-1ab: RED — /working-a-bead dispatch contract (3 assertions)
+```
+
+*Both agents used the loom co-author trailer:*
+
+```
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+```
+
+*The GREEN commit body carries the provenance — design source
+('RECIPE SHAPES — ACTIVITY MATRIX' drawer, HAW decisions, 2026-05-02;
+sibling drawer 'V2 SIBLING RECIPES SHIPPED', loom/decisions,
+2026-05-03), the dispatch contract, and the deferred end-to-end smoke.
+The RED→GREEN pair is legible, so central keeps both commits rather
+than squashing.*
 
 **[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
 stage=commit`.
@@ -594,11 +678,17 @@ stage=close`.
 - **Recipe routed via shape** — the feature-a-bead recipe ran the
   feature-specific middle (M1 brainstorm → M2 plan-skip → M3 RED
   contract → M4 GREEN → M5 negative cases) instead of the bugfix
-  middle (debug → RED symptom → GREEN → bug-class → enshrined-sweep).
-  Same shared shell on either side.
-- **Subagent dispatches** kept main context clean — drawer-author +
-  kg-relationship-extractor returned drafts you approved before
-  filing.
+  middle (debug → assumption-audit → RED symptom → GREEN → bug-class →
+  enshrined-sweep). Same shared shell on either side.
+- **`/dispatch-middle` ran M3/M4 as two independent agents** — central
+  locked the contract at M1, a test-author pinned it as a committed RED
+  test, then a *separate* implementer made it GREEN from that file
+  alone. Central wrote nothing in the middle. The test-author and
+  implementer never shared reasoning, so the contract couldn't be bent
+  to fit the implementation — the anti-tautology guarantee, structural.
+- **Subagent dispatches** kept main context clean — the test/code churn
+  of the pipeline, plus the drawer-author + kg-relationship-extractor
+  drafts, stayed out of your conversation.
 - **Stop hook** fires the AUTO-SAVE checkpoint at session end.
 
 ### Things you did manually
@@ -607,6 +697,8 @@ stage=close`.
   session-startup, but the choice is yours).
 - Pivoted from `/working-a-bead` to `/feature-a-bead` when the
   router itself was the bead being built (bootstrap awareness).
+- Made the dispatch-vs-inline call at M2 (here: dispatch — the bead is
+  over the inline threshold and the contract is a new test surface).
 - Approved the drawer + KG triples after subagents drafted them.
 - Chose the merge option in `finishing-a-development-branch`.
 
@@ -615,8 +707,13 @@ stage=close`.
 - M1 brainstorm before M3 implementation, even with locked design
   (the brainstorm was short — minutes, not hours — but it surfaced
   the in-line vs sub-routine choice).
-- M3 RED before M4 GREEN — the contract was pinned (3 assertions)
-  before the file was written.
+- The **structural two-agent split** at M3/M4 — a different agent
+  authored the RED contract than implemented the GREEN router, and the
+  implementer never saw the author's reasoning. Independence by
+  construction, not by self-discipline. That is what makes the RED→GREEN
+  cycle a real verification rather than a tautology.
+- M3 RED before M4 GREEN — the contract was pinned (3 assertions) by
+  the test-author before the implementer wrote the file.
 - M5 negative cases before commit — the bead-doesn't-exist /
   bead-closed / type=epic cases were explicitly walked.
 - Verification (B1) confirmed diff scope matched intended scope
@@ -672,11 +769,22 @@ might invert this; today it's a known gap.
 
 ### If the design wasn't already locked
 
-M1 expands. Run `superpowers:brainstorming` (or
-`beadpowers:brainstorming`) to converge on the contract. Capture
-the brainstorm output as a MemPalace drawer in
-`<project>/decisions` — the drawer becomes the source-of-truth that
-M3 pins against. If the brainstorm produces multiple alternatives,
+The primary path is to run a **design cycle first**:
+`/design-a-cycle <topic>`. That above-bead orchestrator drives a
+Plan→Research→Architect→Soundness→Handoff cadence, gates on two-tier
+soundness, and hands off by spawning the implementation epic — each
+bead carrying a `Files:` line and (for Tier-1 decisions) a `RED:` line
+holding the decision's executable spec verbatim. That `RED:` line is
+exactly the contract this walkthrough's M3 test-author consumes. In
+other words: the locked "RECIPE SHAPES — ACTIVITY MATRIX" drawer that
+`loom-1ab` pinned against is the *kind of artifact* a design cycle now
+produces. See [the design-cycle walkthrough](./design-cycle-walkthrough.md).
+
+The manual brainstorm is the fallback when the design space is too
+small to earn a full cycle: run `superpowers:brainstorming` (or
+`beadpowers:brainstorming`) to converge on the contract, capture the
+output as a MemPalace drawer in `<project>/decisions`, and let M3 pin
+against that drawer. If the brainstorm produces multiple alternatives,
 prototype each in M3 (one RED test per alternative); the surviving
 contract is the one whose RED→GREEN cycle ships cleanest.
 

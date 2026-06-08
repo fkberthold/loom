@@ -13,16 +13,21 @@
 >
 > Honesty caveat: the recipe was shipped 2026-05-02 and verified at the
 > primitive level (skill files exist, hooks smoke-test correctly,
-> commands and agents are written). The end-to-end live-firing behavior
-> below is the *designed* experience; some details (settings.json
-> hot-reload, slash command auto-dispatching subagents) await
-> confirmation on the first real session that uses the new
-> infrastructure. Where this walkthrough is aspirational rather than
-> observed, a note flags it.
+> commands and agents are written). Subagent dispatch — the
+> test-author → implementer pipeline this walkthrough shows — is now
+> observed reality, not a design hope. A few peripheral details
+> (settings.json hot-reload timing) still vary by Claude Code version;
+> where this walkthrough is aspirational rather than observed, a note
+> flags it.
 >
 > **Updated 2026-05-03 for v1.5** — workflow modes (full/light/off),
 > the per-project state file, the SessionStart onboarding hook, and
 > the status line. v1.5-specific moments are tagged with **[v1.5]**.
+>
+> **Updated 2026-06-07 for the dispatched middle** — the RED→GREEN
+> core now runs through `/dispatch-middle` as a test-author →
+> implementer pipeline of two independent subagents (epic loom-5m94).
+> Central writes nothing in the middle. §5 and §6 below show the split.
 
 ---
 
@@ -259,13 +264,55 @@ confirms the cleanup is bounded.*
 > `test_poe_server_backend.py` don't assert on fingerprint output, so
 > removal shouldn't surface enshrined-test failures.
 
-### 5. TDD — RED first
+### 4b. M2 — bead-assumption audit
 
-**Claude:** *(invokes `superpowers:test-driven-development`)*
+**Claude:** *(sets stage `assumption-audit`)*
 
-> Writing the failing test first. Since this is a removal, the test
-> asserts the helper is GONE — `_credential_fingerprint` should not
-> exist as a module attribute.
+```bash
+~/.claude/scripts/workflow-state set stage=assumption-audit
+```
+
+> Before writing the RED test, comparing my M1 diagnosis against the
+> bead's stated cause. The bead says "remove 13p.3.11 diagnostic
+> fingerprint logging from poe_server + server." My read found the
+> instrumentation lives entirely in `poe_server.py` (helper + log
+> line + stranded import); there is no equivalent in `server.py`. The
+> "+ server" in the title is stale — it reflected the filing-day
+> guess, not the actual footprint.
+
+*Bug fixes drift between filing date and claim date; the bead's framing
+can quietly go wrong. The recipe makes Claude reconcile the two before
+the RED test pins anything. Here the divergence is minor (a scope
+overstatement, not a wrong root cause), so Claude corrects the bead
+description rather than leaving future sessions to trust a stale
+"+ server".*
+
+```bash
+bd update hundred-acre-woods-80v --description "Remove 13p.3.11 diagnostic fingerprint logging from poe_server (instrumentation confirmed poe_server-only; no server.py equivalent — corrected at claim per M2 audit)."
+```
+
+> Description corrected. Proceeding to the RED test.
+
+### 5. TDD — RED first (the dispatched TEST-AUTHOR)
+
+*Here is the structural change from the old single-actor walkthrough.
+Central does not write this test. It invokes `/dispatch-middle`, which
+spins up the shared worktree and dispatches a **test-author**
+subagent. The brief carries only the contract — the verbatim symptom
+the test must pin (here: "`_credential_fingerprint` is diagnostic
+instrumentation that must be GONE") — plus the interface under test.
+It does NOT carry central's reasoning or session history.*
+
+**Claude:** *(dispatches the test-author via `/dispatch-middle`)*
+
+> Dispatching the test-author into `frank/80v`. Its contract: the
+> `_credential_fingerprint` helper from 13p.3.11 must no longer exist
+> as a module attribute, and no fingerprint-shaped log line may remain
+> in the outbound path. It will write the RED test, commit it, and
+> return the failure output. It will NOT implement the removal.
+
+*Inside the worktree, the test-author sets stage `tdd-red`, invokes
+`superpowers:test-driven-development`, and writes:*
 
 ```python
 def test_credential_fingerprint_helper_removed():
@@ -289,25 +336,56 @@ FAILED tests/test_poe_server_backend.py::test_credential_fingerprint_helper_remo
 AssertionError: diagnostic helper from 13p.3.11 should be removed
 ```
 
-*RED confirmed. The helper is still there; the test correctly fails.*
-
-**[v1.5]** *Claude updates the state file at the RED checkpoint per
-the recipe's stage map:*
+*RED confirmed. The test-author commits ONLY the test and returns the
+verbatim failure output to central as evidence that RED preceded
+GREEN:*
 
 ```bash
-~/.claude/scripts/workflow-state set stage=tdd-red
+git add tests/test_poe_server_backend.py
+git commit -m "80v: RED — _credential_fingerprint helper must be removed"
 ```
 
-*Status line:* `WORKFLOW: full | task:tdd-red | bead:80v | 0s`.
+**Claude:** *(test-author's return, relayed by central)*
 
-### 6. GREEN — minimal fix
+> Test-author returned. RED test committed at
+> `tests/test_poe_server_backend.py::test_credential_fingerprint_helper_removed`.
+> Failure output (verbatim): `AssertionError: diagnostic helper from
+> 13p.3.11 should be removed`. No implementation written.
 
-**Claude:**
+**[v1.5]** *Status line:* `WORKFLOW: full | task:tdd-red | bead:80v | 0s`.
 
-> Removing the helper, the log line, and the stranded import.
+### 6. GREEN — minimal fix (the SEPARATE IMPLEMENTER)
 
-*Claude makes three edits: removes the function (lines 36-50), removes
-the log call (lines 206-212), removes `import hashlib` (line 23).*
+*Now the second half of the pipeline. Central dispatches a **different
+agent** — the implementer — into the same worktree, so the committed
+RED test is already on disk. The implementer's brief carries the RED
+test file path and the code area. It does **not** carry the
+test-author's reasoning, the contract dialogue, or any explanation of
+why the test is shaped the way it is. The implementer inherits the
+test as an **artifact** and treats it as the spec.*
+
+*This is the anti-tautology guarantee made mechanical. When one agent
+writes both the test and the fix, the test tends to assert whatever
+the fix already does — the RED→GREEN cycle verifies nothing. Two
+independent agents, sharing only the committed file, cannot collude
+that way: the implementer satisfies a public artifact, not a private
+intent.*
+
+**Claude:** *(dispatches the implementer via the same
+`/dispatch-middle` pipeline)*
+
+> Dispatching the implementer into the same worktree. Its spec is the
+> committed RED test at
+> `tests/test_poe_server_backend.py::test_credential_fingerprint_helper_removed`.
+> Code area: `engine/backends/poe_server.py`. It will make the minimal
+> change to turn the test GREEN. It must NOT modify the test — if the
+> test looks wrong, it STOPS and reports to me rather than weakening
+> it.
+
+*Inside the worktree, the implementer sets stage `tdd-green`, reads
+the RED test, and makes three edits: removes the function (lines
+36-50), removes the log call (lines 206-212), removes
+`import hashlib` (line 23).*
 
 ```bash
 python3 -m pytest tests/test_poe_server_backend.py::test_credential_fingerprint_helper_removed -v
@@ -317,11 +395,31 @@ python3 -m pytest tests/test_poe_server_backend.py::test_credential_fingerprint_
 PASSED tests/test_poe_server_backend.py::test_credential_fingerprint_helper_removed
 ```
 
-*GREEN.*
+*GREEN. The implementer commits ONLY the implementation and returns
+its pass count + commit SHA:*
+
+```bash
+git add engine/backends/poe_server.py
+git commit -m "80v: GREEN — remove _credential_fingerprint helper + log emission"
+```
+
+**[v1.5]** *Stage update written inside the worktree:*
+`~/.claude/scripts/workflow-state set stage=tdd-green` *→ status line:*
+`WORKFLOW: full | task:tdd-green | bead:80v | 0s`.
 
 ### 7. Bug-class coverage
 
-**Claude:**
+*Bug-class coverage extends the test surface, so it stays in the
+pipeline. Central keeps the implementer on it here (the class test is
+tightly coupled to the instance removal); for a class test that is a
+genuinely fresh contract worth independent authoring, central would
+hand back to a follow-on test-author instead.*
+
+**Claude:** *(implementer, stage `bug-class`)*
+
+```bash
+~/.claude/scripts/workflow-state set stage=bug-class
+```
 
 > The bug class is "diagnostic instrumentation outliving its
 > purpose." The instance test pins this specific helper. The class
@@ -349,9 +447,12 @@ def test_outbound_call_does_not_log_credential_fingerprints(caplog):
 *This is the bug-class layer. Future debugging sessions might add new
 fingerprint logs; this test catches them so cleanup is reflexive.*
 
-### 8. Full suite
+### 8. Full suite — enshrined-test sweep
+
+**Claude:** *(implementer, stage `enshrined-sweep`)*
 
 ```bash
+~/.claude/scripts/workflow-state set stage=enshrined-sweep
 python3 -m pytest -q
 ```
 
@@ -360,7 +461,12 @@ python3 -m pytest -q
 ```
 
 *No enshrined tests surfaced — clean removal. (Compare 0qw which
-surfaced 14 such tests; this bead is genuinely simpler.)*
+surfaced 14 such tests; each was a test that had locked in the buggy
+contract and had to be updated, not worked around. This bead is
+genuinely simpler.) With the sweep clean, the implementer hands the
+pipeline's summary back to central: RED output, GREEN counts, both
+commit SHAs. Central now owns verify + merge + close + capture — it
+does not re-do the middle.*
 
 **[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
 stage=verify` *→ status line:* `WORKFLOW: full | task:verify | bead:80v | 0s`.
@@ -392,32 +498,35 @@ git diff --stat
 *Pass count up by 2 (the two new tests). Scope: only the two intended
 files. Verification passes.*
 
-### 11. Commit
+### 11. Commit — already split across two agents
+
+*The pipeline already produced two commits in the worktree: the
+test-author's RED commit and the implementer's GREEN commit. Central
+does not re-commit the work — it reviews the combined log and, for a
+clean bug-fix lineage, leaves the two commits as-is (the RED-before-
+GREEN ordering is exactly the evidence trail the recipe wants
+preserved).*
 
 ```bash
-git add engine/backends/poe_server.py tests/test_poe_server_backend.py
-git commit -m "80v: remove 13p.3.11 diagnostic fingerprint logging
-
-The _credential_fingerprint helper + per-outbound-call log emission
-were added in commit c1f8812 to debug an 'Invalid API key' mystery
-during the 13p.3.11 server-bot deploy day. That mystery resolved
-to undeclared server_bot_dependencies + wrong calling pattern (fix
-landed in commits 49645df + de50764 + a3483f2). The fingerprint
-logging confirmed all three credential surfaces were identical
-(sha256 a6d9970746, len=32) and is now noise on every outbound call.
-
-- engine/backends/poe_server.py: remove _credential_fingerprint
-  helper (lines 36-50), the logger.info call inside _stream_chunks
-  (lines 206-212), and the now-stranded 'import hashlib' (line 23).
-- tests/test_poe_server_backend.py: add instance test asserting the
-  helper is removed + class test asserting no fingerprint-shaped
-  logs in the outbound path (bug-class coverage per Frank's
-  deploy-day rule).
-
-2167 passed, 16 skipped (+2 new tests, no regressions).
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+git log --oneline frank/80v -2
 ```
+
+```
+b3c1f09 80v: GREEN — remove _credential_fingerprint helper + log emission
+a17e442 80v: RED — _credential_fingerprint helper must be removed
+```
+
+*Both agents used the loom co-author trailer on their commits:*
+
+```
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+```
+
+*If central wanted a single squashed commit with a full provenance
+body, it would squash the two into one before merge — but a legible
+RED→GREEN pair is usually worth keeping. The body of the GREEN commit
+already names the symptom, root cause, fix, and family lineage (the
+13p.3.11 deploy-day arc, fix commits 49645df + de50764 + a3483f2).*
 
 ### 12. Finish branch
 
@@ -596,17 +705,24 @@ mempalace_diary_write(
 bd close hundred-acre-woods-80v --reason="Removed 13p.3.11 diagnostic fingerprint logging. Mystery (Bug 7b) resolved long ago via 49645df+de50764+a3483f2; helper was noise on every outbound call. Drawer + KG triples filed."
 ```
 
-[bd-close-capture hook fires — but capture IS done, so the hook ALLOWS the close to proceed. Wait, no — the current implementation blocks unconditionally. You'd need --force or BD_CLOSE_FORCE=1.]
+```
+[bd-close-capture hook] 80v: 3/5 matchers (✓✓✓✗✗) — allowing.
+```
 
-*That's a discovered limitation. The hook can't yet detect "drawer was just filed for this bead." Use --force.*
+*The close-capture hook is **evidence-aware** (loom-8vb). It checks
+five matchers — drawer in the bead's wing, KG triple, diary entry, bd
+memory, substantive close reason — and ALLOWS the close when ANY ONE
+passes. Here three matched (the drawer, the KG triples, and the diary
+entry you just filed), so the hook prints the `N/5 matchers` line and
+lets the close through. It blocks only when **zero** evidence exists —
+the case where someone tries to close a bead with nothing captured.*
 
 **Claude:**
 
-> Close blocked by capture hook. Drawer + KG were just filed; using
-> --force per the documented bypass.
+> Capture is done (3/5 matchers), so the hook allowed the close. No
+> bypass needed.
 
 ```bash
-bd close hundred-acre-woods-80v --force --reason="..."
 bd dolt push
 git push
 git status
@@ -617,6 +733,14 @@ On branch main
 Your branch is up to date with 'origin/main'.
 nothing to commit, working tree clean
 ```
+
+*If you were closing a wave of beads in a batch with no per-bead
+drawer yet, you'd either add lineage to `--reason` (a substantive
+reason ≥200 chars with a commit SHA or drawer ID satisfies matcher 5)
+or, in the rare genuine case, bypass with `BD_CLOSE_FORCE=1 bd close
+<id>` — the auditable env-var bypass, recorded in workflow state. The
+old `--force` flag still works, but `BD_CLOSE_FORCE=1` is the headline
+bypass.*
 
 > 80v shipped. Want to clean up the worktree?
 
@@ -659,11 +783,17 @@ saves a final checkpoint.*
 - **Hook on `bd update --claim`** reminded to dispatch
   bug-family-researcher (redundant in this case because you'd already
   done it via the recipe step 1, but the hook is defense-in-depth).
+- **`/dispatch-middle` ran the RED→GREEN core as two independent
+  agents** — a test-author wrote and committed the RED test, then a
+  separate implementer made it GREEN from the committed file alone.
+  Central wrote nothing in the middle. The anti-tautology guarantee
+  was structural, not a thing you had to police.
 - **Subagent dispatches** kept main context clean — the
-  bug-family-researcher's full search output never bloated your
-  conversation.
-- **Hook on `bd close`** blocked the close until you used `--force` —
-  a known friction point that gets revisited if it becomes annoying.
+  bug-family-researcher's full search output, and the test/code churn
+  of the two pipeline agents, never bloated your conversation.
+- **Hook on `bd close`** checked capture evidence and **allowed** the
+  close because three of five matchers passed (drawer + KG + diary).
+  It would have blocked only on zero evidence.
 - **Stop hook** fired the AUTO-SAVE checkpoint at session end.
 
 ### Things you did manually
@@ -672,11 +802,15 @@ saves a final checkpoint.*
   session-startup, but the choice is yours).
 - Approved the drawer + KG triples after subagents drafted them.
 - Chose the merge option in `finishing-a-development-branch`.
-- Used `--force` to bypass the close hook (justified: capture WAS done).
+- (You did NOT bypass the close hook — capture was done, so the
+  evidence-aware hook allowed the close on its own.)
 
 ### Things the recipe enforced
 
-- TDD red-green discipline (test first, watch fail, then implement).
+- TDD red-green discipline, split across two independent agents (test
+  first by the test-author, watch fail, then GREEN by the implementer).
+- M2 bead-assumption audit — reconcile the bead's stated cause against
+  the M1 diagnosis before pinning a test (the stale "+ server" caught).
 - Bug-class coverage in addition to instance test.
 - Verification with exact pass counts before claiming done.
 - Drawer + KG capture before close (via /wrap-up).
@@ -721,28 +855,48 @@ CLAUDE_WORKFLOW_OFF=1 claude
 ### If you were starting a feature, not a bug
 
 Replace step 3 (Phase 1 systematic-debugging) with `superpowers:brainstorming`
-or `beadpowers:brainstorming`. The TDD cycle still applies, but you're
-defining behavior rather than reproducing a bug. Bug-class coverage
-becomes "test for the feature AND for the negative cases."
+or `beadpowers:brainstorming`. The two-agent `/dispatch-middle` split
+still applies — the test-author pins the *contract* the brainstorm
+produced (not a reproduced failure) and the separate implementer makes
+it GREEN. Bug-class coverage becomes "test for the feature AND for the
+negative cases." See [the feature walkthrough](./feature-walkthrough.md)
+for the full feature-shaped pipeline.
 
 ### If you had 3 unrelated bugs to fix
 
-After session-startup picks the first one, instead of
-`/bugfix-a-bead <id>` (or `/working-a-bead <id>` once the router
-lands), invoke `superpowers:dispatching-parallel-agents`. That
-spawns one subagent per bug — each runs the recipe in its own
-worktree,
-fully isolated. After all complete, you batch-merge sequentially and
-fix any cross-branch collateral in a single follow-up commit (this
-session's t92/0qw/bi2 work hit one such collateral fix; it's normal).
+There are two axes of parallelism, and they compose:
+
+- **Across beads** — the fan-out detector (`scripts/loom-fanout-detect`,
+  surfaced at selection by session-startup step 6a and the
+  `/working-a-bead` router) checks the three beads' `Files:` lines. If
+  no two share a file and none depends on another, it proposes a wave
+  of file-disjoint beads to run in parallel via
+  `superpowers:dispatching-parallel-agents` — one recipe per bug, each
+  in its own worktree. (A bead with no `Files:` line is excluded from
+  the wave: footprint unknown, not provably disjoint.)
+- **Within each bead** — each bug in the wave still runs its own
+  RED→GREEN middle through `/dispatch-middle` (test-author then
+  implementer). So a 3-bug wave can fan out to as many as six
+  pipeline agents, three test-authors and three implementers, plus the
+  per-bead recipe orchestration.
+
+After all complete, you batch-merge sequentially and fix any
+cross-branch collateral in a single follow-up commit (this session's
+t92/0qw/bi2 work hit one such collateral fix; it's normal).
 
 ### If the bead was a trivial 1-line fix
 
-Skip steps 2 (worktree) and 12 (finishing-a-development-branch).
-Fix on main directly. Steps 4-7 (TDD + bug-class + full suite) still
-apply — trivial fixes still get tests. Use `bd close --force` since
-the recipe didn't enforce drawer capture; consider `bd remember`
-for any one-liner tribal fact that emerged.
+Skip steps 2 (worktree) and 12 (finishing-a-development-branch), and
+skip `/dispatch-middle` — a genuinely trivial change (≤ ~15 lines, one
+non-test file, no new test) is the inline exception, edited directly on
+main. Record `dispatch=inline:<reason>` in workflow state so the
+exception is auditable. Steps 4-7 (TDD + bug-class + full suite) still
+apply — trivial fixes still get tests. The evidence-aware close hook
+will block only if you filed no capture at all; for a one-liner,
+either file a quick drawer or pass a substantive `--reason` (≥200
+chars with a commit SHA), and consider `bd remember` for any one-liner
+tribal fact that emerged. `BD_CLOSE_FORCE=1` remains the auditable
+last resort.
 
 ### **[v1.5]** If you're onboarding a fresh project (or auditing an existing one)
 
@@ -779,22 +933,24 @@ Three failure modes worth watching for:
 
 ## What to expect over the first few sessions using this
 
-You'll discover whether each piece of automation actually fires. Most
-of the design is verified at the primitive level (smoke tests + file
-existence) but not yet at the live-session level. Specifically:
+A few things still vary by environment more than by design:
 
-- **Hot-reload of `settings.json`** for the new hooks needs verification.
-  If hooks don't fire on the first try, `/clear` and retry.
-- **Slash commands dispatching subagents** is the most novel pattern.
-  If `/bugfix-a-bead` (or `/working-a-bead` once the router lands)
-  doesn't auto-dispatch the bug-family-researcher at phase A1,
-  dispatch manually with the Agent tool and update the command to be
-  more explicit.
-- **The blocking close-capture hook** is the most likely friction
-  point. If it fires too aggressively, consider tightening the
-  matcher (e.g., only block if the bead's ID was recently in
-  conversation context, suggesting active work) — design TBD; file
-  a bead under epic `2st` if you want to evolve it.
+- **Hot-reload of `settings.json`** for the hooks can lag by Claude
+  Code version. If hooks don't fire on the first try, `/clear` and
+  retry.
+- **Slash commands dispatching subagents** is the pattern the whole
+  middle rests on, and it is now observed working: `/dispatch-middle`
+  routinely spins up a test-author then an implementer in one shared
+  worktree. If a dispatch ever fails to fire, fall back to dispatching
+  the Agent tool manually with the brief templates from
+  `skills/dispatch-middle/SKILL.md`.
+- **The close-capture hook is evidence-aware, not blocking-by-default.**
+  It allows the close whenever ANY of its five matchers passes and
+  blocks only on zero evidence — so a normal `/wrap-up` flow (drawer +
+  KG + diary) closes cleanly without a bypass. If it still fires when
+  you believe capture is done, check that the drawer landed in the
+  bead's wing and that the bead ID appears in it; the `N/5 matchers`
+  line in the hook output tells you exactly which matchers it saw.
 - **Path-scoped rules in `.claude/rules/`** auto-load when matching
   files open. Verify by editing a test file and asking Claude what
   rules are in effect; the `tests.md` rules should appear.
