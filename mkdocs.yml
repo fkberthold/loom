@@ -112,6 +112,7 @@ nav:
           - edit-after-failure-guard: reference/hooks/edit-after-failure-guard.md
           - bd-preflight-docs-strict: reference/hooks/bd-preflight-docs-strict.md
       - Dispatch & design cycle:
+          - explore: reference/explore.md
           - dispatch-middle: reference/dispatch-middle.md
           - design-a-cycle: reference/design-a-cycle.md
           - Design-doc template: reference/design-doc-template.md
