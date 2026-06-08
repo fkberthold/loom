@@ -790,6 +790,76 @@ rm -rf "$proj"
 rm -f "$T"
 
 # -------------------------------------------------------------------
+# 17. loom-9ng — GREEN summary with ZERO failures must NOT fire the
+# guard. A passing test run prints "Tests: N passed, 0 failed" (and
+# pytest-style "0 failed"). FAIL_RE's \bTests?:.*\bfailed\b and
+# \b\d+\s+...failed\b alternatives currently match the literal
+# "0 failed", so a fully-green run trips the guard and blocks the
+# agent's next legit source edit. The guard must treat a ZERO failure
+# count as a clean Bash result; a NON-ZERO count must still block.
+# -------------------------------------------------------------------
+
+echo "==> 17. GREEN summary '0 failed' must not block (loom-9ng)"
+
+# 17a. "Tests: 15 passed, 0 failed" GREEN summary + source Edit → ALLOW.
+T=$(mk_transcript "$(tool_use_block Bash '' f1)
+$(tool_result_block 'Running suite...
+Tests: 15 passed, 0 failed' f1)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "'Tests: 15 passed, 0 failed' GREEN summary: source Edit allowed"
+else
+  fail "GREEN summary '0 failed' wrongly blocked. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 17b. Bare "0 failed" GREEN summary + source Edit → ALLOW.
+T=$(mk_transcript "$(tool_use_block Bash '' f2)
+$(tool_result_block '===== 42 passed, 0 failed in 1.23s =====' f2)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "bare '0 failed' GREEN summary: source Edit allowed"
+else
+  fail "bare '0 failed' wrongly blocked. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 17c. Positive control — "Tests: 12 passed, 3 failed" NON-ZERO → BLOCK.
+T=$(mk_transcript "$(tool_use_block Bash '' f3)
+$(tool_result_block 'Running suite...
+Tests: 12 passed, 3 failed' f3)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "'Tests: 12 passed, 3 failed' NON-ZERO: still blocks (positive control)"
+else
+  fail "NON-ZERO 'Tests: ... failed' summary did not block. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 17d. Positive control — bare "3 failed" NON-ZERO → BLOCK.
+T=$(mk_transcript "$(tool_use_block Bash '' f4)
+$(tool_result_block '===== 3 failed, 12 passed in 0.42s =====' f4)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "bare '3 failed' NON-ZERO: still blocks (positive control)"
+else
+  fail "NON-ZERO bare 'N failed' did not block. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# 17e. Positive control — "FAIL: something" still blocks (the GREEN
+#      relaxation must not loosen non-count framing).
+T=$(mk_transcript "$(tool_use_block Bash '' f5)
+$(tool_result_block 'FAIL: tests/test_foo.py::test_bar' f5)")
+out=$(run_hook Edit "/tmp/proj/src/foo.py" "$T"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "'FAIL: something' still blocks (positive control)"
+else
+  fail "'FAIL: something' did not block. rc=$rc" "$out"
+fi
+rm -f "$T"
+
+# -------------------------------------------------------------------
 echo ""
 echo "Tests: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1
