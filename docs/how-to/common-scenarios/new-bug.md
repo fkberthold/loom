@@ -25,12 +25,20 @@ these steps.
    `bug-family-researcher`. Wait for the prior-art report; it surfaces
    sibling bugs, prior fixes, and known patterns.
 
-5. **Run the recipe's M-steps.** The bug-shaped middle: systematic
-   debugging → RED test pinning the symptom → minimal GREEN fix →
-   bug-class coverage → enshrined-test sweep.
+5. **Run the recipe's M-steps via `/dispatch-middle`.** The bug-shaped
+   middle — systematic debugging → RED test pinning the symptom →
+   minimal GREEN fix → bug-class coverage → enshrined-test sweep — is
+   the **shape the pipeline executes**, not a list central types.
+   Unless the mechanical inline exception applies (≤ ~15 lines, single
+   non-test file, no new test), the middle runs as `/dispatch-middle
+   <bead>`: a test-author writes the RED test, then a *separate*
+   implementer makes it GREEN, both in one shared worktree. Central
+   writes no test and no fix. See
+   [Run the dispatch-middle pipeline](../run-dispatch-middle.md).
 
-6. **Wrap up.** When the suite is green and the diff is the intended
-   scope, follow [Finish a bead](../finish-a-bead.md).
+6. **Wrap up.** The pipeline hands a summary back; when the suite is
+   green and the diff is the intended scope, central does verify +
+   merge + close — follow [Finish a bead](../finish-a-bead.md).
 
 ## Outcome
 

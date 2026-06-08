@@ -15,6 +15,10 @@ for that surface.
 | The bug-shaped variable middle | `~/.claude/skills/bugfix-a-bead/SKILL.md` |
 | Any other activity-shaped variable middle | `~/.claude/skills/<shape>-a-bead/SKILL.md` |
 | Cross-activity lifecycle phases (A/B/C/D) | `~/.claude/skills/bead-lifecycle-shell/SKILL.md` |
+| The within-bead dispatch pipeline (test-author → implementer) | `~/.claude/skills/dispatch-middle/SKILL.md` (+ `~/.claude/commands/dispatch-middle.md`) |
+| The above-bead design cycle (Plan→Research→Architect cadence) | `~/.claude/skills/design-a-cycle/SKILL.md` (+ `~/.claude/commands/design-a-cycle.md`) |
+| The fan-out / parallel-wave detector | `~/.claude/scripts/loom-fanout-detect` |
+| Worktree helpers (rebase, python shadow, bd merge) | `~/.claude/scripts/loom-rebase-worktree`, `~/.claude/scripts/loom-worktree-python`, `~/.claude/scripts/bd-merge-driver.sh` |
 | Cold-start ritual | `~/.claude/skills/session-startup/SKILL.md` |
 | Slash command behavior | `~/.claude/commands/<name>.md` |
 | Subagent prompt | `~/.claude/agents/<name>.md` |

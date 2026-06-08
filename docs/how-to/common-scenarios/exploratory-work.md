@@ -8,6 +8,22 @@ To run a spike that has no concrete bead yet, follow these steps.
   scope, or whether it ships.
 - No existing bead matches what you are about to do.
 
+## Fork: spike vs design cycle
+
+Pick the path that matches the scope before you start:
+
+- **Quick throwaway spike** — one unknown, no durable design output,
+  likely to become at most one bead. Take the brainstorming path
+  below.
+- **Exploratory work that will become a multi-bead design** — a wide
+  design space you will iterate over across turns, grounding open
+  questions and locking decisions until it spawns an implementation
+  epic. Use `/design-a-cycle <topic>` instead; it drives the
+  Plan→Research→Architect cadence over the design substrate and hands
+  off to `create-beads`. See
+  [Open a design cycle](../open-a-design-cycle.md). The rest of this
+  page covers the spike path.
+
 ## Steps
 
 1. **Skip the recipe.** The activity recipes are for new bead
@@ -36,6 +52,8 @@ lifecycle takes over.
 
 ## Related
 
+- For exploratory work that grows into a multi-bead design, see
+  [Open a design cycle](../open-a-design-cycle.md).
 - For the brainstorming-variant boundary
   (`beadpowers` vs `superpowers`), see
   [reference: skills](../../reference/skills/index.md).

@@ -31,6 +31,18 @@ matches what you are about to do.
 - [Stop a session](./stop-a-session.md) — clean session-end with
   diary + drawer + push.
 
+## Within a bead
+
+- [Run the dispatch-middle pipeline](./run-dispatch-middle.md) — work
+  a bead's RED→GREEN middle as a test-author → separate implementer
+  pipeline so central writes nothing.
+
+## Above a bead
+
+- [Open a design cycle](./open-a-design-cycle.md) — drive an
+  above-bead Plan→Research→Architect design cycle that grounds open
+  questions and spawns the implementation epic.
+
 ## When the default ceremony does not fit
 
 - [Bypass workflow ceremony](./bypass-workflow-ceremony.md) —

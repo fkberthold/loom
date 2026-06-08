@@ -45,17 +45,55 @@ CLAUDE_WORKFLOW_OFF=1 claude
 The env var beats the file (resolution priority: env var → file →
 default `full`).
 
-## Skip the recipe for a trivial fix
+## Skip dispatch for a mechanical inline fix
 
-For a ≤1-line, well-understood change:
+The variable middle defaults to `/dispatch-middle <bead>` (central
+writes nothing; a test-author then a separate implementer run the
+RED→GREEN split). Going inline — central edits directly, no dispatch
+— is the explicit exception, waved through without justification only
+when **ALL** of these hold:
+
+- the change is **≤ ~15 lines**, AND
+- it touches a **single non-test file**, AND
+- it adds **no new test**.
+
+Pure docs/config/prose edits qualify. Anything with a RED→GREEN cycle
+defaults to dispatch regardless of size. For a qualifying inline fix:
 
 1. Skip phase A2 (worktree creation). Work directly on the active
    branch.
 2. Skip phase C3
    (`superpowers:finishing-a-development-branch`). Commit on main
    directly.
-3. Keep TDD discipline (the M-steps that include RED/GREEN). Trivial
-   fixes still get tests.
+3. Record the exception in the state file:
+   ```bash
+   ~/.claude/scripts/workflow-state set dispatch=inline:<reason>
+   ```
+   Without this, the dispatch-nudge hook prompts when a RED→GREEN
+   bead is about to be worked inline.
+
+Going inline on a bead that fails any clause above is a deliberate
+override, not a freebie — record the reason and own it.
+
+## Bypass a guard hook
+
+Each guard hook honors a literal-`1` environment-variable skip for
+the one intentional case it would otherwise block:
+
+| Guard | Bypass |
+|---|---|
+| dispatch-nudge (inline without a recorded reason) | `LOOM_DISPATCH_NUDGE_SKIP=1` |
+| edit-after-failure-guard (editing after a failing run) | `LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1` |
+| edit-write-pwd-guard (write resolving outside the worktree) | `LOOM_EDIT_WRITE_GUARD_SKIP=1` |
+| bd-worktree-preseed (first write-class `bd` call in a worktree) | `LOOM_BD_WORKTREE_PRESEED_SKIP=1` |
+| cwd-drift-guard (merge/push/bd-close from a worktree cwd) | `LOOM_CWD_DRIFT_GUARD_SKIP=1` |
+
+The skip must be the literal string `1` — `=yes`/`=true`/`=0`/empty
+are all rejected.
+
+For the edit-after-failure-guard, there is also an in-session marker
+escape: `touch .claude/no-edit-after-failure-guard` suppresses it for
+the rest of the session without setting an env var on every call.
 
 ## Skip the recipe for a spike
 
