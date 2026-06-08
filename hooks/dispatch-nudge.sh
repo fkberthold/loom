@@ -15,12 +15,17 @@
 #   - tool is Edit / Write / MultiEdit
 #   - a bead is in_progress (bd list --status=in_progress non-empty)
 #   - workflow-state get dispatch is EMPTY
-#   - the target file_path is a SOURCE file (hooks/*.sh, scripts/*,
-#     lib/*.sh) but NOT lib/tests/*, NOT *.md, NOT docs/, NOT config
+#   - the target file_path is NUDGE-ELIGIBLE: a SOURCE file
+#     (hooks/*.sh, scripts/*, lib/*.sh) OR a TEST file
+#     (lib/tests/*.test.sh, *_test.*, *.test.*). NOT *.md, NOT
+#     docs/, NOT config. Central editing a test inline is the same
+#     test-author==code-author anti-pattern, so test files nudge too.
+# The nudge points central at /dispatch-middle (the cheap command —
+# one invocation runs the test-author→implementer pipeline).
 # Memoized once-per-bead via a sentinel keyed on the in_progress id,
 # so it isn't per-edit spam while dispatch stays unset.
 #
-# If dispatch=worker but central is editing a source file (the
+# If dispatch=worker but central is editing a nudge-eligible file (the
 # central session doing the worker's job), emit a softer one-line
 # reminder instead — not the full nudge, and not memoized (it's a
 # live mismatch worth flagging each time it's still unresolved... but
@@ -58,18 +63,30 @@ esac
 # Empty file_path → nothing to classify.
 [ -n "$PATH_RAW" ] || exit 0
 
-# --- Source-file heuristic ------------------------------------------
-# A source file is one of: hooks/*.sh, scripts/* (any), lib/*.sh.
-# EXCLUDE: lib/tests/* (tests), *.md (docs/markdown), docs/* (docs),
-# *.json / config. Match on the path's tail so absolute, relative,
-# and worktree-prefixed paths all classify identically.
-is_source_file() {
+# --- Nudge-eligible-file heuristic ----------------------------------
+# A nudge-eligible file is a SOURCE file or a TEST file:
+#   SOURCE: hooks/*.sh, scripts/* (any), lib/*.sh.
+#   TEST:   lib/tests/*.test.sh, *_test.* (e.g. bar_test.go),
+#           *.test.* (e.g. foo.test.js).
+# Central editing a test inline is the same test-author==code-author
+# anti-pattern dispatch is meant to prevent, so tests nudge too.
+# EXCLUDE: *.md (docs/markdown), docs/* (docs), *.json / config.
+# Match on the path's tail so absolute, relative, and worktree-
+# prefixed paths all classify identically.
+is_nudge_eligible() {
   local p="$1"
+  # Excludes apply to everything, including would-be test docs.
   case "$p" in
     *.md|*.json) return 1 ;;
     */docs/*|docs/*) return 1 ;;
-    */lib/tests/*|lib/tests/*) return 1 ;;
   esac
+  # Test files — the issue-#2 anti-pattern case.
+  case "$p" in
+    */lib/tests/*.test.sh|lib/tests/*.test.sh) return 0 ;;
+    *_test.*) return 0 ;;
+    *.test.*) return 0 ;;
+  esac
+  # Source files.
   case "$p" in
     */hooks/*.sh|hooks/*.sh) return 0 ;;
     */scripts/*|scripts/*) return 0 ;;
@@ -78,7 +95,7 @@ is_source_file() {
   return 1
 }
 
-is_source_file "$PATH_RAW" || exit 0
+is_nudge_eligible "$PATH_RAW" || exit 0
 
 # --- Locate the workflow-state lib ----------------------------------
 # Prefer the installed copy, fall back to the repo-relative copy via
@@ -116,11 +133,12 @@ DISPATCH=$(workflow_state_get dispatch "$PWD")
 
 case "$DISPATCH" in
   worker)
-    # Central editing source while the bead is flagged worker-dispatch:
-    # the central session is doing the worker's job. Softer reminder.
+    # Central editing a nudge-eligible file while the bead is flagged
+    # worker-dispatch: the central session is doing the worker's job.
+    # Softer reminder.
     mkdir -p "$STATE_DIR" 2>/dev/null || true
     : > "$SENTINEL" 2>/dev/null || true
-    MSG="Heads up: ${IP_BEAD} is flagged dispatch=worker, but you are hand-editing a source file in the central session. If you meant to work it inline, set \`workflow-state set dispatch=inline:<reason>\`."
+    MSG="Heads up: ${IP_BEAD} is flagged dispatch=worker, but you are hand-editing a test/source file in the central session. Run \`/dispatch-middle ${IP_BEAD}\` instead, or set \`workflow-state set dispatch=inline:<reason>\` if you meant to work it inline."
     cat <<EOF
 {
   "hookSpecificOutput": {
@@ -136,10 +154,11 @@ EOF
     exit 0
     ;;
   ""|null)
-    # The nudge case: dispatch undecided + about to hand-edit source.
+    # The nudge case: dispatch undecided + about to hand-edit a
+    # test/source file. Point at /dispatch-middle (the cheap command).
     mkdir -p "$STATE_DIR" 2>/dev/null || true
     : > "$SENTINEL" 2>/dev/null || true
-    MSG="Default for a RED→GREEN bead is to dispatch a worker. Set \`workflow-state set dispatch=worker\` (then dispatch) or \`dispatch=inline:<reason>\` to opt out. See bead-lifecycle-shell Dispatch discipline."
+    MSG="Default for a RED→GREEN bead is to dispatch the test-author→implementer pipeline via \`/dispatch-middle ${IP_BEAD}\`, or set \`workflow-state set dispatch=inline:<reason>\` to opt out. See bead-lifecycle-shell Dispatch discipline."
     cat <<EOF
 {
   "hookSpecificOutput": {
