@@ -1,0 +1,112 @@
+# DESIGN DOC — {{ topic }}
+
+> **L2 living-design-document** for the `{{ topic }}` design cycle.
+> This is the prose WORKING-SURFACE the `/design-a-cycle` orchestrator
+> maintains. It is one MemPalace drawer in the `{{ wing }}/decisions`
+> room, demoted from "the living doc" to "the human-and-agent-readable
+> rendering + the place narrative reasoning is drafted before it
+> precipitates into the L1 KG spine and optional L3 specs."
+>
+> Reason in prose HERE; precipitate each locked result into structure
+> (L1 KG triples + L3 specs). The KG wins on queryable CURRENT-STATE;
+> this drawer wins on narrative INTENT. Keep it README-sized.
+
+---
+
+## STATE HEADER
+
+> The orchestrator reads and updates this block at the top of every
+> cycle. Keep the fields current — `session-startup` surfaces active
+> design cycles by scanning for open `[CLARIFICATION]` markers here.
+
+- **cycle-number:** 0
+- **soundness-status:** red  <!-- red / amber / green — Tier-0 coherence gate -->
+- **locked-decisions:**
+  - _(none yet — list each locked decision's short handle here)_
+- **open [CLARIFICATION] markers:**
+  - `[CLARIFICATION: <the first unresolved question goes here>]`
+- **spawned research-bead IDs:**
+  - _(none yet — list each research-a-bead spawned for an open marker)_
+- **target implementation-epic ID:**
+  - _(none yet — set when the cycle hands off to create-beads)_
+
+---
+
+## Question / Scope
+
+State the operational question this design cycle answers, and draw the
+boundary. One or two paragraphs. What is in scope; what is explicitly
+out (the YAGNI cut). The reader should be able to tell whether a given
+concern belongs in this cycle without reading further.
+
+---
+
+## Decisions-locked
+
+> Each locked decision is an L2 prose block that PRECIPITATES into the
+> L1 KG (a `supersedes_design_of` / `grounded_in` / `emits_bead` triple
+> set) and, when the decision has a testable altitude, into an optional
+> L3 executable spec. A decision with no testable altitude carries
+> Tier-0 coherence only — that is expected and fine.
+
+### D1 — <short decision handle>
+
+**Decision.** State the locked choice in one or two sentences.
+
+**Grounding.** Cite what this decision rests on — a research drawer ID,
+a sibling bead, a HAW lesson, or a source URL. (No grounding ⇒ not yet
+sound; this is the Tier-0 coherence floor.)
+
+**Options / why-not.** Name the alternatives considered and why each was
+rejected:
+- _Option A_ — why not.
+- _Option B_ — why not.
+
+**L3 spec (optional — Tier-1 executable-spec emission).** When this
+decision has a natural executable altitude, write the spec NOW so the
+spawned bead inherits its RED test. Use ONE of:
+
+- _Behavioral altitude_ — a Given-When-Then scenario:
+
+  ```
+  Given <the precondition>
+  When  <the action>
+  Then  <the observable outcome>
+  ```
+
+- _Structural altitude_ — an invariant-as-prose:
+
+  ```
+  INVARIANT: <the property that must always hold>
+  ```
+
+<!-- Copy the D1 block above for D2, D3, … as the cycle locks more
+     decisions. Delete this comment once real decisions exist. -->
+
+---
+
+## Grounding-checklist
+
+> The Tier-0 coherence gate, mechanized as a checklist (per the
+> "checklists act as unit tests for specifications" insight). The cycle
+> is GREEN only when every box is checked.
+
+- [ ] Every locked decision cites its grounding.
+- [ ] Every locked decision names options-considered + why-not.
+- [ ] No unresolved `[CLARIFICATION]` markers remain in the STATE HEADER.
+- [ ] No locked decision violates a recorded constitutional invariant.
+- [ ] Each Tier-1 decision's L3 spec is ready to seed its bead's RED test.
+
+---
+
+## Lineage
+
+> Provenance for this design cycle. The drawer's edit history and
+> MemPalace tunnels carry the rest; name the load-bearing anchors here.
+
+- **Wing/room:** `{{ wing }}/decisions`
+- **Grounding research drawers:** _(list the research-a-bead drawers
+  this cycle consumed)_
+- **Supersedes / superseded-by:** _(prior design drawers in the chain)_
+- **Emitted epic:** _(the implementation epic this cycle handed off to,
+  once create-beads runs)_
