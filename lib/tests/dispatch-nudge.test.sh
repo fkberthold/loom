@@ -10,10 +10,13 @@
 #   - tool is Edit / Write / MultiEdit
 #   - a bead is in_progress (bd list --status=in_progress non-empty)
 #   - workflow-state get dispatch is EMPTY
-#   - the target file_path is a SOURCE file (hooks/*.sh, scripts/*,
-#     lib/*.sh) but NOT lib/tests/*, NOT *.md, NOT docs/, NOT config.
-# When dispatch=worker but central edits a source file, it emits a
-# softer one-line mismatch reminder. Otherwise silent. Always exit 0.
+#   - the target file_path is a NUDGE-ELIGIBLE file: a SOURCE file
+#     (hooks/*.sh, scripts/*, lib/*.sh) OR a TEST file (lib/tests/
+#     *.test.sh, *_test.*) — central editing a test inline is the
+#     same anti-pattern. EXCLUDES *.md, docs/, config.
+# The nudge names /dispatch-middle as the default (the cheap command).
+# When dispatch=worker but central edits a nudge-eligible file, it emits
+# a softer one-line mismatch reminder. Otherwise silent. Always exit 0.
 # Memoized once-per-bead via a sentinel keyed on the in_progress id.
 #
 # Run:  bash lib/tests/dispatch-nudge.test.sh
@@ -88,27 +91,27 @@ ctx() { echo "$1" | jq -r 'try .hookSpecificOutput.additionalContext // ""' 2>/d
 # -------------------------------------------------------------------
 # 1. dispatch unset + in_progress bead + SOURCE file → nudge.
 # -------------------------------------------------------------------
-echo "==> 1. unset + in_progress + source → nudge"
+echo "==> 1. unset + in_progress + source → nudge naming /dispatch-middle"
 proj=$(mk_project "loom-h5s" "")
 out=$(run_hook "$proj" Edit "hooks/foo.sh"); rc=$?
 c=$(ctx "$out")
-if [ "$rc" -eq 0 ] && echo "$c" | grep -qi "dispatch a worker"; then
-  pass "nudge emitted on hooks/foo.sh, exit 0"
+if [ "$rc" -eq 0 ] && echo "$c" | grep -q "/dispatch-middle"; then
+  pass "nudge emitted on hooks/foo.sh naming /dispatch-middle, exit 0"
 else
-  fail "expected nudge + exit 0. rc=$rc" "$out"
+  fail "expected nudge naming /dispatch-middle + exit 0. rc=$rc" "$out"
 fi
 rm -rf "$proj"
 # scripts/* and lib/*.sh also count as source (fresh project — the
 # nudge is memoized once-per-bead, so reuse would be silent).
 proj=$(mk_project "loom-h5s" "")
 out=$(run_hook "$proj" Write "scripts/bar"); c=$(ctx "$out")
-echo "$c" | grep -qi "dispatch a worker" && pass "scripts/* counts as source" \
+echo "$c" | grep -q "/dispatch-middle" && pass "scripts/* counts as source" \
   || fail "scripts/* not nudged" "$out"
 rm -rf "$proj"
 
 proj=$(mk_project "loom-h5s" "")
 out=$(run_hook "$proj" MultiEdit "lib/baz.sh"); c=$(ctx "$out")
-echo "$c" | grep -qi "dispatch a worker" && pass "lib/*.sh counts as source" \
+echo "$c" | grep -q "/dispatch-middle" && pass "lib/*.sh counts as source" \
   || fail "lib/*.sh not nudged" "$out"
 rm -rf "$proj"
 
@@ -141,11 +144,12 @@ fi
 rm -rf "$proj"
 
 # -------------------------------------------------------------------
-# 4. docs / test / md target → silent (even when nudge-eligible).
+# 4. docs / md / config target → silent (NOT nudge-eligible).
+#    NOTE: test files are NO LONGER silent — they nudge (see case 9).
 # -------------------------------------------------------------------
-echo "==> 4. non-source targets → silent"
+echo "==> 4. docs/md/config targets → silent"
 proj=$(mk_project "loom-h5s" "")
-for tgt in "lib/tests/foo.test.sh" "docs/reference/x.md" "README.md" "settings.snippet.json"; do
+for tgt in "docs/reference/x.md" "README.md" "settings.snippet.json"; do
   out=$(run_hook "$proj" Edit "$tgt"); rc=$?
   c=$(ctx "$out")
   if [ "$rc" -eq 0 ] && [ -z "$c" ]; then
@@ -210,6 +214,24 @@ else
   fail "SKIP=1 did not bypass. rc=$rc" "$out"
 fi
 rm -rf "$proj"
+
+# -------------------------------------------------------------------
+# 9. test-file edit + in_progress + dispatch-unset → nudge naming
+#    /dispatch-middle (central editing a test inline is the issue-#2
+#    anti-pattern). Covers lib/tests/*.test.sh and *_test.* shapes.
+# -------------------------------------------------------------------
+echo "==> 9. test-file edit + unset → nudge naming /dispatch-middle"
+for tgt in "lib/tests/foo.test.sh" "scripts/foo_test.sh" "pkg/bar_test.go" "x/foo.test.js"; do
+  proj=$(mk_project "loom-h5s" "")
+  out=$(run_hook "$proj" Edit "$tgt"); rc=$?
+  c=$(ctx "$out")
+  if [ "$rc" -eq 0 ] && echo "$c" | grep -q "/dispatch-middle"; then
+    pass "test file $tgt nudges naming /dispatch-middle"
+  else
+    fail "expected nudge naming /dispatch-middle on $tgt. rc=$rc" "$out"
+  fi
+  rm -rf "$proj"
+done
 
 # -------------------------------------------------------------------
 echo ""
