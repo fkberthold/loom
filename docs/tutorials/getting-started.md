@@ -150,10 +150,30 @@ proceed
 ```
 
 Claude runs `bd update <your-bead-id> --claim`, optionally creates a
-worktree, and starts the variable middle of the recipe (RED test →
-GREEN fix → bug-class coverage for bug-shaped beads; brainstorm →
-RED contract → GREEN implementation for feature-shaped beads; and so
-on for the other shapes).
+worktree, and starts the variable middle of the recipe.
+
+The middle is where one thing surprises most newcomers: the central
+session you are talking to does *not* write the test or the code
+itself. For any non-trivial bead, the recipe runs its RED→GREEN core
+through `/dispatch-middle`, which dispatches **two independent
+subagents** into one shared worktree:
+
+1. a **test-author** that writes the RED test pinning the contract,
+   commits it, and returns the failure output;
+2. a **separate implementer** that reads that committed RED test as
+   an *artifact* (it never sees the test-author's reasoning) and
+   makes the minimal change to turn it GREEN.
+
+Central orchestrates — it briefs each agent with only its slice of
+context and writes nothing between claim and close. The two-agent
+split is the anti-tautology guarantee: a test and an implementation
+written by the same mind can collude into a test that only checks
+what the code already does. Different agents, no shared reasoning,
+verification that means something.
+
+(Trivial one-file beads under the inline threshold skip dispatch and
+are edited directly — you will see Claude note `dispatch=inline`
+when it takes that exception.)
 
 ## 6. Follow the recipe
 
@@ -217,6 +237,10 @@ You did not have to remember to:
 
 - Search for prior art before designing — the recipe's phase A1 did it.
 - Write a test before the fix — the recipe enforced it.
+- Keep the test-author and the implementer independent — they were
+  different subagents, dispatched separately, sharing only the
+  committed RED test file. You never had to police the anti-tautology
+  rule; `/dispatch-middle` made it structural.
 - File a decision drawer before closing — `/wrap-up` orchestrated it.
 - Push the branch — the recipe walked you through finishing the
   development branch.
@@ -225,10 +249,37 @@ You did have to:
 
 - Pick the bead.
 - Approve drafts (the drawer body, the KG triples, the merge option).
-- Write the actual code change. Loom does not do the work for you;
-  it makes sure you do not skip the discipline around the work.
+- Approve the actual code change. Loom does not do the work for you,
+  and on a non-trivial bead it does not do it *in the conversation*
+  either — the dispatched implementer makes the change and hands it
+  back for you and central to integrate. Loom makes sure you do not
+  skip the discipline around the work.
 
 ---
+
+## The primitives you saw (and two you didn't yet)
+
+Your first session fired a handful of loom primitives. A quick map so
+the names are not a mystery later:
+
+- **`/session-startup`** — the cold-start ritual that primes beads +
+  MemPalace and surfaces ready work.
+- **`/working-a-bead <id>`** — the router that scores the bead and
+  dispatches the matching activity recipe (`bugfix-a-bead`,
+  `feature-a-bead`, …).
+- **`/dispatch-middle <bead>`** — the engine of the variable middle:
+  the test-author → implementer pipeline you watched run. Any recipe
+  with a RED→GREEN core delegates its middle to this.
+- **`/wrap-up`** — preflight + drawer/KG/diary capture + close + push.
+
+Two primitives sit *above* the leaf recipes and you did not need them
+for a single small bead:
+
+- **`/design-a-cycle <topic>`** — when you have a *topic* rather than
+  a ready bead, this above-bead orchestrator runs a
+  Plan→Research→Architect→Soundness→Handoff cadence and ultimately
+  spawns the contract-bearing beads the recipes consume. It is what
+  produces the `RED:` line `/dispatch-middle` later pins against.
 
 ## Where to go next
 
@@ -236,6 +287,9 @@ You did have to:
   [the bug walkthrough](./bug-walkthrough.md).
 - For a feature-shaped bead from claim to close, read
   [the feature walkthrough](./feature-walkthrough.md).
+- For the layer *above* the leaf recipes — going from "I have a topic"
+  to "I have contract-bearing beads" — read
+  [the design-cycle walkthrough](./design-cycle-walkthrough.md).
 - When you want to do something specific (claim a bead, finish a
   branch, configure modes), browse the
   [How-to guides](../how-to/index.md).
