@@ -1,0 +1,90 @@
+# EXPLORATION — {{ question }}
+
+> A light **exploration drawer** for the `{{ question }}` exploration.
+> This is the SUB-design primitive that `/explore` opens — the
+> front-door to `/design-a-cycle`. It is NOT a bead and NOT a design
+> cycle: there is no soundness gate. Its whole job is to converge WITH
+> the user on a shared understanding by blending four source tiers:
+>
+> - **Tier 1** — self / current-context reasoning.
+> - **Tier 2** — repo + docs dig.
+> - **Tier 3** — web common-usage.
+> - **Tier 4** — peer-reviewed literature.
+>
+> The loop is HYBRID: the light tiers (1 + 2) run in-thread; the heavy
+> tiers (3 + 4) are dispatched as a `deep-research` round when the
+> question warrants it. Reason in prose in the Inquiry log; precipitate
+> each settled result into the Findings section with its provenance.
+>
+> Lives as ONE MemPalace drawer in the `{{ wing }}/decisions` room,
+> tagged `exploration` (tag-not-room). Keep it README-sized.
+
+---
+
+## STATE HEADER
+
+> The exploration loop reads and updates this block on every touch.
+> Keep the fields current — the status field drives the two exits
+> (REST → `rested`; PROMOTE → `promoted`).
+
+- **question:** {{ question }}
+- **status:** active  <!-- active | rested | promoted -->
+- **tiers-touched:**
+  - _(none yet — list each source tier touched: 1 self · 2 repo+docs ·
+    3 web · 4 literature)_
+- **open-threads:**
+  - _(none yet — list each unresolved sub-question still being chased)_
+- **current-understanding:**
+  - _(one or two sentences capturing the shared understanding so far —
+    this is the running synthesis the user and the agent converge on)_
+- **opened:** <!-- YYYY-MM-DD when /explore opened this drawer -->
+- **last-touched:** <!-- YYYY-MM-DD of the most recent update -->
+- **rested-on:** _(set when status → rested: the date it was parked)_
+- **promoted-to:** _(set when status → promoted: the `/design-a-cycle`
+  design doc / drawer ID this exploration grounded)_
+
+---
+
+## Inquiry log
+
+> The permissive PROSE reasoning surface. Think out loud here, in
+> rough chronological order, as the four tiers come in. Nothing is
+> locked; this is where understanding is built before it precipitates
+> into Findings. One entry per meaningful step.
+
+- _(first inquiry entry — what was asked, what tier answered it, what
+  it surfaced. Append further entries below as the exploration runs.)_
+
+---
+
+## Findings
+
+> The PRECIPITATED layer. Each finding is a settled point of
+> understanding lifted out of the Inquiry log, carrying its
+> **provenance** — the source plus which tier it came from. A finding
+> here is "what we now believe", not "what we are still chasing"
+> (those stay as open-threads in the STATE HEADER).
+
+- **F1 — <short finding handle>.** State the finding in one or two
+  sentences.
+  - _Provenance:_ <source — e.g. a repo path, a doc page, a URL, a
+    paper citation> (Tier <1 | 2 | 3 | 4>)
+
+<!-- Copy the F1 block above for F2, F3, … as findings precipitate.
+     Delete this comment once real findings exist. -->
+
+---
+
+## Lineage
+
+> Provenance for this exploration as a whole. The drawer's edit
+> history and MemPalace tunnels carry the rest; name the load-bearing
+> anchors here.
+
+- **Wing/room:** `{{ wing }}/decisions` (tagged `exploration`)
+- **Explores:** {{ question }}
+- **Informs design of:** _(set on PROMOTE — the `/design-a-cycle`
+  topic this exploration fed, whose decisions are `grounded_in` this
+  drawer)_
+- **Related explorations / drawers:** _(sibling explorations or
+  decision drawers this one connects to, via MemPalace tunnels)_
