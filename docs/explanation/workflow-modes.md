@@ -131,6 +131,16 @@ still a bugfix; the M4 review-against-code step in docs-a-bead is
 still non-negotiable in `light`. Modes affect ceremony around the
 recipe, not the recipe's central inversion.
 
+A related case worth pinning down: the **`dispatch-nudge` hook** (which
+pressures toward `/dispatch-middle`) and the design phase's **two-tier
+soundness gate** are *nudges*, not blocks. Unlike `bd-close-capture`,
+which blocks the close in `full` mode and only informs in `light`, a
+nudge never refuses an action — so it behaves *identically* in `full`
+and `light`. There is nothing for `light` to relax, because the nudge
+already can't block. Only `off` mode silences these nudges entirely.
+This is why the mode triad's "what's relaxed in `light`" story is about
+the *blocking* hooks: a nudge has no blocking behaviour to dial down.
+
 For the exact semantics of each mode (what each hook does in each
 mode, what `light` actually relaxes), see
 [Reference: hooks](../reference/hooks/index.md). For the operational

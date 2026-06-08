@@ -9,9 +9,10 @@
 > them, and it explains why HAW remains the design source-of-truth
 > for everything pre-2026-05-03.
 
-This page is the historical record. For the current design source
-of truth, see the [mental model](./mental-model.md), the
-[recipe family](./recipe-family.md), and the
+This page is the historical record — v1 and v1.5 in HAW, the v2
+recipe split, and the v3 era (the design phase + dispatch-v2). For the
+current design source of truth, see the [mental model](./mental-model.md),
+the [recipe family](./recipe-family.md), and the
 [workflow modes](./workflow-modes.md). For the locked design
 decisions themselves, the canonical home is MemPalace —
 specifically the `hundred_acre_woods/decisions` wing for v1/v1.5
@@ -82,6 +83,55 @@ This is the central refactor that distinguishes loom from its v1
 roots. See [the recipe family](./recipe-family.md) for the design
 rationale.
 
+## v3 — design phase + dispatch-v2 (2026-06-07)
+
+For most of v2, loom was implementation-anchored: the unit of work was
+the bead, and a bead was "a verified change" — RED → GREEN. Two gaps
+remained. First, the design phase produces *decisions and
+understanding*, which have no red-green test and so had no loom home.
+Second, the variable middle was still typed in the central thread,
+which meant the test-author and the code-author were the same agent —
+a demonstrated anti-pattern. Two epics, designed together on
+2026-06-07 and closed 2026-06-08, addressed each gap. They interlock.
+
+**Epic `loom-5m94` — dispatch architecture v2.** This shipped
+`/dispatch-middle`: a command + skill that runs a bead's variable
+middle as a pipeline of two **independent** subagents in one shared
+worktree — a test-author who writes the RED test and a *separate*
+implementer who makes it GREEN without ever seeing the author's
+reasoning — so central invokes once and **writes nothing** in the
+middle. It supersedes the old loom-yb5 single-worker model, where one
+dispatched worker covered the whole RED → GREEN in one go. The reframe
+was push → pull: loom-yb5 was a *push* (a nudge pressuring toward
+dispatch) and central still defaulted to inline because dispatching was
+high-friction; `/dispatch-middle` is the *pull* — one cheap command
+that makes dispatch lower-friction than inline. The split into two
+independent agents is what solves the test-author == code-author
+anti-pattern by construction.
+
+**Epic `loom-tdua` — the design phase.** This shipped `/design-a-cycle`:
+an above-bead campaign/arc orchestrator (a new conceptual unit, above
+both beads *and* epics) that drives a Plan → Research → Architect →
+Soundness → Handoff cadence over a **layered design substrate** —
+L1 (the KG spine, source-of-truth), L2 (the design-doc drawer, the
+prose working-surface with a structured STATE HEADER), and L3 (optional
+executable specs). It replaces RED → GREEN with **two-tier soundness**
+for the design phase: a Tier-0 coherence floor (always on) and an
+optional Tier-1 executable-spec ceiling. The work was grounded in
+three converged research drawers: `loom-l0f` (a survey of design-phase
+approaches), `loom-5w6` (two-tier soundness + the living-doc home), and
+`loom-dwn` (agent-optimal representation — the layered KG-spine
+substrate).
+
+**The interlock.** The two epics meet at the bead's `RED:` line. A
+design cycle that locks a Tier-1 decision emits a `RED:` line on the
+implementation bead it spawns, carrying that decision's executable spec
+verbatim. `/dispatch-middle`'s test-author then consumes that `RED:`
+line as its contract. Design produces the contracts; dispatch executes
+them. Together the two epics turned loom's flat six-recipe family into
+the *middle* of a three-layer model — design cycle above, family in the
+middle, dispatch pipeline within.
+
 ## The repo split
 
 For most of v1 and v1.5, the workflow infrastructure lived inside
@@ -121,11 +171,15 @@ times — the rule is:
   lineage is HAW-rooted.
 
 HAW is no longer loom's only consumer, but it remains the project
-where most of loom's design lessons were learned. Several recent
-loom features — the canonical-skills include convention, the
-docs-surface check, the `/audit-project --check=docs` plan — exist
-because of drift incidents in HAW (`loom-qj3`, `loom-469`,
-`loom-22h`) where the v1 workflow's blind spots showed.
+where most of loom's design lessons were learned. Several loom
+features — the canonical-skills include convention, the docs-surface
+check, the `/audit-project --check=docs` plan — exist because of drift
+incidents in HAW (`loom-qj3`, `loom-469`, `loom-22h`) where the v1
+workflow's blind spots showed. The v3 era's two epics, by contrast,
+were driven less by a single HAW incident and more by accumulated
+dogfooding across projects: the design-phase gap and the
+test-author == code-author anti-pattern were felt everywhere loom was
+used, not just in HAW.
 
 ## Why this matters for current readers
 
@@ -137,10 +191,17 @@ modes? Because v1 had no modes and dogfooding produced two distinct
 "don't fire all the hooks" use cases. Why does the
 `bd-close-capture` hook block by default? Because the v1 dogfooding
 showed that the most-skipped step was the closing decision drawer.
+And why does loom have a unit *above* beads at all — why isn't the
+bead (or the epic) the top of the hierarchy? Because the bead is
+defined as a verified change (RED → GREEN), and a design cycle has no
+red-green test; cramming the generative design phase into the leaf bead
+model loses its iterative spawn-children-then-spawn-epic arc. The v3
+`/design-a-cycle` orchestrator (`loom-tdua`) is the unit that the leaf
+recipes feed from — beads are downstream of it, not above it.
 
-Each of these answers has a v1 incident behind it. The drawers in
-`hundred_acre_woods/decisions` and `loom/decisions` are the long
-form. This page is the short form.
+Each of these answers has an incident or a dogfooding lesson behind it.
+The drawers in `hundred_acre_woods/decisions` and `loom/decisions` are
+the long form. This page is the short form.
 
 ## What this page is not
 
