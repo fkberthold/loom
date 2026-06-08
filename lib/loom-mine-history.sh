@@ -236,11 +236,22 @@ _lmh_harvest_git() {
 
   # Use a unit separator between records and a field separator that
   # won't appear in commit text. \x1f = field, \x1e = record.
+  # The %b body (and rarely %s) carry embedded newlines; collapse ALL
+  # whitespace newlines/tabs/CRs to spaces INSIDE awk before printing,
+  # so each record is exactly one physical line. Otherwise the
+  # downstream `read` stops at the first newline and TRUNCATES a
+  # multi-line body to its first line — losing the rationale that most
+  # substantial commits state on line 2+, which made the full e2e
+  # dogfood return 0 drafts on 787 gated units. (loom-b10)
   git -C "$repo" log --no-merges \
       --pretty=format:'%x1e%h%x1f%an%x1f%aI%x1f%s%x1f%b%x1f' \
       "${log_args[@]}" "${rev_range[@]}" 2>/dev/null \
   | awk 'BEGIN{RS="\x1e";FS="\x1f"} NF>=4 {
-      print $1 "\x1f" $2 "\x1f" $3 "\x1f" $4 "\x1f" $5
+      f1=$1; f2=$2; f3=$3; f4=$4; f5=$5
+      gsub(/[\n\t\r]+/," ",f1); gsub(/[\n\t\r]+/," ",f2)
+      gsub(/[\n\t\r]+/," ",f3); gsub(/[\n\t\r]+/," ",f4)
+      gsub(/[\n\t\r]+/," ",f5)
+      print f1 "\x1f" f2 "\x1f" f3 "\x1f" f4 "\x1f" f5
     }' \
   | while IFS=$'\x1f' read -r sha author date subject body; do
       [ -z "$sha" ] && continue

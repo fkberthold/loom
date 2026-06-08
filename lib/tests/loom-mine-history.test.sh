@@ -1346,6 +1346,81 @@ unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
 
 # =====================================================================
+# 23. MULTI-LINE COMMIT BODY survives harvest into the LLM prompt
+#     (loom-b10). The git harvest builds candidate records with
+#     `git log --pretty=format:'...%b...'` separated by \x1f/\x1e, then
+#     `while IFS=$'\x1f' read -r ... body`. `read` stops at the first
+#     NEWLINE, so a multi-line %b body was truncated to its FIRST line
+#     before reaching the LLM prompt. Most substantial commits (esp.
+#     squash-merges with bullet-list bodies) state their rationale on
+#     line 2+, so the model saw only a one-line "what" and returned
+#     {"salient":false} → 0 drafts on the full e2e dogfood (787 gated,
+#     0 drafts) despite the foreground-validated parse (loom-bzl).
+#     RED proof: a commit whose RATIONALE keyword lives on body line 3
+#     must reach the claude prompt; with the truncation bug it does not.
+# =====================================================================
+echo "==> 23. multi-line commit body reaches the LLM prompt (no first-line truncation)"
+
+STUBS=$(mk_stubs_dir)
+# Custom fixture: ONE decision commit whose body spans multiple lines,
+# with the rationale ("because ... TELLTALE_RATIONALE_LINE3") on line 3
+# of the body. Touches a decision-shaped file so it survives the gate.
+WORK=$(mktemp -d)
+REPO="$WORK/repo"
+mkdir -p "$REPO"
+(
+  cd "$REPO" || exit 1
+  git init -q -b main
+  git config user.email miner@test
+  git config user.name "Decision Miner"
+  echo base > README.md
+  git add -A && git -c core.hooksPath=/dev/null commit -q -m "initial"
+  cat > schema.sql <<'SQL'
+CREATE TABLE decisions (id INT PRIMARY KEY, body TEXT);
+SQL
+  git add -A
+  git -c core.hooksPath=/dev/null commit -q -m "Add decisions schema
+
+First body line states only what changed.
+Second body line adds context with no rationale.
+We chose single-table because TELLTALE_RATIONALE_LINE3 dominates reads."
+) || { echo "FIXTURE_BUILD_FAILED" >&2; }
+
+OUT=$(mktemp -d)
+REPLY=$(mktemp)
+printf '%s' '{"salient":true,"verbatim":"v","synthesis":"s","decision":"single-table schema"}' > "$REPLY"
+CALLS=$(mktemp); rm -f "$CALLS"
+export GH_AUTH_OK=0
+export CLAUDE_REPLY_FILE="$REPLY"
+export CLAUDE_CALLS_FILE="$CALLS"
+
+out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
+
+if [ "$rc" -eq 0 ]; then pass "multi-line-body run exits 0"; else fail "rc=$rc" "$out"; fi
+
+# The decisive assertion: the line-3 rationale text MUST appear in the
+# prompt sent to claude. The bug truncates the body to line 1, so this
+# telltale (on body line 3) never reaches the model.
+if grep -q "TELLTALE_RATIONALE_LINE3" "$CALLS" 2>/dev/null; then
+  pass "line-3 body rationale reached the LLM prompt (no truncation)"
+else
+  fail "body truncated to first line — line-3 rationale lost before LLM (0/787 bug)" \
+    "$(grep '^ARGV' "$CALLS" 2>/dev/null | head -1)"
+fi
+
+# Also the intervening line-2 context must survive (full body, not just
+# the rationale keyword line).
+if grep -q "Second body line adds context" "$CALLS" 2>/dev/null; then
+  pass "line-2 body context reached the LLM prompt"
+else
+  fail "line-2 body context lost — only first body line survived" \
+    "$(grep '^ARGV' "$CALLS" 2>/dev/null | head -1)"
+fi
+
+unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
+rm -rf "$STUBS" "$WORK" "$OUT" "$REPLY" "$CALLS"
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo ""
