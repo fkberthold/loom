@@ -133,6 +133,11 @@ fi
 # plus existing assertion / Error / Traceback matchers. The lax
 # \bFAIL(?:ED|URE)?\b substring match was dropped — prose containing
 # "Failure" / "failed" no longer counts as a marker.
+#
+# loom-9ng: the count-based matchers require a NON-ZERO leading
+# digit ([1-9]\d* rather than \d+). A green run's "N passed, 0
+# failed" / "Tests: 15 passed, 0 failed" summary no longer trips the
+# guard; only a non-zero failure count counts as a marker.
 
 RESULT=$(python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null
 import json, re, sys
@@ -146,12 +151,12 @@ FAIL_RE = re.compile(
     r"|^FAIL:\s"
     r"|\bFAILED\s+\S+(?:::|/)"
     r"|^--- FAIL:"
-    r"|\b\d+\s+(?:tests?\s+)?failed\b"
+    r"|\b[1-9]\d*\s+(?:tests?\s+)?failed\b"
     r"|\bassertion\s+(?:failed|error)\b"
     r"|^Error:\s"
     r"|\bTraceback \(most recent call last\)"
     r"|^panic:\s"
-    r"|\bTests?:.*\bfailed\b"
+    r"|\bTests?:.*\b[1-9]\d*\s+(?:tests?\s+)?failed\b"
     r"|\bexit code:\s*[1-9]"
     r")",
     re.IGNORECASE | re.MULTILINE,
