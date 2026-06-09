@@ -84,6 +84,7 @@ nav:
       - Use guest mode: how-to/guest-mode.md
       - Where to update what: how-to/where-to-update-what.md
       - Scaffold a managed project's docs: how-to/scaffold-managed-project-docs.md
+      - Adopt a brownfield project: how-to/adopt-a-brownfield-project.md
       - Contribute a fix upstream: how-to/contribute-upstream.md
       - Common scenarios:
           - how-to/common-scenarios/index.md
@@ -116,6 +117,9 @@ nav:
           - dispatch-middle: reference/dispatch-middle.md
           - design-a-cycle: reference/design-a-cycle.md
           - Design-doc template: reference/design-doc-template.md
+      - Brownfield adoption:
+          - loom-adopt: reference/loom-adopt.md
+          - loom-mine-history: reference/loom-mine-history.md
       - Worktree-isolation guards:
           - cwd-drift-guard: reference/cwd-drift-guard.md
           - edit-write-pwd-guard: reference/edit-write-pwd-guard.md
