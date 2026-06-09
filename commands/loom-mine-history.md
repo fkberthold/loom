@@ -39,11 +39,16 @@ Design source:
    confirm. You see the preview and the resolved wing, then decide.
 4. **Real pass.** On go-ahead, run the wrapper with `--out <tmp>`. The
    engine runs the LLM salience+draft pass and emits a manifest
-   (`drafts.jsonl` + `kg-triples.jsonl`); the wrapper records the
-   resolved wing alongside it.
-5. **File the manifest.** Per draft: dedup-check, then add the drawer
-   to `<wing>/decisions` and tag it `provenance:mined`. Per KG triple:
-   add it to the graph. Finish with an adoption summary (filed /
+   (`drafts.jsonl` + `kg-triples.jsonl`, plus `arcs.jsonl` when
+   `--synthesize` was passed); the wrapper records the resolved wing
+   alongside it.
+5. **File the manifest.** Per-unit drafts FIRST: dedup-check, then add
+   the drawer to `<wing>/decisions` and tag it `provenance:mined`,
+   recording each `source_id → drawer_id`. THEN, when `--synthesize`
+   ran, file the arcs: rewrite each arc's constituents from source
+   anchor → the per-unit `drawer_id` just filed, then add the arc drawer
+   tagged `provenance:mined` + `synthesis:arc`. Per KG triple: add it to
+   the graph. Finish with an adoption summary (filed / arcs-filed /
    skipped-dup / triples-added).
 
 ## Flags
@@ -56,6 +61,12 @@ Design source:
 - `--since-release=TAG` — only mine history after release TAG.
 - `--max-units=N` — cap the survivors fed to the (paid) LLM pass.
   Useful to bound spend on a large repo's first mine.
+- `--synthesize` — tier-2 pass. After the per-unit salience pass, the
+  engine clusters salient units by shared decision-area and spends one
+  extra LLM call per cluster (≥2 units) to narrate a "narrative arc",
+  emitting `arcs.jsonl`. The skill files those as `synthesis:arc`
+  drawers that cross-reference the per-unit drawers they summarize.
+  Opt-in; adds per-cluster cost on top of the tier-1 pass.
 - `--dry-run` — preview only. The skill always runs this first; pass it
   yourself to see the gate without committing to a run.
 
@@ -71,10 +82,17 @@ Design source:
   legible and a future sweep can find them.
 - **Dedup before file.** Each draft is checked against existing drawers
   before it's added, so re-running the mine is close to idempotent.
+- **Arcs link real drawers, not anchors (`--synthesize`).** Per-unit
+  drawers are filed first; arcs are filed second, with each constituent
+  rewritten from its source anchor (PR#/SHA) to the per-unit
+  `drawer_id` just filed — so an arc drawer cross-references filed
+  drawers rather than bare anchors.
 
 ## Related
 
-- Engine: `lib/loom-mine-history.sh` (loom-bn7.1).
+- Engine: `lib/loom-mine-history.sh` (loom-bn7.1; `--synthesize` tier-2
+  arcs: loom-bn7.2).
 - Wrapper: `scripts/loom-mine-history` (this command's executable seam).
 - Skill (cost gate + MCP filing): `skills/loom-mine-history/SKILL.md`.
-- Closes: loom-bn7.4.
+- Closes: loom-bn7.4 (per-unit filing), loom-68r (arc filing through
+  the skill).
