@@ -264,3 +264,53 @@ The hook composes with the worker-side battery: workers use the
 four-section pre-flight smoke test above; central uses the
 cwd-drift hook on returning from each dispatch wave. Defense in
 depth.
+
+## Background dispatch is the DEFAULT (loom-li8h)
+
+**Central dispatches workers with `run_in_background: true` by
+default.** This is the central-side dispatch posture that the
+worker-side battery above presupposes: workers run while central is
+free to do other things.
+
+**Risk (the foreground-wait anti-pattern).** A foreground dispatch
+holds central's turn idle until the worker returns — central sits and
+waits, doing nothing, for the whole RED→GREEN cycle. Observed all
+session 2026-06-08 (the parallel wave + both `/dispatch-middle`
+pipelines ran foreground). It contradicts dispatch-v2's lean-central
+goal: central should not be *blocked* during the middle, only
+*write-nothing*.
+
+**Default.** Dispatch with **`run_in_background: true`**. Central
+**yields the turn** the moment it dispatches and **resumes on the
+worker's completion event** — free meanwhile to converse with the
+user, plan, pre-stage the next bead, or revise the in-flight contract.
+Foreground is the explicit **exception**, reserved for the narrow case
+where the **next step is immediate integration with nothing else
+interleavable** (a single short dispatch central will merge + close the
+instant it lands, with no conversation/planning/staging to fill the
+gap). When in doubt, background it. See the Dispatch-mode sections of
+`skills/dispatch-middle/SKILL.md` and
+`skills/bead-lifecycle-shell/SKILL.md`.
+
+## Concurrency caution — never two full-suite loops in one repo at once
+
+Backgrounding makes multiple agents in flight cheap and is the default
+above — but there is one hard concurrency rule: **never run two
+full-suite loops in the same repo at the same time.** Two suite runs
+racing in one working tree contend on shared git/bd state and produce
+nonsense numbers.
+
+**Risk (loom-fx9m close detour, 2026-06-08).** A foreground-wait
+combined with the harness auto-backgrounding a long-running loop
+produced **two suite runs racing in one repo**. When the duplicate
+suite task was `TaskStop`'d, it left **orphan `bd-post-rewrite` child
+processes** behind: `TaskStop` reaps the task it targets but **may not
+reap that task's grandchildren**, so the orphaned children kept racing
+on git/bd state and yielded a **false `63/2` suite result**.
+
+**Convention.** One suite loop per repo at a time. After any
+`TaskStop` on a suite/loop task, confirm no orphan `bd-post-rewrite`
+(or other grandchild) processes survived — e.g.
+`pgrep -fa bd-post-rewrite` should be empty — before trusting any
+suite number. Treat a suite result obtained while a second loop or a
+just-`TaskStop`'d task was live as untrustworthy until re-run clean.

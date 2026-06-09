@@ -328,6 +328,20 @@ full rationale, the per-step `model:` slots (Steps 2/3), and the two
 brief templates; the shell only states the nudge so recipes inherit
 it.
 
+**Dispatch mode — `run_in_background: true` is the DEFAULT (loom-li8h).**
+Dispatch every pipeline agent with **`run_in_background: true` by
+default**. A foreground dispatch holds central's turn idle until the
+agent returns — central sits and waits, which defeats lean-central. With
+background dispatch, central **yields the turn** on dispatch and
+**resumes on the agent's completion event**, free meanwhile to do the
+"Allowed while the pipeline runs" work below.
+**Foreground is the explicit exception**, reserved for the narrow case
+where the next step is **immediate integration with nothing else
+interleavable** (a single short dispatch central will merge + close the
+instant it lands, with no conversation/planning/staging to fill the
+gap). `dispatch-middle` owns the full rationale; the shell states the
+default so recipes inherit it.
+
 **Allowed while the pipeline runs (central session):**
 - Answer the user's questions; explain in-flight decisions.
 - Pre-stage the next bead (read its description, surface prior art,
@@ -341,6 +355,18 @@ it.
 - Parallel code-work on the same bead in the main repo.
 - Closing the bead, merging the branch, or pushing.
 - Starting a second pipeline on the same bead's variable middle.
+
+**Concurrency caution — never two full-suite loops in one repo at once.**
+Backgrounding makes multiple agents in flight cheap, but **never run two
+full-suite loops in the same repo at the same time** — they race on
+shared git/bd state. During the loom-fx9m close detour (2026-06-08) a
+foreground-wait plus the harness auto-backgrounding a long loop produced
+two suite runs racing in one repo; `TaskStop`'ing the duplicate left
+**orphan `bd-post-rewrite` grandchild processes** (`TaskStop` reaps the
+targeted task but may not reap its grandchildren), which kept racing and
+returned a **false `63/2` suite result**. One suite loop per repo; after
+a `TaskStop`, confirm no orphan `bd-post-rewrite` processes survived
+before trusting any suite number.
 
 #### Brief templates — delegated to `/dispatch-middle`
 
