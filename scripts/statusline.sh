@@ -77,6 +77,7 @@ DISPATCHED=$(workflow_state_get dispatched "$CWD")
 INLINE=$(workflow_state_get inline "$CWD")
 STAGE_SPEND=$(workflow_state_get stage_spend "$CWD")
 CONTEXT_PRESSURE=$(workflow_state_get context_pressure "$CWD")
+ORPHAN_PRESSURE=$(workflow_state_get orphan_pressure "$CWD")
 ACTIVITY="${ACTIVITY:-idle}"
 STAGE="${STAGE:-idle}"
 
@@ -145,5 +146,14 @@ case "$CONTEXT_PRESSURE" in
   yellow) printf ' | CTX:Y' ;;
   red)    printf ' | CTX:R' ;;
 esac
+
+# Orphan-inventory cue (loom-z3m.7): surface "WT/BG:N" when the
+# worktree+bg-proc inventory hook has flagged N>0 orphan agent worktrees
+# (dead-pid lock) + leftover background procs. Silent at 0 (the steady
+# state) — the indicator only appears when stale worktrees/procs are
+# piling up enough to warrant a /cleanup-orphans nudge.
+if [ -n "$ORPHAN_PRESSURE" ] && [ "$ORPHAN_PRESSURE" != "0" ] && [ "$ORPHAN_PRESSURE" != "null" ]; then
+  printf ' | WT/BG:%s' "$ORPHAN_PRESSURE"
+fi
 
 printf '\n'

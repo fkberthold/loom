@@ -467,7 +467,15 @@ fi
 log ""
 log "Install complete."
 log ""
+# Derive the expected PreToolUse-Bash hook count from the snippet so this
+# hint stays accurate as hooks are added (e.g. loom-z3m.7's
+# worktree-bg-inventory.sh) instead of drifting against a hardcoded
+# number. Falls back to "the" when jq is unavailable.
+BASH_HOOK_COUNT="the"
+if command -v jq >/dev/null 2>&1; then
+  BASH_HOOK_COUNT=$(jq '[.hooks.PreToolUse[] | select(.matcher=="Bash") | .hooks[]] | length' "$SNIPPET" 2>/dev/null || echo "the")
+fi
 log "Next steps:"
-log "  1. Verify with: /hooks (in Claude Code) — should list 5 PreToolUse Bash hooks + 1 SessionStart hook"
+log "  1. Verify with: /hooks (in Claude Code) — should list $BASH_HOOK_COUNT PreToolUse Bash hooks + 1 SessionStart hook"
 log "  2. Confirm status line in Claude Code TUI shows 'WORKFLOW: ...'"
 log "  3. For per-project setup, run /audit-project from inside a beads workspace"
