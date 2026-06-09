@@ -32,24 +32,35 @@ Design source:
    Mined drawers land in `<wing>/decisions`, distinguished from
    natively-captured decisions by the `provenance:mined` tag (not a
    separate room).
-2. **Dry-run preview (zero spend).** Run the wrapper with `--dry-run`
+2. **Read the watermark (zero spend).** Before the dry-run, the skill
+   queries the repo's `history_mined_through` KG fact. If one exists, it
+   passes `--since-sha=<that SHA>` so only history added since the last
+   mine is harvested, and the preview opens with
+   `resuming from watermark <short-sha> (N new units since last mine)`.
+   On a first mine (no fact) it mines full history.
+4. **Dry-run preview (zero spend).** Run the wrapper with `--dry-run`
    and surface the cost preview — `N harvested → M gated → ~M LLM
    reads, est cost`. No model is called, no manifest is written.
-3. **Await your go-ahead.** The skill never spends without an explicit
+5. **Await your go-ahead.** The skill never spends without an explicit
    confirm. You see the preview and the resolved wing, then decide.
-4. **Real pass.** On go-ahead, run the wrapper with `--out <tmp>`. The
+6. **Real pass.** On go-ahead, run the wrapper with `--out <tmp>`. The
    engine runs the LLM salience+draft pass and emits a manifest
    (`drafts.jsonl` + `kg-triples.jsonl`, plus `arcs.jsonl` when
-   `--synthesize` was passed); the wrapper records the resolved wing
-   alongside it.
-5. **File the manifest.** Per-unit drafts FIRST: dedup-check, then add
+   `--synthesize` was passed, and `watermark` — the HEAD mined through);
+   the wrapper records the resolved wing alongside it.
+7. **File the manifest.** Per-unit drafts FIRST: dedup-check, then add
    the drawer to `<wing>/decisions` and tag it `provenance:mined`,
    recording each `source_id → drawer_id`. THEN, when `--synthesize`
    ran, file the arcs: rewrite each arc's constituents from source
    anchor → the per-unit `drawer_id` just filed, then add the arc drawer
    tagged `provenance:mined` + `synthesis:arc`. Per KG triple: add it to
-   the graph. Finish with an adoption summary (filed / arcs-filed /
-   skipped-dup / triples-added).
+   the graph.
+8. **Advance the watermark.** After the filing loop completes, the skill
+   reads `<out>/watermark` (the new HEAD) and files the repo's
+   `history_mined_through` KG fact — invalidating the prior fact first
+   when one existed (replace, not accumulate) — so the next mine resumes
+   from here. Finish with an adoption summary (filed / arcs-filed /
+   skipped-dup / triples-added / watermark advanced).
 
 ## Flags
 
@@ -59,8 +70,19 @@ Design source:
 - `--since=DATE` — only mine commits/PRs since DATE (git `--since`
   syntax, e.g. `--since=2025-01-01`).
 - `--since-release=TAG` — only mine history after release TAG.
+- `--since-sha=SHA` — only mine history after SHA (harvests `SHA..HEAD`);
+  the *consume* side of the watermark. Takes precedence over
+  `--since-release`. You rarely pass this by hand: on a re-mine the skill
+  reads the repo's `history_mined_through` KG fact and supplies it
+  automatically (see "Incremental re-mining" below). Pass it explicitly
+  only to override the recorded watermark.
 - `--max-units=N` — cap the survivors fed to the (paid) LLM pass.
   Useful to bound spend on a large repo's first mine.
+- `--resume` — recover an interrupted real pass without re-spending on
+  the units it already processed. Re-run against the SAME output dir; the
+  engine skips everything recorded in `<out>/.processed` and spends only
+  on the remainder. Scoped to one run's recovery — distinct from the
+  cross-run watermark.
 - `--synthesize` — tier-2 pass. After the per-unit salience pass, the
   engine clusters salient units by shared decision-area and spends one
   extra LLM call per cluster (≥2 units) to narrate a "narrative arc",
@@ -87,12 +109,25 @@ Design source:
   rewritten from its source anchor (PR#/SHA) to the per-unit
   `drawer_id` just filed — so an arc drawer cross-references filed
   drawers rather than bare anchors.
+- **Incremental re-mining (watermark).** Each completed run records a
+  `history_mined_through` KG fact pointing at the HEAD it mined through.
+  The next run reads that fact and harvests only `<that SHA>..HEAD`, so
+  re-mining a repo costs only the new history — never a full re-scan. The
+  fact is REPLACED each run (old invalidated, new added), so exactly one
+  watermark is current. The advance happens only after the filing loop
+  succeeds; an aborted run leaves the old watermark standing and re-mines
+  the unfiled tail next time.
+- **`--resume` ≠ watermark.** `--resume` recovers a single interrupted
+  run from its on-disk `<out>/.processed` checkpoint (same dir, same
+  range, no re-spend on done units); it does NOT touch the watermark. The
+  watermark is the across-run cursor, advanced once per fully-filed run.
 
 ## Related
 
 - Engine: `lib/loom-mine-history.sh` (loom-bn7.1; `--synthesize` tier-2
-  arcs: loom-bn7.2).
+  arcs: loom-bn7.2; `--since-sha`/`--resume`/watermark emit: loom-bn7.3).
 - Wrapper: `scripts/loom-mine-history` (this command's executable seam).
 - Skill (cost gate + MCP filing): `skills/loom-mine-history/SKILL.md`.
 - Closes: loom-bn7.4 (per-unit filing), loom-68r (arc filing through
-  the skill).
+  the skill), loom-zcv (skill-side watermark round-trip +
+  `--since-sha`/`--resume` flag pass-through).
