@@ -1,9 +1,14 @@
 # MemPalace MCP tools
 
-MemPalace is an upstream MCP server. The list below catalogues the 29
+MemPalace is an upstream MCP server. The list below catalogues the 30
 tools loom relies on via skills, subagents, and the recipe family.
 For the full MemPalace reference, consult the upstream MemPalace
 documentation and `mempalace_get_aaak_spec` for the diary dialect.
+
+!!! note "Count verified 2026-06-08"
+    The tool count and catalogue below were verified against the live
+    MemPalace MCP server on 2026-06-08 (enumerated via the session's
+    `mempalace_*` tool surface). The server exposes 30 tools.
 
 ## High-frequency tools
 
@@ -27,6 +32,7 @@ mempalace_kg_invalidate       # mark fact as no-longer-true
 mempalace_get_drawer          # fetch single drawer by ID
 mempalace_list_drawers        # paginated, optional wing/room filter
 mempalace_update_drawer       # modify content or relocate
+mempalace_tag_drawer          # set/clear single-valued tag (e.g. regression_status)
 ```
 
 ## Low-frequency / advanced tools
