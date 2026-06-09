@@ -100,6 +100,58 @@ done
 # No constitution anywhere up-tree → fail open, SILENT.
 [ -n "$CONST" ] || exit 0
 
+# --- 2b. AGE-SKEW NUDGE (loom-1lj) -------------------------------------
+# A constitution pins the project's tooling profile; tooling drifts when
+# devbox.json / a lockfile / .tool-versions / flake.nix changes but the
+# constitution is never re-audited. On the FIRST Bash call per shell
+# session, if the constitution's mtime is older than the NEWEST tooling
+# manifest by more than 7 days, emit a ONE-TIME stderr nudge suggesting
+# `/audit-project --check=constitution`. This is purely INFO — it never
+# affects the allow/block decision below and never blocks (fail-open
+# posture preserved). It runs BEFORE the yq-missing check because it
+# only stat()s mtimes; no YAML parse is needed, so it fires even on a
+# host without yq.
+#
+# One-shot per session: a sentinel under $XDG_RUNTIME_DIR keyed on the
+# constitution's path. $XDG_RUNTIME_DIR is per-login-session and cleared
+# on logout, so the sentinel naturally scopes "once per session". When
+# $XDG_RUNTIME_DIR is unset we fall back to $TMPDIR/tmp — the nudge then
+# de-dupes per that dir's lifetime, which is an acceptable degradation
+# for an INFO-only message.
+SKEW_BASE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+if command -v sha256sum >/dev/null 2>&1; then
+  SKEW_KEY=$(printf '%s' "$CONST" | sha256sum | cut -d' ' -f1)
+else
+  SKEW_KEY=$(printf '%s' "$CONST" | cksum | tr -d ' ')
+fi
+SKEW_SENTINEL="$SKEW_BASE/loom-constitution-ageskew-$SKEW_KEY"
+if [ ! -e "$SKEW_SENTINEL" ]; then
+  CONST_DIR=$(dirname "$(dirname "$CONST")")   # .../<root>/.claude/x → <root>
+  CONST_MTIME=$(stat -c %Y "$CONST" 2>/dev/null || stat -f %m "$CONST" 2>/dev/null || echo 0)
+  NEWEST_TOOLING=0
+  NEWEST_NAME=""
+  for f in "$CONST_DIR"/devbox.json "$CONST_DIR"/*.lock "$CONST_DIR"/.tool-versions "$CONST_DIR"/flake.nix; do
+    [ -f "$f" ] || continue
+    m=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+    if [ "$m" -gt "$NEWEST_TOOLING" ]; then
+      NEWEST_TOOLING="$m"
+      NEWEST_NAME=$(basename "$f")
+    fi
+  done
+  # 7 days = 604800 seconds. Fire only when a tooling manifest exists AND
+  # is newer than the constitution by strictly more than that window.
+  SEVEN_DAYS=604800
+  if [ "$NEWEST_TOOLING" -gt 0 ] \
+     && [ "$CONST_MTIME" -gt 0 ] \
+     && [ $((NEWEST_TOOLING - CONST_MTIME)) -gt "$SEVEN_DAYS" ]; then
+    DAYS=$(( (NEWEST_TOOLING - CONST_MTIME) / 86400 ))
+    echo "[constitution-enforce] INFO: $CONST is ~$DAYS days older than $NEWEST_NAME — the project's tooling may have drifted from the pinned profile. Consider re-running \`/audit-project --check=constitution\` to refresh it." >&2
+    # Best-effort one-shot: write the sentinel so we nudge once per
+    # session. A write failure is non-fatal (we'd just nudge again).
+    : >"$SKEW_SENTINEL" 2>/dev/null || true
+  fi
+fi
+
 # 3. yq missing → fail open with a stderr WARN (cannot parse the profile).
 if ! command -v yq >/dev/null 2>&1; then
   echo "[constitution-enforce] WARN: \`yq\` not found in PATH — cannot parse $CONST; skipping enforcement (fail-open)." >&2

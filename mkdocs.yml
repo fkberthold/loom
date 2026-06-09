@@ -84,6 +84,7 @@ nav:
       - Use guest mode: how-to/guest-mode.md
       - Where to update what: how-to/where-to-update-what.md
       - Scaffold a managed project's docs: how-to/scaffold-managed-project-docs.md
+      - Author a project constitution: how-to/author-project-constitution.md
       - Adopt a brownfield project: how-to/adopt-a-brownfield-project.md
       - Contribute a fix upstream: how-to/contribute-upstream.md
       - Common scenarios:
