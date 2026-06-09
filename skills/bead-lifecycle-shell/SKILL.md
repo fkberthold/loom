@@ -607,18 +607,44 @@ the push when the result is empty (`[]`). See loom-hsb.
 
 Set stage `wrap-up` before D3.
 
-For each closed bead, file:
+**The capture fan-out is the DEFAULT capture path (loom-0ahj.5,
+grounding design-doc 14f08e6d D6 + the exploration capture-tax
+finding).** Capture is itself dispatched, not hand-written: central
+fans the drafting out to the **`drawer-author` + `kg-relationship-
+extractor` subagents in parallel** (the two-agent capture fan-out),
+then **REVIEWS** their drafts and **FILES** them through the MemPalace
+MCP tools. This mirrors the variable-middle posture — just as central
+writes no test or line of code in the middle (it dispatches the
+test-author → implementer pipeline), central **does NOT hand-write the
+drawer, the KG triples, or the diary entry** here: the drafting is
+SUBAGENT work, central is the reviewer-and-filer. The capture-tax
+finding is the motivation — hand-authoring the closing drawer + KG +
+diary was the friction that made phase D get skipped; defaulting to the
+fan-out removes that tax. (Tiny ≤ 1-line fixes are the explicit
+exception — see "What to skip" below.)
+
+So the DEFAULT D3 sequence is: **dispatch the fan-out → review the two
+drafts → file via MCP**. Central never types the drawer body or the
+triples from scratch; it briefs each subagent with the bead-id + the
+landing commit SHAs, reviews what comes back, edits at the margins, and
+files. The `/wrap-up` slash command bundles exactly this default
+fan-out (and the diary write + close + push) into one ritual.
+
+For each closed bead, the fan-out drafts and central files:
 
 1. **Decision drawer** in the project's `decisions` room with:
    symptom (or feature goal), root cause (or design choice),
    options-considered + which-chosen + why, family lineage,
    verification at decision time. The `drawer-author` subagent
-   (`~/.claude/agents/drawer-author.md`) drafts these well.
+   (`~/.claude/agents/drawer-author.md`) drafts these well — central
+   reviews and files via `mempalace_add_drawer`, it does not
+   hand-write the drawer.
 
 2. **KG triples** for convention or design-family work
    (`subject → predicate → object`) so future sessions see the
    family on the next phase A1 search. The
-   `kg-relationship-extractor` subagent handles this.
+   `kg-relationship-extractor` subagent drafts these; central reviews
+   and files each via `mempalace_kg_add`.
 
 3. **Diary entry** via `mempalace_diary_write` (params: `agent_name`,
    `entry`, optional `topic`) in AAAK — what got shipped, what was
@@ -630,7 +656,12 @@ For each closed bead, file:
    (per 2026-05-02 decision): one-line tribal facts → `bd remember`;
    multi-paragraph decisions → MemPalace drawer.
 
-The `/wrap-up` slash command bundles these three captures.
+The diary entry (item 3) and the optional `bd remember` (item 4)
+stay central-side — they're a one-line AAAK write and a tribal-fact
+write, not a drafting job. `/wrap-up` bundles the whole default
+sequence: the drawer-author + kg-relationship-extractor fan-out (items
+1–2, central reviews-and-files), the diary write, and the close +
+push.
 
 ## How activity recipes reference the shell
 
