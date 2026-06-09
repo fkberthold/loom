@@ -195,6 +195,20 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Embed the detected `field=value` fingerprint lines in the report so the user can sanity-check the detection against the actual tree before confirming.
     - Lineage: loom-1iz (capture flow), parent epic loom-6f8; schema/sample/reference shipped by loom-vin. Design drawer: `drawer_loom_decisions_76ec9140c47ff768735358c0`.
 
+21. **`.deploy` wrap-up deploy-hint set**
+    - The `.deploy` field in `<root>/.claude/workflow.json` (loom-0k0) is the shell command `/wrap-up` section 6 surfaces as `Next step (project deploy): <cmd>` after a bead closes. Optional, but undiscoverable until a user reads the wrap-up source — this check surfaces the field so the user can set it (or explicitly opt out) during onboarding.
+    - Probe the field's THREE-state lifecycle (conceptually `workflow_config_deploy_state()` from `lib/workflow-config.sh`, performed by reading `<root>/.claude/workflow.json`):
+      - **set** — `.deploy` is a non-empty string → there is a live deploy hint.
+      - **empty** — `.deploy` is present with value `""` (or `null`) → the user explicitly opted out; "chose nothing", do NOT re-prompt.
+      - **absent** — the `.deploy` KEY is not present → "never decided".
+      The absent-vs-empty distinction is the crux: an empty string means the user deliberately declined, an absent key means they never saw the prompt.
+    - **Verdict matrix:**
+      - PASS = state is `set` OR `empty` (the user has decided — a command, or an explicit opt-out), OR a skip memo for `workflow-deploy-hint` exists in `.claude/loom-audit-state.json`.
+      - MISS = `<root>/.claude/workflow.json` exists AND `.deploy` is `absent` → the audit-project skill prompts the user for a command (or a blank opt-out) and writes it via `workflow_config_deploy_set`.
+      - N/A = `<root>/.claude/workflow.json` doesn't exist → item 4 already covers the missing-config case; report `N/A` with a one-line pointer to item 4.
+    - **No AUTOFIX tag** — the fix requires the user to supply the command (or an explicit blank opt-out); there is no deterministic value to write. The skill drives the prompt loop and the write; the onboarder only reports the verdict. Out of scope (loom-1tq): auto-detecting the command from `Makefile`/`scripts/`/`package.json`, and validating that the command exists.
+    - Lineage: loom-1tq (2026-06-08), parent finding `drawer_loom_decisions_9fb2868e288751d22c6dd7ec` (loom-0k0). Mirrors item 13's PROMPT-on-MISS shape and the `.guest`-block discovery+onboarding pattern (loom-4re). The wrap-up read path is `~/.claude/scripts/loom-print-deploy-hint` → `workflow_resolve_deploy`.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -211,7 +225,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 18 ...)
+(... continue through item 21; item 20 only under --check=constitution ...)
 
 ## Summary
 
