@@ -469,8 +469,11 @@ log "Install complete."
 log ""
 # Derive the expected PreToolUse-Bash hook count from the snippet so this
 # hint stays accurate as hooks are added (e.g. loom-z3m.7's
-# worktree-bg-inventory.sh) instead of drifting against a hardcoded
-# number. Falls back to "the" when jq is unavailable.
+# worktree-bg-inventory.sh, loom-8jz's constitution-enforce.sh) instead
+# of drifting against a hardcoded number. The new hook is symlinked by
+# the `hooks/*.sh` loop above and wired into the chain by the
+# settings.snippet.json merge; no per-hook install step is needed.
+# Falls back to "the" when jq is unavailable.
 BASH_HOOK_COUNT="the"
 if command -v jq >/dev/null 2>&1; then
   BASH_HOOK_COUNT=$(jq '[.hooks.PreToolUse[] | select(.matcher=="Bash") | .hooks[]] | length' "$SNIPPET" 2>/dev/null || echo "the")

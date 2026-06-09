@@ -112,6 +112,7 @@ nav:
           - All hooks: reference/hooks/all-hooks.md
           - edit-after-failure-guard: reference/hooks/edit-after-failure-guard.md
           - bd-preflight-docs-strict: reference/hooks/bd-preflight-docs-strict.md
+          - constitution-enforce: reference/constitution-enforce-hook.md
       - Dispatch & design cycle:
           - explore: reference/explore.md
           - dispatch-middle: reference/dispatch-middle.md
