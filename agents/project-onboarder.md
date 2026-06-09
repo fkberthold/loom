@@ -209,6 +209,20 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - **No AUTOFIX tag** — the fix requires the user to supply the command (or an explicit blank opt-out); there is no deterministic value to write. The skill drives the prompt loop and the write; the onboarder only reports the verdict. Out of scope (loom-1tq): auto-detecting the command from `Makefile`/`scripts/`/`package.json`, and validating that the command exists.
     - Lineage: loom-1tq (2026-06-08), parent finding `drawer_loom_decisions_9fb2868e288751d22c6dd7ec` (loom-0k0). Mirrors item 13's PROMPT-on-MISS shape and the `.guest`-block discovery+onboarding pattern (loom-4re). The wrap-up read path is `~/.claude/scripts/loom-print-deploy-hint` → `workflow_resolve_deploy`.
 
+22. **tree-sitter grammar `tree-sitter.json` presence (ABI-15 compat)**
+    - Catches a silent, drift-created gap in projects that ship a tree-sitter grammar. tree-sitter 0.25+ (current default ABI 15) wants a `tree-sitter.json` sibling to `grammar.js`; without it, `tree-sitter generate` prints `Warning: No tree-sitter.json file found in your grammar, this file is required to generate with ABI 15. Using ABI version 14 instead.` and quietly falls back to ABI 14. A tree-sitter upgrade in nixpkgs/homebrew silently degrades old grammar repos.
+    - Procedure: find any directory under `<root>` containing a `grammar.js` file (the `grammar.js` marker drives detection — **NOT** the directory name; typical is `tree-sitter-*`, but a few projects use other naming):
+      ```bash
+      find <root> -type f -name 'grammar.js'
+      ```
+      For each grammar directory, check whether `tree-sitter.json` is a sibling (`<grammar-dir>/tree-sitter.json`).
+    - **Verdict matrix:**
+      - PASS = no `grammar.js` anywhere (nothing to check), OR every grammar directory already carries a sibling `tree-sitter.json`.
+      - WARN = ≥1 grammar directory has `grammar.js` but NO sibling `tree-sitter.json` → the audit-project skill (Step 8) renders the gap with the ABI-15 rationale + the recipe-only fix.
+    - Embed each WARN grammar directory path in the report so the user can identify which grammar to fix.
+    - **No AUTOFIX tag** — the fix is **recipe-only** and is **NEVER auto-run**. The recipe is `cd <grammar-dir> && tree-sitter init -p .` (scaffolds `tree-sitter.json` from the existing `package.json` `[tree-sitter]` block / interactively), OR hand-write `tree-sitter.json` mirroring `package.json`'s `[tree-sitter]` block. `tree-sitter init` requires a TTY (it is interactive) so it cannot run inside the audit — same interactive-handoff posture as item 18's `gh auth login`. Out of scope: validating the `tree-sitter.json` schema beyond presence (`tree-sitter generate` itself does that).
+    - Lineage: loom-qvs (surfaced 2026-05-24 by mforth; downstream fix mforth commit 216f482, which hand-wrote `tree-sitter.json` mirroring the existing `package.json` `[tree-sitter]` block). Runs on `--check=onboarding|all`, and in isolation under `--check=tree-sitter`.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -225,7 +239,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 21; item 20 only under --check=constitution ...)
+(... continue through item 22; item 20 only under --check=constitution ...)
 
 ## Summary
 
