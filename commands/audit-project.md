@@ -9,6 +9,18 @@ Forward any flags the user passed to the slash command — the skill
 parses them. Recognized flags:
 
 - `--check=onboarding|docs|all` — pick which phase runs.
+- `--check=constitution` — run ONLY the project-constitution capture
+  flow: detect the project's tooling fingerprint, render draft
+  front-matter, confirm each field with the user **one field at a
+  time** (never lump-sum, per loom-xcw), write
+  `.claude/project-constitution.md` UNSTAGED, mirror to the
+  `<wing>/decisions` MemPalace drawer, and emit KG triples for the
+  tooling. The prose body is left as a `[HUMAN AUTHOR]` TODO stub —
+  never agent-authored (loom-d50). On re-run, detection is diffed
+  against the captured file and per-field drift is surfaced without
+  overwriting the prose body. Runs neither the onboarding scan nor
+  the docs check — it is the loom-6f8 Constitution epic's capture
+  half (loom-1iz).
 - `--apply-trivial` — auto-apply doc-drift items the skill tagged
   `[DOC FIX][TRIVIAL]`: cardinality count corrections (loom-469
   class) and dead-bead-IDs whose `bd show` returns a unique
