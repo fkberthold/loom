@@ -42,21 +42,20 @@
 
 set -uo pipefail
 
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+
 # Bypass — literal "1" only (loom-b1l convention).
-if [ "${LOOM_CWD_DRIFT_GUARD_SKIP:-}" = "1" ]; then
+if loom_env_enabled LOOM_CWD_DRIFT_GUARD_SKIP; then
   exit 0
 fi
 
 INPUT=$(cat)
 
 # Parse tool name + command. jq if available, fallback to grep.
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
-else
-  TOOL=$(echo "$INPUT" | grep -oP '"tool_name"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-  CMD=$(echo "$INPUT" | grep -oP '"command"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-fi
+TOOL=$(json_get '.tool_name' 'tool_name' "$INPUT")
+CMD=$(json_get '.tool_input.command' 'command' "$INPUT")
 
 # Bash-only.
 [ "$TOOL" = "Bash" ] || exit 0
@@ -77,13 +76,8 @@ fi
 # `isSidechain` / `parentUuid` / `source` — fields present in
 # SessionStart payloads but NOT documented in PreToolUse. Different
 # schemas, different signals. Inlining keeps the guard self-contained.
-if command -v jq >/dev/null 2>&1; then
-  AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // ""')
-  AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // ""')
-else
-  AGENT_ID=$(echo "$INPUT" | grep -oP '"agent_id"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-  AGENT_TYPE=$(echo "$INPUT" | grep -oP '"agent_type"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-fi
+AGENT_ID=$(json_get '.agent_id' 'agent_id' "$INPUT")
+AGENT_TYPE=$(json_get '.agent_type' 'agent_type' "$INPUT")
 if [ -n "$AGENT_ID" ] || [ -n "$AGENT_TYPE" ]; then
   exit 0
 fi

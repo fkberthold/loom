@@ -26,19 +26,18 @@
 
 set -uo pipefail
 
-if [ "${LOOM_EDIT_WRITE_GUARD_SKIP:-0}" = "1" ]; then
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+
+if loom_env_enabled LOOM_EDIT_WRITE_GUARD_SKIP; then
   exit 0
 fi
 
 INPUT=$(cat)
 
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  PATH_RAW=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
-else
-  TOOL=$(echo "$INPUT" | grep -oP '"tool_name"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-  PATH_RAW=$(echo "$INPUT" | grep -oP '"file_path"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-fi
+TOOL=$(json_get '.tool_name' 'tool_name' "$INPUT")
+PATH_RAW=$(json_get '.tool_input.file_path' 'file_path' "$INPUT")
 
 # Only guard Edit-class tools.
 case "$TOOL" in

@@ -46,7 +46,11 @@
 
 set -uo pipefail
 
-[ "${LOOM_BD_POST_REWRITE_SKIP:-0}" = "1" ] && exit 0
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+
+loom_env_enabled LOOM_BD_POST_REWRITE_SKIP && exit 0
 
 # Drain stdin (git pipes <old> <new> pairs). We don't use it.
 cat >/dev/null 2>&1 || true
@@ -94,7 +98,7 @@ fi
 cat "$TMP" > .beads/issues.jsonl
 
 # NO_COMMIT bypass: leave working tree dirty, let the caller commit.
-[ "${LOOM_BD_POST_REWRITE_NO_COMMIT:-0}" = "1" ] && exit 0
+loom_env_enabled LOOM_BD_POST_REWRITE_NO_COMMIT && exit 0
 
 # Stage + commit. core.hooksPath=/dev/null bypasses the bd pre-commit
 # hook (which would re-export from dolt — already canonical — and

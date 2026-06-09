@@ -32,19 +32,18 @@
 
 set -uo pipefail
 
-if [ "${LOOM_SKILL_REDIRECT_SKIP:-0}" = "1" ]; then
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+
+if loom_env_enabled LOOM_SKILL_REDIRECT_SKIP; then
   exit 0
 fi
 
 INPUT=$(cat)
 
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  SKILL=$(echo "$INPUT" | jq -r '.tool_input.skill // ""')
-else
-  TOOL=$(echo "$INPUT" | grep -oP '"tool_name"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-  SKILL=$(echo "$INPUT" | grep -oP '"skill"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-fi
+TOOL=$(json_get '.tool_name' 'tool_name' "$INPUT")
+SKILL=$(json_get '.tool_input.skill' 'skill' "$INPUT")
 
 # Only act on Skill calls.
 [ "$TOOL" = "Skill" ] || exit 0
