@@ -53,6 +53,15 @@ fail() { echo "  FAIL: $1"; failed=$((failed + 1)); [ -n "${2:-}" ] && echo "$2"
 #   $BD_FIXTURE_DIR/ready.json        -> answer for `bd ready --json`
 #   $BD_FIXTURE_DIR/show-<id>.json    -> answer for `bd show <id> --json`
 # Any other subcommand exits 1 (the detector must not depend on it).
+#
+# The `ready` case MODELS bd's `-n`/`--limit` truncation (default 10), so
+# a test can verify the detector passes an explicit high limit
+# (loom-u2wp). ready.json is a JSON array; the stub slices it to the
+# first N entries, where N is the value of `-n`/`--limit` if supplied
+# else 10 (bd's documented default window). jq does the slice when
+# available; without jq the stub falls back to emitting the array whole
+# (the truncation test asserts jq is present, so this fallback only
+# affects the pre-existing jq-agnostic cases, which never exceed 10).
 mk_bd_stub() {
   local d
   d=$(mktemp -d)
@@ -61,7 +70,25 @@ mk_bd_stub() {
 sub="${1:-}"
 case "$sub" in
   ready)
-    cat "${BD_FIXTURE_DIR}/ready.json"
+    # Determine the limit: scan args for -n / --limit; default 10.
+    limit=10
+    shift
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        -n|--limit)
+          limit="${2:-10}"; shift 2; continue ;;
+        -n*)
+          limit="${1#-n}"; shift; continue ;;
+        --limit=*)
+          limit="${1#--limit=}"; shift; continue ;;
+        *) shift ;;
+      esac
+    done
+    if command -v jq >/dev/null 2>&1; then
+      jq -c ".[0:${limit}]" "${BD_FIXTURE_DIR}/ready.json"
+    else
+      cat "${BD_FIXTURE_DIR}/ready.json"
+    fi
     ;;
   show)
     id="${2:-}"
@@ -336,6 +363,50 @@ if printf '%s\n' "$out" | grep -qE 'loom-mix.*loom-col|loom-col.*loom-mix'; then
   fail "mixed-line bead lost its real path → false disjoint grouping" "out=$out"
 else
   pass "mixed real+prose Files: keeps real path → collision on scripts/shared.sh still caught"
+fi
+rm -rf "$FDIR"
+
+# =====================================================================
+# (i) ready window > 10 — the only disjoint dispatchable pair is ranked
+#     OUTSIDE bd's default ready window (loom-u2wp). The detector must
+#     pass an explicit high limit to `bd ready` so the full ready queue
+#     is considered; otherwise the lower-priority dispatchable beads
+#     fall outside the default-10 window and no wave is ever proposed
+#     even though disjoint dispatchable beads exist.
+#
+#     Fixture: the top 10 ready slots are saturated with beads that all
+#     collide on one shared Files: path (lib/saturated.sh) — so they form
+#     NO wave among themselves. The only genuinely-disjoint dispatchable
+#     pair (loom-far1 / loom-far2) sits at positions 11 + 12, OUTSIDE the
+#     default window. The bd stub models the -n/--limit truncation
+#     (default 10), so:
+#       - un-`-n`'d  `bd ready --json`        -> first 10 only -> no wave (RED)
+#       - explicit   `bd ready --json -n 100` -> all 12        -> pair proposed (GREEN)
+# =====================================================================
+echo "==> (i) disjoint pair ranked outside default-10 ready window → still proposed"
+# 10 saturating beads all sharing lib/saturated.sh (mutually colliding),
+# then the disjoint pair at slots 11 + 12.
+FDIR=$(mk_fixture <<'F'
+loom-sat01||lib/saturated.sh, scripts/s01.sh
+loom-sat02||lib/saturated.sh, scripts/s02.sh
+loom-sat03||lib/saturated.sh, scripts/s03.sh
+loom-sat04||lib/saturated.sh, scripts/s04.sh
+loom-sat05||lib/saturated.sh, scripts/s05.sh
+loom-sat06||lib/saturated.sh, scripts/s06.sh
+loom-sat07||lib/saturated.sh, scripts/s07.sh
+loom-sat08||lib/saturated.sh, scripts/s08.sh
+loom-sat09||lib/saturated.sh, scripts/s09.sh
+loom-sat10||lib/saturated.sh, scripts/s10.sh
+loom-far1||scripts/far1.sh, lib/tests/far1.test.sh
+loom-far2||scripts/far2.sh, lib/tests/far2.test.sh
+F
+)
+out=$(run_detect "$STUB" "$FDIR")
+# The disjoint pair MUST be proposed as a wave despite ranking 11 + 12.
+if printf '%s\n' "$out" | grep -qE 'loom-far1.*loom-far2|loom-far2.*loom-far1'; then
+  pass "disjoint pair (slots 11+12) proposed despite default-10 window"
+else
+  fail "disjoint pair outside default-10 window NOT proposed — detector must pass an explicit high limit to bd ready" "out=$out"
 fi
 rm -rf "$FDIR"
 
