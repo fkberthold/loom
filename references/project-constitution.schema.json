@@ -57,7 +57,7 @@
     },
     "canonical_commands": {
       "type": "object",
-      "description": "The agreed command for each workflow verb. Skills, hooks, and dispatched workers read these instead of guessing. Empty string indicates the project has no such verb (e.g. lint='' on a project with no linter).",
+      "description": "The agreed command for each workflow verb. Skills, hooks, and dispatched workers read these instead of guessing. Empty string indicates the project has no such verb (e.g. lint='' on a project with no linter). NOTE: 'deploy' is the canonical home for the deploy step as of loom-oxs.3; the legacy 'workflow.json .deploy' hint is DEPRECATED in favour of canonical_commands.deploy. Migrate an existing 'workflow.json .deploy' value to canonical_commands.deploy (its default impl is 'script/deploy').",
       "additionalProperties": false,
       "required": ["build", "test", "lint", "gen", "dev"],
       "properties": {
@@ -80,6 +80,10 @@
         "dev": {
           "type": "string",
           "description": "Dev-server / watch command. Empty string when not applicable (libraries, CLIs)."
+        },
+        "deploy": {
+          "type": "string",
+          "description": "Deploy command. Default impl is 'script/deploy' under the GitHub-style script/ convention (loom-oxs). Empty string when the project has no deploy step. Supersedes the DEPRECATED 'workflow.json .deploy' hint (loom-oxs.3): migrate an existing 'workflow.json .deploy' value here. Optional — older constitutions predating loom-oxs.3 may omit this key."
         }
       }
     },

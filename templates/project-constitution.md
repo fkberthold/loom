@@ -48,6 +48,12 @@ canonical_commands:
   lint: "<e.g. pnpm lint | ruff check | golangci-lint run | '' >"
   gen: "<e.g. ./scripts/gen | '' >"
   dev: "<e.g. pnpm dev | uvicorn main:app --reload | '' >"
+  # Deploy command. Default impl is `script/deploy` under the
+  # GitHub-style script/ convention. This is the canonical home for
+  # the deploy step and DEPRECATES the legacy `workflow.json .deploy`
+  # hint — migrate any existing `workflow.json .deploy` value here.
+  # Empty string when the project has no deploy step.
+  deploy: "<e.g. script/deploy | make deploy | '' >"
 
 # Bash patterns that bypass constitution enforcement (escape hatches
 # for legitimate edge cases). Use sparingly.
