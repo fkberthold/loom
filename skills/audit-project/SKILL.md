@@ -421,10 +421,11 @@ search keyword and the wing slug the subagent reports against).
 Wait for its structured `PASS`/`WARN`/`MISS` checklist. Display
 the report verbatim before moving to step 3.
 
-The onboarder enumerates 14 items including git hygiene, bd init,
+The onboarder enumerates 20 items including git hygiene, bd init,
 bd hooks, workflow.json, MemPalace wing, CLAUDE.md, `.claude/rules/`,
 docs scaffold, `.claude/agents/+commands/`, `bd memories` tribal
-facts, `.gitignore` loom-ephemera entries, and — added by loom-ann —
+facts, `.gitignore` loom-ephemera entries, the `.deploy` wrap-up
+hint (item 21, loom-1tq), and — added by loom-ann —
 **Claude Code hook command duplicates**: the same `(event, matcher,
 command)` tuple registered in both the project's
 `.claude/settings.json` (or `~/.claude/settings.json`) and a plugin's
@@ -450,12 +451,15 @@ because Claude Code hook layering is **additive across all four
 layers** — lives in
 [`docs/reference/claude-code-hook-layering.md`](../../docs/reference/claude-code-hook-layering.md).
 
-#### Items 13–14: language + solo-workspace checks (loom-r6g)
+#### Items 13–15, 21: interactive-resolution checks (loom-r6g, loom-z3m, loom-1tq)
 
-The onboarder also runs two checks that surface defaults wrong for
-the project's shape but require interactive resolution. The skill
-(this file) owns the prompt loop and the write half; the onboarder
-only reports the verdict.
+The onboarder also runs several checks that surface defaults wrong
+for the project's shape (or fields the user has never been asked
+about) but require interactive resolution. The skill (this file)
+owns the prompt loop and the write half; the onboarder only reports
+the verdict. Items 13–14 (language + solo-workspace) are loom-r6g,
+item 15 (upstream:loom label) is loom-z3m.11, and item 21 (`.deploy`
+wrap-up hint) is loom-1tq.
 
 ##### Item 13 — `preflight-language-match`
 
@@ -592,6 +596,72 @@ because someone happened to remember the pairing. The label +
 sweep + suggest-on-audit triad addresses the next sibling case
 structurally.
 
+##### Item 21 — `workflow-deploy-hint`
+
+The `.deploy` field in `<root>/.claude/workflow.json` (loom-0k0) is
+the shell command `/wrap-up` section 6 surfaces as `Next step
+(project deploy): <cmd>` after a bead closes. It is optional and
+silent-skip by default, which makes it undiscoverable until a user
+reads the wrap-up source — this check surfaces it so the user can
+set it (or explicitly opt out) at onboarding time. Mirrors the
+`.guest`-block discovery + onboarding pattern (loom-4re).
+
+The onboarder reads the field's three-state lifecycle
+(`workflow_config_deploy_state` in `lib/workflow-config.sh`):
+`set` (non-empty string), `empty` (`""`/`null` — explicit opt-out),
+`absent` (key not present — never decided). The skill (this file)
+owns the prompt loop and the write half; the onboarder only reports
+the verdict.
+
+Verdicts the onboarder emits, and the skill's response:
+
+- **MISS** (`workflow.json` exists AND `.deploy` is `absent`). The
+  skill prompts the user interactively with the loom-1tq prompt
+  verbatim:
+
+  ```
+  Item 21: .deploy is unset in <root>/.claude/workflow.json. What
+  command should /wrap-up surface as the project deploy hint? (e.g.
+  ./install.sh, make deploy, ./scripts/build. Leave blank to
+  explicitly opt out — sets .deploy: "".)
+  ```
+
+  On a **non-blank** answer the skill writes the command verbatim via
+  `workflow_config_deploy_set "<command>" <root>` — no validation, no
+  auto-detection (both out of scope, loom-1tq). On a **blank** answer
+  (the explicit opt-out) the skill writes `.deploy: ""` via
+  `workflow_config_deploy_set "" <root>`; the empty string flips the
+  state from `absent` to `empty` so future audits report PASS and do
+  NOT re-prompt — empty means "explicitly chose nothing", distinct
+  from absent's "never decided". Either write preserves `.mode`,
+  `.v`, and any `.guest` block. On a literal `skip` answer the skill
+  writes a `workflow-deploy-hint` skip memo into
+  `<root>/.claude/loom-audit-state.json` so the row renders as a
+  silent PASS on future runs.
+
+- **N/A** (`workflow.json` doesn't exist). Item 4 already covers the
+  missing-config case; the skill renders the row as `N/A` and takes
+  no action. Do not write a `workflow.json` from this item — that is
+  item 4's `[AUTOFIX:workflow-json]` job.
+
+- **PASS** otherwise (state is `set` or `empty`, or a skip memo
+  exists).
+
+**No AUTOFIX tag** — the value is user-supplied (a command or an
+explicit blank opt-out); there is no deterministic command to write,
+so the fix stays in the per-item conversational gate. The
+`LOOM_AUDIT_PROMPT_ANSWER` env var injects the answer
+non-interactively under tests (same mocking surface as items
+13/14): `LOOM_AUDIT_PROMPT_ANSWER='./install.sh'` simulates a typed
+command, `LOOM_AUDIT_PROMPT_ANSWER=''` simulates the blank opt-out,
+`LOOM_AUDIT_PROMPT_ANSWER=skip` writes the skip memo.
+
+Lineage: loom-1tq (2026-06-08), parent finding
+`drawer_loom_decisions_9fb2868e288751d22c6dd7ec` (loom-0k0). The
+schema-write path is unit-tested at
+`lib/tests/workflow-config-deploy.test.sh` (parallel to
+`workflow-config-guest.test.sh`).
+
 ##### State file: `<root>/.claude/loom-audit-state.json`
 
 Per-project, gitignored. Stores per-check skip memos so re-runs
@@ -608,8 +678,10 @@ respect "user said no". Schema:
 
 Recognised check-names: `preflight-language-match`,
 `claude-md-solo-aware`, `upstream-loom-label-suggest`,
-`dedup-hook-skip-worktree` (item 12 — stores the recovery snippet
-applied by the default AUTOFIX, not a skip memo). The skill
+`workflow-deploy-hint` (item 21 — skip memo when the user declines to
+set or opt out of `.deploy`), `dedup-hook-skip-worktree` (item 12 —
+stores the recovery snippet applied by the default AUTOFIX, not a
+skip memo). The skill
 reads the file at the start of Step 2; for any check with a skip
 memo, the onboarder's verdict is silently downgraded to PASS in the
 rendered report. The `dedup-hook-skip-worktree` entry is a record of
