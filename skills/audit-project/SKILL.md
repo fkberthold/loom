@@ -74,6 +74,14 @@ audit. This is a deliberately user-pulled workflow.
   doc-vs-reality sweep.
 - `--check=all` (default when the project has a Diataxis substrate;
   see Step 1) — run both.
+- `--check=tree-sitter` — run ONLY the tree-sitter grammar check
+  (Step 8 below): scan the project tree for any directory containing
+  a `grammar.js`, and for each WARN when no sibling `tree-sitter.json`
+  exists (tree-sitter 0.25+ ABI-15 compatibility). Runs neither the
+  onboarding scan nor the docs check. This check is ALSO folded into
+  the onboarding scan (project-onboarder item 22) so it surfaces on a
+  default `--check=onboarding|all` run too; the dedicated flag exists
+  for grammar-heavy projects that want the check in isolation. (loom-qvs.)
 - `--check=constitution` — run ONLY the project-constitution capture
   flow (Step 7 below): detect the project's tooling fingerprint,
   render draft front-matter, confirm each field with the user **one
@@ -1628,6 +1636,97 @@ fields the user confirms and leaves the entire Markdown body
 (including any human-authored rationale) untouched. A re-run that
 finds no front-matter drift is a no-op that does not modify the file
 at all.
+
+### Step 8 — tree-sitter grammar check (`--check=tree-sitter`; also folded into the onboarding scan)
+
+This check catches a silent, drift-created gap in projects that ship a
+tree-sitter grammar. It runs in two places:
+
+- On `--check=tree-sitter` it runs in ISOLATION (neither the onboarding
+  scan nor the docs check fires).
+- On `--check=onboarding|all` it runs as part of the project-onboarder
+  scan (item 22) so a default audit surfaces it without a dedicated flag.
+
+Either way the detection logic, verdict, and recipe-only fix are
+identical. The skill (this file) owns the rendered report line + the
+fix-recipe text; the onboarder (item 22) owns the read-only detection
+when the check runs inside the onboarding scan.
+
+#### The gap
+
+`tree-sitter generate` against a grammar with no `tree-sitter.json`
+sibling prints:
+
+```
+Warning: No tree-sitter.json file found in your grammar, this file is
+required to generate with ABI 15. Using ABI version 14 instead.
+```
+
+tree-sitter 0.25+ (current default ABI 15) wants a `tree-sitter.json`
+sibling to `grammar.js`. Older grammar repos (pre-0.25) work fine
+without it but quietly fall back to ABI 14. A tree-sitter upgrade in
+nixpkgs / homebrew silently degrades old grammar repos — exactly the
+drift-over-time class `/audit-project` exists to surface. Same shape
+as the docs-scaffold gaps (loom-ad1, loom-tww, umbrella loom-vca) — an
+upstream tool's template/init defaults don't pass through to a real
+publish — but a DIFFERENT upstream (tree-sitter, not mkdocs-material).
+
+#### Detection
+
+1. Find any directory under `<root>` containing a `grammar.js` file
+   (typically `tree-sitter-*` subdirs, but a few projects use other
+   naming — the **`grammar.js` marker drives detection, not the
+   directory name**). Use:
+
+   ```bash
+   find <root> -type f -name 'grammar.js'
+   ```
+
+2. For each such grammar directory, check whether `tree-sitter.json`
+   is a sibling (`<grammar-dir>/tree-sitter.json`).
+3. **Absent** → `WARN`. **Present** → `OK`.
+
+A project with no `grammar.js` anywhere has nothing to check — the
+check is a silent PASS (no WARN, no OK lines emitted).
+
+#### Verdict + report line
+
+For each grammar directory missing the sibling, emit:
+
+```
+[TREE-SITTER WARN] <grammar-dir> has grammar.js but no tree-sitter.json
+  reality:    tree-sitter 0.25+ (ABI 15) requires tree-sitter.json;
+              `tree-sitter generate` here silently falls back to ABI 14
+  suggested:  cd <grammar-dir> && tree-sitter init -p .   (scaffolds
+              tree-sitter.json from the existing package.json
+              [tree-sitter] block / interactively), OR hand-write
+              tree-sitter.json mirroring package.json's [tree-sitter]
+              block. Schema: https://tree-sitter.github.io/tree-sitter/cli#init
+```
+
+Grammar directories that already carry the sibling render as `OK` and
+are not surfaced as a gap.
+
+#### Recipe-only — `tree-sitter init` is NEVER auto-run
+
+`tree-sitter init` requires a TTY (it is interactive — it cannot run
+non-interactively inside the audit), so the fix is **recipe-only**: the
+check prints the recipe and the user runs it in their own terminal.
+**The audit MUST NOT attempt to auto-run `tree-sitter init`**, not even
+under `--apply-onboarding` — there is no AUTOFIX tag for this check.
+This mirrors the item-18 `gh auth login` handoff: an interactive tool
+the audit surfaces but never drives.
+
+#### Out of scope
+
+Validating the `tree-sitter.json` schema beyond presence — `tree-sitter
+generate` itself validates the contents; the audit only checks that the
+file exists. Auto-running `tree-sitter init` — recipe-only, never
+auto-run (needs a TTY).
+
+Lineage: loom-qvs (surfaced 2026-05-24 by mforth; downstream fix
+mforth commit 216f482, which hand-wrote `tree-sitter.json` mirroring
+the existing `package.json` `[tree-sitter]` block).
 
 ## Output format (drift items)
 
