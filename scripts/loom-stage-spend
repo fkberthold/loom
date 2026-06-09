@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+# loom-stage-spend — Budgeting v1 (MEASURE-FIRST). Design-doc 14f08e6d D7,
+# epic loom-0ahj (Move-3a). Closes loom-0ahj.3.
+#
+# A CENTRAL-SIDE transcript reader — NOT a hook. Sidechain Stop/SubagentStop
+# hooks do not fire for dispatched workers (loom-7zy / loom-98x), so spend
+# cannot be captured from inside the worker. Instead, after a dispatch wave
+# returns, CENTRAL invokes this reader over the session's subagent
+# transcripts. Central knows the dispatch order, so it supplies the
+# stage:transcript mapping on the command line.
+#
+# It walks the session's subagent `agent-*.jsonl` transcripts, reads
+# cache_read_input_tokens + cache_creation_input_tokens (+ output_tokens)
+# off each worker's FIRST and LAST assistant records (loom-7zy proved these
+# parseable; the usage block lives at .message.usage), attributes spend per
+# stage (test-author / implementer / verify), and emits per-stage spend NET
+# of the ~9-20K invariant SessionStart preamble every worker pays (loom-nsb).
+#
+# Spend model (per worker transcript):
+#   gross = last_assistant(cache_read + cache_creation) + sum(output of
+#           first + last assistant records)
+#   net   = gross - PREAMBLE_TOKENS          (one preamble charge per worker)
+#
+# The last assistant record's cache_read_input_tokens is the high-water
+# mark of the worker's accumulated context (it grows as the worker reads
+# more); last cache_creation is the final increment. Output is summed from
+# the first + last assistant records (the bead's "first/last" altitude).
+# Netting the invariant preamble once per worker isolates the work-specific
+# spend from the fixed session-bootstrap cost.
+#
+# Usage:
+#   loom-stage-spend [--json] [--tee [--start-dir=DIR]] \
+#       <stage>:<transcript> [<stage>:<transcript> ...]
+#   loom-stage-spend --preamble-default     # echo the default preamble const
+#
+#   <stage>       free-form stage label (conventionally test-author |
+#                 implementer | verify)
+#   <transcript>  basename (agent-XXXX or agent-XXXX.jsonl) OR an absolute/
+#                 relative path to a transcript file
+#
+#   --json        emit one JSON object per stage (default: human table)
+#   --tee         additionally write a compact "stage:net,stage:net,..."
+#                 tally into workflow-state's stage_spend field (additive,
+#                 mirrors loom-0zr dispatched/inline counters)
+#   --start-dir=  target project for --tee (default: cwd)
+#
+# Env overrides (primarily for tests):
+#   LOOM_STAGE_SPEND_TRANSCRIPT_DIR   dir to resolve bare agent-* basenames
+#                                     (default: autodetected session subagents/)
+#   LOOM_STAGE_SPEND_PREAMBLE         preamble tokens to net out per worker
+#                                     (default: 14000, mid-band of loom-nsb)
+
+set -uo pipefail
+
+# Default invariant SessionStart preamble (loom-nsb observed ~9-20K; the
+# mid-band 14000 is the netting default). Override per-invocation via
+# LOOM_STAGE_SPEND_PREAMBLE.
+DEFAULT_PREAMBLE=14000
+
+# --preamble-default short-circuit (used by tests + tooling to discover the
+# constant without walking any transcript).
+if [ "${1:-}" = "--preamble-default" ]; then
+  printf '%s\n' "${LOOM_STAGE_SPEND_PREAMBLE:-$DEFAULT_PREAMBLE}"
+  exit 0
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "loom-stage-spend: jq is required but not found in PATH" >&2
+  exit 3
+fi
+
+# ----------------------------------------------------------------------
+# Arg parse.
+# ----------------------------------------------------------------------
+JSON_OUT=0
+TEE=0
+START_DIR="$PWD"
+PAIRS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --json)        JSON_OUT=1 ;;
+    --tee)         TEE=1 ;;
+    --start-dir=*) START_DIR="${arg#--start-dir=}" ;;
+    --*)
+      echo "loom-stage-spend: unknown flag '$arg'" >&2
+      exit 2
+      ;;
+    *) PAIRS+=("$arg") ;;
+  esac
+done
+
+usage() {
+  cat >&2 <<'EOF'
+usage: loom-stage-spend [--json] [--tee [--start-dir=DIR]] \
+           <stage>:<transcript> [<stage>:<transcript> ...]
+       loom-stage-spend --preamble-default
+
+Reads per-worker subagent transcripts, attributes token spend per stage,
+and emits per-stage spend NET of the invariant SessionStart preamble.
+
+<stage>       conventionally test-author | implementer | verify
+<transcript>  agent-XXXX[.jsonl] basename, or a path to a transcript file
+
+Env: LOOM_STAGE_SPEND_TRANSCRIPT_DIR, LOOM_STAGE_SPEND_PREAMBLE
+EOF
+  exit 2
+}
+
+[ "${#PAIRS[@]}" -ge 1 ] || usage
+
+PREAMBLE="${LOOM_STAGE_SPEND_PREAMBLE:-$DEFAULT_PREAMBLE}"
+
+# ----------------------------------------------------------------------
+# Transcript-dir resolution. Mirrors loom-retro-prescan's posture: an env
+# override wins; otherwise autodetect the current session's subagents/ dir
+# under ~/.claude/projects/<slug>/<session>/subagents/. Autodetection is
+# best-effort — when a pair carries a full path the dir is unused.
+# ----------------------------------------------------------------------
+resolve_transcript_dir() {
+  if [ -n "${LOOM_STAGE_SPEND_TRANSCRIPT_DIR:-}" ]; then
+    printf '%s' "$LOOM_STAGE_SPEND_TRANSCRIPT_DIR"
+    return 0
+  fi
+  # Best-effort: the most-recently-modified subagents/ dir under the loom
+  # project transcript roots. Central runs this right after a wave returns,
+  # so the freshest subagents/ dir is the active session's.
+  local root="$HOME/.claude/projects"
+  [ -d "$root" ] || { printf '%s' ""; return 0; }
+  local newest
+  newest=$(find "$root" -type d -name subagents -printf '%T@\t%p\n' 2>/dev/null \
+    | sort -rn | head -1 | cut -f2-)
+  printf '%s' "$newest"
+}
+
+TRANSCRIPT_DIR="$(resolve_transcript_dir)"
+
+# Resolve one <transcript> token to a readable file path, or empty if none.
+resolve_file() {
+  local tok="$1"
+  # Already a path that exists?
+  if [ -f "$tok" ]; then printf '%s' "$tok"; return 0; fi
+  # Bare basename: try with/without .jsonl under the transcript dir.
+  local base="$tok"
+  case "$base" in *.jsonl) ;; *) base="$base.jsonl" ;; esac
+  if [ -n "$TRANSCRIPT_DIR" ] && [ -f "$TRANSCRIPT_DIR/$base" ]; then
+    printf '%s' "$TRANSCRIPT_DIR/$base"
+    return 0
+  fi
+  # Last resort: a relative path with .jsonl appended.
+  if [ -f "$base" ]; then printf '%s' "$base"; return 0; fi
+  printf '%s' ""
+}
+
+# ----------------------------------------------------------------------
+# Per-file usage extraction. The transcript-walk engine mirrors
+# loom-retro-prescan: jq line-by-line over the .jsonl. We pull the
+# assistant records' usage blocks and emit, for the FIRST and LAST
+# assistant record, three numbers: cache_read, cache_creation, output.
+#
+# Emits two TSV rows max (first, last) per file. A single-record worker
+# yields one row that serves as both first and last.
+# ----------------------------------------------------------------------
+USAGE_JQ='
+  select(.type == "assistant" and (.message.role // "") == "assistant")
+  | .message.usage
+  | select(. != null)
+  | [ (.cache_read_input_tokens // 0),
+      (.cache_creation_input_tokens // 0),
+      (.output_tokens // 0) ]
+  | @tsv
+'
+
+# Echo "gross\toutput_sum" for one transcript file, or empty on no records.
+file_spend() {
+  local file="$1"
+  local rows
+  rows=$(jq -r "$USAGE_JQ" "$file" 2>/dev/null)
+  [ -n "$rows" ] || { printf ''; return 0; }
+
+  # first row, last row
+  local first last
+  first=$(printf '%s\n' "$rows" | head -1)
+  last=$(printf '%s\n' "$rows" | tail -1)
+
+  local f_cr f_cc f_out l_cr l_cc l_out
+  IFS=$'\t' read -r f_cr f_cc f_out <<<"$first"
+  IFS=$'\t' read -r l_cr l_cc l_out <<<"$last"
+
+  # output summed across first + last (collapse to one when single record)
+  local out_sum
+  if [ "$first" = "$last" ]; then
+    out_sum="$l_out"
+  else
+    out_sum=$(( f_out + l_out ))
+  fi
+
+  # gross = last(cache_read + cache_creation) + output_sum
+  local gross=$(( l_cr + l_cc + out_sum ))
+  printf '%s\t%s' "$gross" "$out_sum"
+}
+
+# ----------------------------------------------------------------------
+# Walk the stage:transcript pairs, accumulate per-stage rows.
+# ----------------------------------------------------------------------
+# Parallel arrays of stage / gross / net / output / ok.
+declare -a R_STAGE R_GROSS R_NET R_OUT R_OK
+
+for pair in "${PAIRS[@]}"; do
+  stage="${pair%%:*}"
+  tok="${pair#*:}"
+  if [ "$stage" = "$pair" ] || [ -z "$tok" ]; then
+    echo "loom-stage-spend: malformed pair '$pair' (want stage:transcript)" >&2
+    continue
+  fi
+
+  file="$(resolve_file "$tok")"
+  if [ -z "$file" ]; then
+    # Missing transcript — degrade gracefully (skip, no crash).
+    echo "loom-stage-spend: WARN no transcript for stage '$stage' (token '$tok') — skipping" >&2
+    continue
+  fi
+
+  spend="$(file_spend "$file")"
+  if [ -z "$spend" ]; then
+    echo "loom-stage-spend: WARN no assistant usage records in '$file' for stage '$stage' — skipping" >&2
+    continue
+  fi
+
+  IFS=$'\t' read -r gross out_sum <<<"$spend"
+  net=$(( gross - PREAMBLE ))
+
+  R_STAGE+=("$stage")
+  R_GROSS+=("$gross")
+  R_NET+=("$net")
+  R_OUT+=("$out_sum")
+  R_OK+=(1)
+done
+
+n="${#R_STAGE[@]}"
+
+# ----------------------------------------------------------------------
+# Emit.
+# ----------------------------------------------------------------------
+if [ "$JSON_OUT" = "1" ]; then
+  for ((i = 0; i < n; i++)); do
+    jq -nc \
+      --arg stage "${R_STAGE[$i]}" \
+      --argjson gross "${R_GROSS[$i]}" \
+      --argjson net "${R_NET[$i]}" \
+      --argjson output "${R_OUT[$i]}" \
+      --argjson preamble "$PREAMBLE" \
+      '{stage:$stage, gross:$gross, net:$net, output:$output, preamble:$preamble}'
+  done
+else
+  printf '%-14s %12s %12s %10s\n' "STAGE" "GROSS" "NET" "OUTPUT"
+  total_net=0
+  for ((i = 0; i < n; i++)); do
+    printf '%-14s %12s %12s %10s\n' \
+      "${R_STAGE[$i]}" "${R_GROSS[$i]}" "${R_NET[$i]}" "${R_OUT[$i]}"
+    total_net=$(( total_net + R_NET[i] ))
+  done
+  printf '%-14s %12s %12s\n' "TOTAL(net)" "" "$total_net"
+  printf '(preamble netted per stage: %s — loom-nsb invariant SessionStart cost)\n' "$PREAMBLE"
+fi
+
+# ----------------------------------------------------------------------
+# Optional tee into workflow-state (additive). Compact tally string:
+#   "test-author:30705,implementer:81810,verify:18300"
+# ----------------------------------------------------------------------
+if [ "$TEE" = "1" ] && [ "$n" -gt 0 ]; then
+  __SS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  __SS_LIB_DIR="$__SS_SCRIPT_DIR/../lib"
+  # shellcheck source=../lib/workflow-state.sh
+  . "$__SS_LIB_DIR/workflow-state.sh"
+
+  tally=""
+  for ((i = 0; i < n; i++)); do
+    [ -n "$tally" ] && tally="$tally,"
+    tally="$tally${R_STAGE[$i]}:${R_NET[$i]}"
+  done
+  workflow_state_set --start-dir="$START_DIR" "stage_spend=$tally"
+fi
+
+exit 0

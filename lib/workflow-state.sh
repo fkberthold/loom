@@ -16,6 +16,9 @@
 #     "dispatch":   "worker" | "inline:<reason>" | null,  # loom-0zr
 #     "dispatched": <int>,   # session tally of dispatch=worker sets
 #     "inline":     <int>,   # session tally of dispatch=inline:... sets
+#     "stage_spend": "<tally>" | null,  # loom-0ahj.3 per-stage net token
+#                                       # spend, e.g. "test-author:30705,
+#                                       # implementer:81810,verify:18300"
 #     "updated":  "ISO-8601 UTC"
 #   }
 #
@@ -169,6 +172,17 @@ workflow_state_set() {
             esac
           fi
           ;;
+        stage_spend)
+          # Per-stage net token spend tally (loom-0ahj.3). Latest-write-wins
+          # free-form string, e.g. "test-author:30705,implementer:81810".
+          # Empty/null clears it. No counter side-effect (unlike dispatch).
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            jq_filter="$jq_filter | .stage_spend = null"
+          else
+            jq_filter="$jq_filter | .stage_spend = \$stage_spend"
+            jq_args+=(--arg stage_spend "$v")
+          fi
+          ;;
         *) ;;
       esac
     done
@@ -187,6 +201,8 @@ workflow_state_set() {
     cur_dispatch=$(workflow_state_get dispatch "$start_dir")
     cur_dispatched=$(workflow_state_get dispatched "$start_dir")
     cur_inline=$(workflow_state_get inline "$start_dir")
+    local cur_stage_spend
+    cur_stage_spend=$(workflow_state_get stage_spend "$start_dir")
     [ -z "$cur_v" ] && cur_v=1
     [ -z "$cur_mode" ] && cur_mode=full
     [ -z "$cur_activity" ] && cur_activity=idle
@@ -225,6 +241,15 @@ workflow_state_set() {
             esac
           fi
           ;;
+        stage_spend)
+          # See jq branch above (loom-0ahj.3). Latest-write-wins string,
+          # no counter side-effect. Empty/null clears it.
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            cur_stage_spend=""
+          else
+            cur_stage_spend="$v"
+          fi
+          ;;
       esac
     done
 
@@ -242,9 +267,16 @@ workflow_state_set() {
       dispatch_json="\"$cur_dispatch\""
     fi
 
-    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"updated":"%s"}\n' \
+    local stage_spend_json
+    if [ -z "$cur_stage_spend" ] || [ "$cur_stage_spend" = "null" ]; then
+      stage_spend_json=null
+    else
+      stage_spend_json="\"$cur_stage_spend\""
+    fi
+
+    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"stage_spend":%s,"updated":"%s"}\n' \
       "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$cur_pc" \
-      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$now" \
+      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$stage_spend_json" "$now" \
       > "$path.tmp.$$"
     mv "$path.tmp.$$" "$path"
   fi
