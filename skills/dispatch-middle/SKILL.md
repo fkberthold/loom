@@ -147,6 +147,46 @@ spec; dispatch turns each spec into an independent test→code pipeline.
 If the bead has no `RED:` line, fall back to the M1 spec or the
 acceptance criterion as the contract.
 
+## Model-tier policy — test-author ≥ implementer (loom-0ahj.4, D5)
+
+Dispatch is per-role, so the model TIER is a per-dispatch choice — and
+the two roles do not deserve the same tier. The test-author writes the
+SPEC: the RED test is the *ceiling* on correctness the implementer is
+gated against (F9, the imperfect-test ceiling, arXiv 2411.17501 — a
+weak test caps how good the implementation can be, because passing a
+weak test is all the implementer is asked to do). The implementer's
+job is narrower: make that fixed artifact go GREEN with the minimal
+change. So:
+
+- **Dispatch the test-author with `model:<strong>`** (Step 2) — the
+  spec-setting / ceiling role gets the stronger model.
+- **Dispatch the implementer with `model:<cheaper>`** (Step 3) — the
+  gated / mechanical role can run on a cheaper model, since the
+  test-author's ceiling already bounds the outcome.
+
+**The INVARIANT:** the test-author's model tier is **≥** the
+implementer's — the role that sets the ceiling is **never cheaper**
+than the role gated beneath it. This is the *inverted* model-tier rule
+(strong where generation/ceiling-setting lives, cheap where the work is
+gated and mechanical), the within-bead instance of the epic's per-stage
+budgeting.
+
+This is a **default NUDGE, not a hard gate** (loom-yb5,
+nudge-not-block) — pick concrete tiers to fit the bead (a subtle
+contract may want both roles strong; a rote one may run both cheap),
+but keep author ≥ implementer when you split them. The rule's payoff is
+**validated later via Move-3a telemetry** (`scripts/loom-stage-spend`,
+loom-0ahj.3, the measure-first per-stage spend reader) — there is **no
+separate A/B**; the per-stage spend data tells us whether the split
+pays.
+
+**Tier is chosen PER-DISPATCH, not per-agent-type.** The agent
+DEFINITION files stay `model:inherit` — the test-author and implementer
+are not distinct agent *types* with baked-in tiers; they are the same
+generic dispatched-worker role briefed differently, and central picks
+the tier on each `Agent` call. Do not encode a tier into any agent
+definition.
+
 ---
 
 ## Central's sequence
@@ -164,8 +204,11 @@ test-author returns into the implementer's brief — the content-bridge.
 
 ### Step 2 — Dispatch the TEST-AUTHOR
 
-`Agent` with `isolation: "worktree"` — its OWN fresh, auto-named
-worktree. Build the brief from ONLY:
+`Agent` with `isolation: "worktree"` and **`model:<strong>`** — the
+test-author sets the ceiling, so it gets the stronger model (see the
+"Model-tier policy" section above; tier is per-dispatch, the agent
+definition stays `model:inherit`). Its OWN fresh, auto-named worktree.
+Build the brief from ONLY:
 
 - the locked **CONTRACT** (the bead's `RED:` line / M1 spec /
   acceptance criterion) — verbatim, nothing more;
@@ -186,7 +229,11 @@ path-capture fallback).
 
 ### Step 3 — Dispatch the IMPLEMENTER (its OWN fresh worktree)
 
-`Agent` with `isolation: "worktree"` — a separate, fresh, auto-named
+`Agent` with `isolation: "worktree"` and **`model:<cheaper>`** — the
+implementer is gated against the test-author's fixed ceiling, so it can
+run on a cheaper model (keep author tier ≥ implementer tier; see the
+"Model-tier policy" section above; tier is per-dispatch, the agent
+definition stays `model:inherit`). A separate, fresh, auto-named
 worktree of its own. Central relays the test-author's **verbatim test
 content** into this brief over the content-bridge. Build the brief
 from ONLY:
@@ -260,6 +307,9 @@ author's mind cannot collapse the two roles back into one.
 ## Brief template — TEST-AUTHOR
 
 Fill the `<…>` slots with the minimal slice. Paste nothing else.
+**Dispatch this agent with `model:<strong>`** — the test-author sets
+the ceiling (per the Model-tier policy section; keep author tier ≥
+implementer tier).
 
 ```
 You are the TEST-AUTHOR for bead <bead-id>. You run in your OWN
@@ -294,6 +344,10 @@ the path-capture fallback if the test is large).
 ```
 
 ## Brief template — IMPLEMENTER
+
+**Dispatch this agent with `model:<cheaper>`** — the implementer is
+gated against the test-author's fixed ceiling (per the Model-tier
+policy section; keep author tier ≥ implementer tier).
 
 ```
 You are the IMPLEMENTER for bead <bead-id>. You run in your OWN fresh
@@ -345,6 +399,9 @@ stop-and-report.
 - **DO** give each agent its OWN `isolation: "worktree"`; relay the
   test-author's verbatim content to the implementer over the
   content-bridge (or use the path-capture fallback for a large test).
+- **DO** dispatch the test-author with `model:<strong>` and the
+  implementer with `model:<cheaper>` — keep author tier ≥ implementer
+  tier (the inverted rule; a default nudge, not a gate).
 - **DO** give each brief only its slice.
 - **DO** re-run the test + check the assertion count at central's
   verify step, to confirm the implementer recreated the test
@@ -356,4 +413,8 @@ stop-and-report.
   that re-collapses test-author and implementer into one mind.
 - **DON'T** let the implementer modify the test. A failing implementer
   reports; it does not weaken the spec.
+- **DON'T** dispatch the implementer on a STRONGER model than the
+  test-author — that inverts the ceiling rule. And **don't** bake a
+  tier into any agent definition; tier is per-dispatch, definitions
+  stay `model:inherit`.
 - **DON'T** dump session history into a brief.
