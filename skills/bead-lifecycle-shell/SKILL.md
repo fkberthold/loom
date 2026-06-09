@@ -243,13 +243,16 @@ When the recipe finishes its middle, return here for phase B.
 Dispatch discipline (uniform across all recipes): the variable middle
 is dispatched, never typed in the central thread. **The DEFAULT is
 `/dispatch-middle`** — it runs the middle as a pipeline of INDEPENDENT
-subagents in one shared worktree: the **test-author THEN implementer
-(DIFFERENT agents)**, with an optional verifier. The test-author
-writes the RED test and commits it; the implementer inherits that test
-as an ARTIFACT (a file on disk — never the author's reasoning, mind, or
-conversation) and makes it GREEN. Because the two roles are different
-agents, the test-author == code-author anti-pattern is solved by
-construction. **Central writes NOTHING in the middle** — no test, no
+subagents, **each in its OWN `isolation: "worktree"`** (the `Agent`
+tool auto-names them; there is no single shared worktree): the
+**test-author THEN implementer (DIFFERENT agents)**, with an optional
+verifier. The test-author writes the RED test and commits it; the
+implementer inherits that test as an ARTIFACT relayed over the
+content-bridge — the verbatim test content, never the author's
+reasoning, mind, or conversation — and makes it GREEN. Because the
+two roles are different agents, the test-author == code-author
+anti-pattern is solved by construction. **Central writes NOTHING in
+the middle** — no test, no
 line of code: it invokes `/dispatch-middle <bead>` once and hands back
 for integration. (This supersedes the old loom-yb5 model where one
 worker covered the full RED→GREEN in a single dispatch; the split into
@@ -374,8 +377,9 @@ The middle's brief templates live in `dispatch-middle`, not here:
 the **test-author brief** (locked contract + interface under test) and
 the **implementer brief** (RED-test file path + code area). Both
 carry the pre-flight smoke battery (`.claude/rules/dispatched-
-agents.md`) as the first bash call, run in the shared `frank/<id>`
-worktree, and instruct each agent to **commit on the branch but not
+agents.md`) as the first bash call, run in their OWN auto-named
+`isolation: "worktree"` (one per agent — not a single shared tree),
+and instruct each agent to **commit on its branch but not
 merge, push, or close — central handles integration**. The shell does
 not duplicate the templates; recipes and central reference
 `/dispatch-middle` by name and let it own the template shape. Each
@@ -414,8 +418,10 @@ take on faith.
 - **A2 / A3 (claim + worktree):** CENTRAL — short ceremony, no
   dispatch needed.
 - **B (variable middle):** PIPELINE — the test-author→implementer
-  split run via `/dispatch-middle` in one shared worktree. Central
-  does not Edit/Write here; it invokes once and writes nothing.
+  split run via `/dispatch-middle`, each agent in its OWN auto-named
+  isolation worktree (the RED test crosses between them over the
+  content-bridge, not a shared disk). Central does not Edit/Write
+  here; it invokes once and writes nothing.
 - **C (commit + finish-branch):** CENTRAL — the pipeline commits on
   the branch; central reviews, runs phase B verification, then
   drives `superpowers:finishing-a-development-branch` for
