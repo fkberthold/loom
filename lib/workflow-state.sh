@@ -24,6 +24,12 @@
 #                                       # budget tier read off the live
 #                                       # transcript usage high-water mark
 #                                       # by hooks/context-budget-sensor.sh
+#     "orphan_pressure": <int>,         # loom-z3m.7 — count of orphan
+#                                       # agent worktrees (dead-pid lock) +
+#                                       # leftover background procs, written
+#                                       # by hooks/worktree-bg-inventory.sh;
+#                                       # rendered by statusline.sh as
+#                                       # WT:N/BG:M
 #     "updated":  "ISO-8601 UTC"
 #   }
 #
@@ -201,6 +207,19 @@ workflow_state_set() {
             jq_args+=(--arg context_pressure "$v")
           fi
           ;;
+        orphan_pressure)
+          # Orphan-worktree + bg-proc count (loom-z3m.7). Integer-typed,
+          # like parallel_candidates. Default to 0 when not a valid
+          # non-negative integer. Written by
+          # hooks/worktree-bg-inventory.sh; rendered by statusline.sh as
+          # WT:N/BG:M.
+          if [[ "$v" =~ ^[0-9]+$ ]]; then
+            jq_filter="$jq_filter | .orphan_pressure = (\$orphan_pressure | tonumber)"
+            jq_args+=(--arg orphan_pressure "$v")
+          else
+            jq_filter="$jq_filter | .orphan_pressure = 0"
+          fi
+          ;;
         *) ;;
       esac
     done
@@ -223,6 +242,8 @@ workflow_state_set() {
     cur_stage_spend=$(workflow_state_get stage_spend "$start_dir")
     local cur_context_pressure
     cur_context_pressure=$(workflow_state_get context_pressure "$start_dir")
+    local cur_orphan_pressure
+    cur_orphan_pressure=$(workflow_state_get orphan_pressure "$start_dir")
     [ -z "$cur_v" ] && cur_v=1
     [ -z "$cur_mode" ] && cur_mode=full
     [ -z "$cur_activity" ] && cur_activity=idle
@@ -230,6 +251,7 @@ workflow_state_set() {
     [ -z "$cur_pc" ] && cur_pc=0
     [ -z "$cur_dispatched" ] && cur_dispatched=0
     [ -z "$cur_inline" ] && cur_inline=0
+    [ -z "$cur_orphan_pressure" ] && cur_orphan_pressure=0
 
     local kv k v
     for kv in "${pairs[@]}"; do
@@ -279,6 +301,15 @@ workflow_state_set() {
             cur_context_pressure="$v"
           fi
           ;;
+        orphan_pressure)
+          # See jq branch above (loom-z3m.7). Integer count; default 0
+          # when not a valid non-negative integer.
+          if [[ "$v" =~ ^[0-9]+$ ]]; then
+            cur_orphan_pressure="$v"
+          else
+            cur_orphan_pressure=0
+          fi
+          ;;
       esac
     done
 
@@ -310,9 +341,9 @@ workflow_state_set() {
       context_pressure_json="\"$cur_context_pressure\""
     fi
 
-    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"stage_spend":%s,"context_pressure":%s,"updated":"%s"}\n' \
+    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"stage_spend":%s,"context_pressure":%s,"orphan_pressure":%s,"updated":"%s"}\n' \
       "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$cur_pc" \
-      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$stage_spend_json" "$context_pressure_json" "$now" \
+      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$stage_spend_json" "$context_pressure_json" "$cur_orphan_pressure" "$now" \
       > "$path.tmp.$$"
     mv "$path.tmp.$$" "$path"
   fi

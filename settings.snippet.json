@@ -43,6 +43,7 @@
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-worktree-preseed.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/cwd-drift-guard.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/context-budget-sensor.sh"},
+          {"type": "command", "command": "bash $HOME/.claude/hooks/worktree-bg-inventory.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/git-push-bd-sync.sh"}
         ]
       },
