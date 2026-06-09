@@ -156,6 +156,54 @@ assert_in "$CMD_FILE" "command invokes the dispatch-middle skill" \
   'dispatch-middle'
 
 # =====================================================================
+# 10. CONTENT-BRIDGE mechanism (loom-fx9m) — corrects the old
+#     shared-worktree prose. Each agent runs in its OWN isolated
+#     worktree; the test text crosses the boundary as a verbatim
+#     ARTIFACT relayed by central, not via a shared on-disk file.
+# =====================================================================
+echo "==> Content-bridge mechanism (loom-fx9m)"
+
+# (d) The skill NAMES the mechanism "content-bridge".
+assert_in "$SKILL_FILE" "names the content-bridge mechanism" \
+  'content[- ]?bridge'
+
+# (a) Test-author and implementer EACH run in their OWN isolation
+#     worktree — NOT one single shared worktree.
+assert_in "$SKILL_FILE" "each agent runs in its OWN isolation worktree" \
+  '(each|both|own|separate|its own).*(isolation|worktree)|isolation.*worktree.*(each|own|both|separate)'
+assert_in "$SKILL_FILE" "no single shared worktree required" \
+  '(no|not).*(single |one )?shared worktree|shared worktree.*(not|no longer|is not).*(required|needed)|own worktree'
+
+# (b) The test-author RETURNS the verbatim RED-test FILE CONTENT
+#     (the test text itself, not merely a path).
+assert_in "$SKILL_FILE" "test-author returns the verbatim test content" \
+  'verbatim.*(test|red[- ]test).*(content|file|text|body)|(test|red[- ]test).*(content|text|body).*verbatim|returns?.*verbatim.*(test|content)'
+
+# (c) The implementer RECREATES the test file exactly, confirms RED,
+#     implements to GREEN, and MUST NOT weaken/modify it.
+assert_in "$SKILL_FILE" "implementer recreates the test file exactly" \
+  're[- ]?creates?.*test|recreate.*(test|file).*exact|reconstruct.*test'
+assert_in "$SKILL_FILE" "implementer must not weaken/modify the recreated test" \
+  '(do not|don.t|never|must not|mustn.t).*(modify|weaken|change|edit|alter).*test'
+
+# (d) The mechanism preserves the independence invariant while keeping
+#     BOTH agents fully isolated (no main-leak); test inherited as an
+#     ARTIFACT, never the author's mind.
+assert_in "$SKILL_FILE" "content-bridge preserves the independence invariant" \
+  'independence (invariant|is preserved|preserved)|preserves? .*independence'
+assert_in "$SKILL_FILE" "test inherited as an artifact, never the author's mind" \
+  'artifact'
+
+# (e) The skill records the tradeoff (central RELAYS the test text — a
+#     context cost for LARGE tests) and offers a PATH-CAPTURE fallback.
+assert_in "$SKILL_FILE" "records the relay/context-cost tradeoff" \
+  '(relay|relays).*(test|text|content)|context cost|trade[- ]?off'
+assert_in "$SKILL_FILE" "names the cost for LARGE tests" \
+  'large test'
+assert_in "$SKILL_FILE" "offers a path-capture fallback for large tests" \
+  'path[- ]?capture'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo

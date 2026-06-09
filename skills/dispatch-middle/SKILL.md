@@ -1,15 +1,23 @@
 ---
 name: dispatch-middle
-description: Orchestrate a bead's variable middle as a test-author → implementer (→ optional verify) pipeline of INDEPENDENT subagents in one shared worktree, so central invokes once and writes nothing. The friction-inversion lever — makes dispatch cheaper than inline. Central briefs each agent with ONLY its slice of context (the locked CONTRACT for the test-author; the RED-test-as-file for the implementer), receives GREEN counts, then hands back for verify + merge + close + capture. Triggers on "/dispatch-middle <bead>", or when an activity recipe reaches its RED→GREEN middle and the bead is non-trivial.
+description: Orchestrate a bead's variable middle as a test-author → implementer (→ optional verify) pipeline of INDEPENDENT subagents, each in its OWN isolation worktree, so central invokes once and writes nothing. The friction-inversion lever — makes dispatch cheaper than inline. Central briefs each agent with ONLY its slice of context (the locked CONTRACT for the test-author; the verbatim RED-test content for the implementer, relayed over the content-bridge), receives GREEN counts, then hands back for verify + merge + close + capture. Triggers on "/dispatch-middle <bead>", or when an activity recipe reaches its RED→GREEN middle and the bead is non-trivial.
 ---
 
 # Dispatch-Middle — Test-Author → Implementer Pipeline
 
 This skill owns the **variable middle** of a bead's lifecycle when
 that middle is a RED→GREEN cycle. It runs the middle as a pipeline of
-**independent subagents** in ONE shared worktree, so the central
-session **invokes once and writes nothing** — no test, no line of
-code, no accumulated junk context.
+**independent subagents**, so the central session **invokes once and
+writes nothing** — no test, no line of code, no accumulated junk
+context.
+
+Each agent runs in its **OWN `isolation: "worktree"`** — there is NO
+single shared worktree. The RED test crosses the test-author →
+implementer boundary as a verbatim **artifact relayed by central**
+(the **content-bridge**, loom-fx9m), not via a file both agents read
+off one shared disk. (See "Why each agent gets its own worktree"
+below — this is the v2 correction to the original shared-worktree
+design.)
 
 It is the *pull* half of loom's dispatch posture. The `dispatch-nudge`
 hook (loom-yb5) is the *push* — it pressures central toward dispatch.
@@ -35,11 +43,68 @@ brainstorm, 2026-06-07):
    verification. → Fix: the test-author and the implementer are
    DIFFERENT agents, and the implementer **never sees the
    test-author's reasoning**. It inherits the test as an ARTIFACT
-   (a file), not a shared mind. Issue #2 solved by construction.
+   (the verbatim test text), not a shared mind. Issue #2 solved by
+   construction.
 3. **Central accumulates unrelated context.** Whole-file reads,
    debugging detours, half-formed approaches pile up in central's
    thread. → Fix: central extracts the **minimal slice** per brief;
    no session-history dump.
+
+## Why each agent gets its own worktree (the content-bridge)
+
+The original design ran both agents in ONE shared worktree
+`frank/<bead>` and let the implementer read the test-author's
+committed RED test off disk. **That mechanism is broken** (loom-fx9m):
+the `Agent` tool's `isolation: "worktree"` **auto-names** the worktree
+it creates and gives the caller no way to target a named branch or to
+reuse another agent's worktree. Two `Agent` calls therefore land in
+two DIFFERENT trees — there is no single shared worktree to point both
+at. Forcing one would require central to create + manage the worktree
+by hand, re-importing the friction the skill exists to remove.
+
+The fix is the **content-bridge**: the test text itself crosses the
+boundary as a verbatim ARTIFACT that central RELAYS between the two
+isolated agents.
+
+- **Each agent runs in its OWN `isolation: "worktree"`** — separate,
+  auto-named, fully isolated. No single shared worktree is required.
+- The **test-author RETURNS the verbatim RED-test file content** (the
+  test text itself, not merely a path).
+- Central **relays that verbatim test content** into the implementer's
+  brief.
+- The **implementer RECREATES the test file exactly** from the relayed
+  content, confirms it is RED, implements to GREEN, and **must not
+  modify or weaken it**.
+
+This **preserves the independence invariant** while keeping BOTH
+agents fully isolated → no main-leak. The implementer inherits the
+test as an ARTIFACT (verbatim text), never the author's mind: it never
+sees the test-author's reasoning, conversation, or worktree. The two
+roles cannot collapse back into one. The content-bridge is just a
+different *transport* for the same artifact the shared-worktree design
+moved over disk — independence is identical; isolation is strictly
+better. This resolves loom-fx9m.
+
+**Tradeoff.** Central **relays** the test text through its own
+context, so a LARGE test costs context proportional to its size, and
+central must re-run the test + check the assertion count post-merge to
+confirm the implementer recreated it faithfully (the on-disk shared
+file gave that for free). For a large test, use the **path-capture
+fallback** below.
+
+### Path-capture fallback (for a LARGE test)
+
+When the RED test is large enough that relaying its full text is too
+expensive, capture the test-author's returned worktree path (from its
+completion / return payload) and point the implementer's `cd` at that
+**same worktree**, so it reads the committed test off disk instead of
+recreating it from relayed content. This is the one place "same
+worktree" legitimately survives — both agents end up operating on the
+same on-disk tree. It trades the relay context-cost for the need to
+hand the implementer a concrete path, and it leans on the harness
+actually exposing the test-author's worktree path. Prefer the
+content-bridge by default; reach for path-capture only when the test
+is too large to relay comfortably.
 
 ## When to use
 
@@ -89,17 +154,18 @@ acceptance criterion as the contract.
 Central runs these steps. Central **writes nothing** between step 1
 and step 5 — every test/code edit happens inside a subagent.
 
-### Step 1 — Ensure a worktree `frank/<bead>`
+### Step 1 — No shared worktree to set up
 
-One shared worktree for the whole pipeline. If it doesn't exist,
-create it (see `bead-lifecycle-shell` phase A2 / `using-git-worktrees`).
-Both the test-author and the implementer run in THIS worktree, so the
-implementer sees the test-author's committed RED test on disk.
+Unlike the original design, central does NOT pre-create one shared
+worktree. Each dispatched agent gets its OWN auto-named
+`isolation: "worktree"` from the `Agent` tool. Central's only job
+between dispatches is to **relay the verbatim RED-test content** the
+test-author returns into the implementer's brief — the content-bridge.
 
 ### Step 2 — Dispatch the TEST-AUTHOR
 
-`Agent` with `isolation: "worktree"`, pointed at `frank/<bead>`. Build
-the brief from ONLY:
+`Agent` with `isolation: "worktree"` — its OWN fresh, auto-named
+worktree. Build the brief from ONLY:
 
 - the locked **CONTRACT** (the bead's `RED:` line / M1 spec /
   acceptance criterion) — verbatim, nothing more;
@@ -108,31 +174,46 @@ the brief from ONLY:
 - the **pre-flight smoke battery** (`.claude/rules/dispatched-agents.md`)
   as the first bash call;
 - the instruction: **write the RED test that pins the contract,
-  commit it, return the failure output verbatim; do NOT implement.**
+  commit it, and RETURN THE VERBATIM TEST FILE CONTENT (the test text
+  itself, not just a path) plus the failure output; do NOT implement.**
 
 Do NOT paste session history, your own reasoning, or unrelated files.
 Minimal slice only.
 
-The test-author returns: the RED test file path + the verbatim
-failure output.
+The test-author returns: the **verbatim RED-test file content** + the
+verbatim failure output + the commit SHA (+ its worktree path, for the
+path-capture fallback).
 
-### Step 3 — Dispatch the IMPLEMENTER (SAME worktree)
+### Step 3 — Dispatch the IMPLEMENTER (its OWN fresh worktree)
 
-`Agent`, pointed at the **same worktree** so the committed RED test is
-on disk. Build the brief from ONLY:
+`Agent` with `isolation: "worktree"` — a separate, fresh, auto-named
+worktree of its own. Central relays the test-author's **verbatim test
+content** into this brief over the content-bridge. Build the brief
+from ONLY:
 
-- the **RED test file path** (the implementer reads the test as an
-  ARTIFACT — it does NOT receive the test-author's reasoning, mind, or
-  conversation);
+- the **verbatim RED-test content** to recreate (the implementer reads
+  the test as an ARTIFACT — it does NOT receive the test-author's
+  reasoning, mind, or conversation);
 - the **code area** (the file/module to change);
 - the **pre-flight smoke battery** as the first bash call;
-- the instruction: **make the RED test pass with the minimal change;
-  do NOT modify or weaken the test; if the test looks wrong, STOP and
-  report to central** (do not "fix" the test yourself).
+- the instruction: **recreate the test file exactly from the relayed
+  content, confirm it is RED, then make the RED test pass with the
+  minimal change; do NOT modify or weaken the test; if the test looks
+  wrong, STOP and report to central** (do not "fix" the test
+  yourself).
 
-This is the independence rule made mechanical: the implementer never sees the test-author's reasoning, so the implementation can't be shaped to match a private intent — only to satisfy the public artifact. That is how the test-author == code-author anti-pattern is solved by construction.
+This is the independence rule made mechanical: the implementer
+never sees the test-author's reasoning, so the implementation can't be
+shaped to match a private intent — only to satisfy the public
+artifact. That is how the test-author == code-author anti-pattern is
+solved by construction, now with both agents fully isolated.
 
 The implementer returns: GREEN pass/fail counts + the commit SHA.
+
+*(LARGE test? Use the path-capture fallback — point the implementer's
+`cd` at the test-author's returned worktree path so it reads the
+committed test off the same worktree on disk instead of recreating it
+from relayed content.)*
 
 ### Step 4 — OPTIONAL verifier
 
@@ -146,8 +227,11 @@ The pipeline hands a SUMMARY back to central (RED output, GREEN
 counts, commit SHAs, any stop-and-report flags). Central — and ONLY
 central, because integration is cwd-sensitive and bd-authoritative —
 then does **verify + merge + close + capture** (see
-`bead-lifecycle-shell` phases C/D). Central does not re-do the middle;
-it integrates what the pipeline produced.
+`bead-lifecycle-shell` phases C/D). As part of verify, central
+**re-runs the test and checks the assertion count** to confirm the
+implementer recreated it faithfully over the content-bridge (the cheap
+guard the on-disk shared file used to give for free). Central does not
+re-do the middle; it integrates what the pipeline produced.
 
 If the implementer hit a stop-and-report (the test looked wrong),
 central resolves the contract dispute — re-brief the test-author or
@@ -162,10 +246,10 @@ The whole point is that each agent gets ONLY its slice:
 
 - **Test-author** gets the contract + interface. NOT the
   implementation, NOT central's reasoning, NOT session history.
-- **Implementer** gets the RED-test-as-file + the code area. NOT the
-  test-author's reasoning, NOT the contract dialogue.
-- **Central** keeps the minimal slice it needs to brief + integrate —
-  it does NOT dump its session history into any brief.
+- **Implementer** gets the verbatim RED-test content + the code area.
+  NOT the test-author's reasoning, NOT the contract dialogue.
+- **Central** keeps the minimal slice it needs to brief + relay +
+  integrate — it does NOT dump its session history into any brief.
 
 Minimal slice per brief is what kills failure mode #3 (junk context)
 and reinforces #2 (independence): an implementer that never sees the
@@ -178,8 +262,9 @@ author's mind cannot collapse the two roles back into one.
 Fill the `<…>` slots with the minimal slice. Paste nothing else.
 
 ```
-You are the TEST-AUTHOR for bead <bead-id>, working in the shared
-worktree frank/<bead-id>. Write the RED test only. Do NOT implement.
+You are the TEST-AUTHOR for bead <bead-id>. You run in your OWN
+isolation worktree (auto-named by the Agent tool — there is no shared
+worktree). Write the RED test only. Do NOT implement.
 
 STEP 0 — Run the pre-flight smoke battery from
 .claude/rules/dispatched-agents.md as your FIRST bash call. Abort and
@@ -202,30 +287,40 @@ YOUR TASK:
 4. Do NOT write any implementation. If the contract is unclear or
    self-contradictory, STOP and report to central — do not guess.
 
-RETURN: the RED test file path + the verbatim failure output + the
-commit SHA.
+RETURN: the VERBATIM TEST FILE CONTENT (the full test text, so central
+can relay it to the implementer over the content-bridge) + the
+verbatim failure output + the commit SHA + this worktree's path (for
+the path-capture fallback if the test is large).
 ```
 
 ## Brief template — IMPLEMENTER
 
 ```
-You are the IMPLEMENTER for bead <bead-id>, working in the SAME shared
-worktree frank/<bead-id>. A RED test already exists on disk. Make it
-pass with the minimal change.
+You are the IMPLEMENTER for bead <bead-id>. You run in your OWN fresh
+isolation worktree (auto-named by the Agent tool). The test-author's
+RED test is handed to you below as VERBATIM CONTENT — recreate it
+exactly; you have NOT seen how or why it was written. Make it pass
+with the minimal change.
 
 STEP 0 — Run the pre-flight smoke battery from
 .claude/rules/dispatched-agents.md as your FIRST bash call. Abort and
 report if any check FAILs. Use relative paths for all Edit/Write.
 
-RED TEST (your only spec — treat it as an ARTIFACT; you have NOT seen
-how or why it was written):
-<red-test file path here>
+RED TEST (your only spec — treat it as an ARTIFACT; recreate the file
+EXACTLY from this verbatim content, character-for-character):
+<red-test — the verbatim test content to recreate goes here>
+
+(For a LARGE test, central instead points your cd at the test-author's
+worktree so you read the committed test off the SAME worktree on disk —
+path-capture fallback. Default is to recreate from the content above.)
 
 CODE AREA (the file/module to change):
 <implementation file/module here>
 
 YOUR TASK:
-1. Read the RED test. Run it; confirm it is RED.
+1. Recreate the RED test file exactly from the verbatim content above
+   (or read it off disk via the path-capture fallback). Run it;
+   confirm it is RED.
 2. Make the MINIMAL change to the code area that turns it GREEN.
 3. Do NOT modify, weaken, delete, or skip the test. If the test looks
    WRONG (over-specified, testing the wrong thing, contradicts the
@@ -233,8 +328,8 @@ YOUR TASK:
    yourself. Resolving a bad contract is central's job, not yours.
 4. Run the test; confirm GREEN. Run the surrounding suite to confirm
    no regressions.
-5. Commit ONLY the implementation:
-   git add <code-path> && git commit -m "<bead-id>: GREEN <contract>"
+5. Commit ONLY the test file + the implementation:
+   git add <test-path> <code-path> && git commit -m "<bead-id>: GREEN <contract>"
    (do NOT git add .beads/issues.jsonl)
 
 RETURN: the GREEN pass/fail counts + the commit SHA + any
@@ -247,9 +342,16 @@ stop-and-report.
 
 - **DO** keep central orchestration-only through the middle — central
   writes nothing.
-- **DO** run both agents in the SAME worktree so the implementer reads
-  the test-author's committed file.
+- **DO** give each agent its OWN `isolation: "worktree"`; relay the
+  test-author's verbatim content to the implementer over the
+  content-bridge (or use the path-capture fallback for a large test).
 - **DO** give each brief only its slice.
+- **DO** re-run the test + check the assertion count at central's
+  verify step, to confirm the implementer recreated the test
+  faithfully over the content-bridge.
+- **DON'T** try to force both agents into one shared worktree — the
+  Agent tool auto-names isolated worktrees and gives no handle to
+  reuse another agent's tree (loom-fx9m).
 - **DON'T** let central write the test or the code "just this once" —
   that re-collapses test-author and implementer into one mind.
 - **DON'T** let the implementer modify the test. A failing implementer
