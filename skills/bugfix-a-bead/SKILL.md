@@ -225,6 +225,7 @@ in the brief.
 ### Phase B — verification (delegate to shell)
 
 Return to `bead-lifecycle-shell` phase B (sets stage `verify`).
+Re-read `.claude/project-constitution.md` if present — its `canonical_commands.test` is the authoritative test command for this project; run THAT, not a guessed-at command.
 Re-run the full suite from a clean shell, confirm exact pass/fail
 counts, check `git diff --stat` matches intended scope. State results
 with evidence in user-facing output BEFORE moving to phase C.

@@ -22,7 +22,8 @@ override):
 - **light** — run an abbreviated routine: `bd stats` + `bd ready -n 10` +
   in-progress RESUME header (step 1a) + since-last-session digest (step 1b,
   only fires on >3-day gap) + CI health (step 1c) + active-design-cycle scan
-  (step 1d) + active-explorations scan (step 1e) + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
+  (step 1d) + active-explorations scan (step 1e) + constitution fingerprint
+  (step 1f) + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
   unless the user asks. Tell the user: "workflow mode is light; abbreviated
   startup."
 - **off** — skip the skill entirely. Acknowledge: "workflow mode is off;
@@ -71,6 +72,25 @@ it before running the rest of this skill.
    ```
 
    Derive each field from the exploration drawer (the topic, the `open threads` list → N open-threads count, the `current understanding` section → snippet). **SKIP rested and promoted explorations** — `rested` and `promoted` are terminal states (a `rested` exploration was deliberately set aside; a `promoted` one already opened a `/design-a-cycle`), so surfacing them would be noise. Resume a half-finished exploration the same way an open design cycle outranks fresh-ready work: an `active` exploration is usually the right next move. This step is **INFO-only** — it surfaces context, it never claims or advances an exploration on its own. **Skip the header entirely when no active exploration is found** — don't emit an empty "ACTIVE EXPLORATION" block on every cold-start. Tolerance: if MemPalace is offline, the search errors, or the project has no exploration drawers, emit `(exploration scan skipped)` (or nothing) and continue. **Never fail the skill on this step.** Stays in `light` mode too (cheap MemPalace scan, high-signal); `off` mode skips it along with the rest of the skill.
+
+1f. **Surface the project constitution — one-line fingerprint (loom-ld4).** The project constitution lives at `<project>/.claude/project-constitution.md`: YAML front-matter pinning the shell envelope, package manager, language runtime, canonical build/test/lint/gen/dev commands, plus `forbidden:`/`bypass_patterns:`. Loading it into context at cold-start means every downstream skill, recipe, and dispatched-worker brief in this session inherits the agreed tooling profile instead of guessing it (the recurring pip-on-uv / npm-on-pnpm / wrong-python leak this epic, loom-6f8, exists to kill). Two cases:
+
+   - **Constitution present.** Read the file (front-matter is the part that matters; the prose body is rationale you can skip at cold-start to keep token cost low). Surface ONE fingerprint line derived from the front-matter — package_manager, language.runtime, and the canonical test command are the high-signal fields:
+
+     ```
+     CONSTITUTION: pkg=<package_manager> · runtime=<language.runtime> · test=`<canonical_commands.test>` (.claude/project-constitution.md)
+     ```
+
+     Keep it to one line — do NOT echo the whole file. (Common-case token cost: read the small front-matter + emit one line, well under +2000 tokens.)
+   - **Constitution absent in a loom-managed project.** A project is loom-managed if it carries `.claude/workflow.json` (or the loom-installed hooks/statusline). When the constitution file is missing in such a project, emit a SINGLE soft nudge line — never block, never fail:
+
+     ```
+     (no .claude/project-constitution.md — run /audit-project to capture this project's tooling profile)
+     ```
+
+     If the project is NOT loom-managed (no `.claude/workflow.json`), stay silent — don't nudge a project that hasn't opted into loom.
+
+   This step is **INFO + soft-nudge only** — it never blocks, never claims, never edits. Tolerance: if the file is unreadable or the front-matter doesn't parse, emit `(constitution unreadable — skipped)` and continue. **Never fail the skill on this step.** Stays in `light` mode too (cheap single-file read + one line); `off` mode skips it along with the rest of the skill.
 2. **Check in-progress.** Run `bd list --status=in_progress`. Anything there outranks the ready queue — finish what was started.
 3. **Prime palace.** Call `mempalace_status` and `mempalace_kg_stats`. Note wing/room shape; flag anything weird (zero drawers, zero current facts).
 4. **Recover recent context.** Three sub-steps:
