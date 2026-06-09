@@ -228,6 +228,29 @@ refuses outside a linked worktree, snapshots untracked files,
 pre-detects collisions, and restores files post-rebase. See
 [`docs/reference/loom-rebase-worktree.md`](../../docs/reference/loom-rebase-worktree.md).
 
+## Worker-report sampling transparency (loom-z3m.16)
+
+**Risk (loom-z3m.1 f10, liza-base).** When a dispatched worker
+processes only a SAMPLE/subset of a larger set — it chose N-of-M items
+rather than all M (a sampled remine, a truncated scan, "the first two
+dozen of 600") — that fact does not reliably surface in its return.
+The user has to ask "so you only grabbed a sample?" after the fact.
+The truncation looks like completeness; the report is silently
+dishonest about scope.
+
+**Convention.** Every dispatched worker that samples or truncates MUST
+surface the fact explicitly in its structured return —
+**never silently sample.** When the worker processed a subset, include a
+`Processed: X of Y` line (sampled-of-total) in its report, naming both
+the count it handled and the size of the full set. A worker that
+processed the entire set need not state it; a worker that did NOT must.
+Centrally, the dispatcher should add a `sampled_of_total` field
+requirement to any worker brief when the input set is large enough that
+the worker might reasonably sample it — so the obligation is briefed
+in, not relied on as an afterthought. This is the worker-report
+analogue of the smoke battery: a single structured line a downstream
+consumer (the user, or central) reads to know scope at a glance.
+
 ## Central-side cwd verification (after worker dispatch returns)
 
 **Risk (loom-d2o, surfaced 2026-05-27 by the loom-7p6 + loom-cuk

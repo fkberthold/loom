@@ -437,7 +437,9 @@ YOUR TASK:
    (do NOT git add .beads/issues.jsonl)
 
 RETURN: the GREEN pass/fail counts + the commit SHA + any
-stop-and-report.
+stop-and-report. If you processed only a SAMPLE/subset of a larger
+set (you handled N-of-M items rather than all M), say so explicitly
+with a `Processed: X of Y` line — NEVER silently sample.
 ```
 
 ---
@@ -460,6 +462,12 @@ stop-and-report.
 - **DO** re-run the test + check the assertion count at central's
   verify step, to confirm the implementer recreated the test
   faithfully over the content-bridge.
+- **DO** surface sampling transparently in any worker's return: a
+  worker that processed only a SAMPLE/subset of a larger set MUST
+  report `Processed: X of Y` (the sampled_of_total) — never silently
+  sample (loom-z3m.16). When the input set is large, brief the
+  `sampled_of_total` field requirement in. See the "Worker-report
+  sampling transparency" section of `.claude/rules/dispatched-agents.md`.
 - **DON'T** try to force both agents into one shared worktree — the
   Agent tool auto-names isolated worktrees and gives no handle to
   reuse another agent's tree (loom-fx9m).

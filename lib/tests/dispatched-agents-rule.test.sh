@@ -26,6 +26,7 @@ set -uo pipefail
 
 LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RULE_FILE="$LOOM_ROOT/.claude/rules/dispatched-agents.md"
+SKILL_FILE="$LOOM_ROOT/skills/dispatch-middle/SKILL.md"
 
 passed=0
 failed=0
@@ -43,6 +44,19 @@ assert_contains() {
     pass "$name"
   else
     fail "$name" "(pattern not found: $pattern)"
+  fi
+}
+
+assert_file_contains() {
+  local name="$1" file="$2" pattern="$3"
+  if [ ! -f "$file" ]; then
+    fail "$name" "(file missing: $file)"
+    return
+  fi
+  if grep -qE "$pattern" "$file"; then
+    pass "$name"
+  else
+    fail "$name" "(pattern not found in $file: $pattern)"
   fi
 }
 
@@ -189,6 +203,29 @@ assert_contains "base-freshness smoke uses git rev-parse main" \
   'git rev-parse[[:space:]]+main'
 assert_contains "base-freshness section points at loom-rebase-worktree wrapper" \
   'loom-rebase-worktree'
+
+# =====================================================================
+# 9. Sampling-transparency return clause (loom-z3m.16)
+# =====================================================================
+#
+# When a dispatched worker processes only a SAMPLE/subset of a larger
+# set (it chose N-of-M items rather than all M), that fact must be
+# surfaced explicitly in its return — the user must never have to ask
+# "so you only did a sample?" (loom-z3m.1 f10, liza-base). The clause
+# lives in BOTH the rule file's worker-report contract AND the
+# dispatch-middle return contract, so codify presence in both.
+
+echo "==> Sampling-transparency clause — rule file + dispatch-middle"
+assert_contains "rule file names the Processed: X of Y report line" \
+  'Processed:[[:space:]]*X of Y|Processed: X of Y'
+assert_contains "rule file forbids silent sampling" \
+  '[Nn]ever silently sample|do(es)? NOT silently sample|not silently sample'
+assert_contains "rule file cites loom-z3m.16 sampling-transparency lineage" \
+  'loom-z3m\.16|loom-z3m\.1'
+assert_file_contains "dispatch-middle return contract carries Processed: X of Y" \
+  "$SKILL_FILE" 'Processed:[[:space:]]*X of Y|Processed: X of Y'
+assert_file_contains "dispatch-middle clause names sampled_of_total" \
+  "$SKILL_FILE" 'sampled_of_total|sample.*total|sampled.*of.*total'
 
 # =====================================================================
 # Summary
