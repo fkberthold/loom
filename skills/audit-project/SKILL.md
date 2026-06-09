@@ -129,6 +129,55 @@ audit. This is a deliberately user-pulled workflow.
     `gh is not authenticated; run \`gh auth login\` interactively
     to fix` and marks the row as queued-for-user. Same handoff-tag
     rationale as item 17 (loom-k2g).
+  - `[AUTOFIX:dedup-hook-skip-worktree]` (item 12 WARN — the
+    **DEFAULT** offer for a duplicate hook) — when item 12 reports a
+    project-tracked SessionStart/PreToolUse hook that is ALSO
+    registered by the plugin or user-global layer, this recipe
+    resolves the duplicate **per-user and reversibly**:
+    1. `git update-index --skip-worktree <root>/.claude/settings.json`
+       (so the local strip is untracked — git stops watching the file
+       for changes, and a future upstream pull no longer errors with
+       "would be overwritten by checkout"),
+    2. strip the duplicate `(event, matcher, command)` stanza from the
+       local copy of `.claude/settings.json`,
+    3. log the recovery snippet (below) to
+       `<root>/.claude/loom-audit-state.json` under the
+       `dedup-hook-skip-worktree` key, for the inevitable next upstream
+       change to the tracked file.
+    Recovery snippet (baked into the AUTOFIX log so the next pull is
+    not a surprise):
+    ```bash
+    git update-index --no-skip-worktree .claude/settings.json
+    git stash
+    git pull
+    git stash pop
+    # then re-apply skip-worktree + strip via /audit-project --apply-onboarding
+    ```
+    This is the **default** because it is per-user and reversible: it
+    never changes shared content, so it cannot break a non-loom dev's
+    setup. The detection mechanism (`find-hook-dups.sh`) is unchanged —
+    this recipe only consumes its WARN output (loom-jnn).
+  - `[AUTOFIX:dedup-hook-commit]` (item 12 WARN — gated behind an
+    explicit y/N confirmation) — the same detection, the opposite
+    resolution: remove the duplicate hook stanza from the **tracked**
+    `.claude/settings.json` and commit. Because this changes shared
+    content, the binary `apply` shape does NOT fit — the recipe
+    plumbs a confirmation prompt through and is **NOT auto-applied**
+    on `--apply-onboarding`. The prompt names the consequence
+    verbatim: `This commits a change to .claude/settings.json that
+    assumes loom adoption for all devs on this repo. Non-loom devs
+    lose <hook-name> registration. Proceed? (y/N)`. Only on a typed
+    `y` does it commit with subject `audit: dedup <hook-name>
+    SessionStart hook (loom-managed; plugin + user-global handle
+    registration)`. The empirical reason a resolution path is needed
+    at all: hook layering is **additive across all four layers**
+    (plugin + user-global + project-tracked + project-local) — empty
+    arrays in `settings.local.json` do NOT cancel an inherited
+    registration, they only add zero entries to the union. Verified
+    inert in e2e-api-tests 2026-05-27 (bd prime still fired 3 times in
+    a fresh SessionStart after the override). See
+    [`docs/reference/claude-code-hook-layering.md`](../../docs/reference/claude-code-hook-layering.md)
+    for the full finding (loom-jnn).
   Items NOT tagged AUTOFIX (item 2 `bd init`, item 5 MemPalace wing
   creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`)
   remain in the per-item approval queue. The flag never touches
@@ -367,9 +416,23 @@ command)` tuple registered in both the project's
 wasted tokens (observed in liza_base 2026-05-09; fixed via loom-sd5
 by removing the project-layer entry — the plugin's registration is
 canonical). Project-level dups surface as WARN; user-level dups as
-INFO (machine-specific config, advisory only). The check is NOT
-auto-fixable — JSON surgery is content-aware (multiple hook entries
-may share a stanza) and excluded by the Wave 2 contract.
+INFO (machine-specific config, advisory only).
+
+The duplicate JSON-stanza removal is content-aware (multiple hook
+entries may share a stanza), so the *raw* removal was excluded from
+the Wave 2 deterministic-apply contract. loom-jnn closes the
+resolution gap with two purpose-built AUTOFIX paths for the WARN
+case (detection via `find-hook-dups.sh` is unchanged): the DEFAULT
+`[AUTOFIX:dedup-hook-skip-worktree]` (per-user, reversible —
+`git update-index --skip-worktree` the tracked file + strip the dup
+locally + log the recovery snippet), and the opt-in
+`[AUTOFIX:dedup-hook-commit]` behind an explicit y/N confirmation
+that names the shared-content consequence. The empirical reason a
+resolution is needed at all — empty-array overrides in
+`settings.local.json` do NOT cancel inherited hook registrations
+because Claude Code hook layering is **additive across all four
+layers** — lives in
+[`docs/reference/claude-code-hook-layering.md`](../../docs/reference/claude-code-hook-layering.md).
 
 #### Items 13–14: language + solo-workspace checks (loom-r6g)
 
@@ -528,10 +591,15 @@ respect "user said no". Schema:
 ```
 
 Recognised check-names: `preflight-language-match`,
-`claude-md-solo-aware`, `upstream-loom-label-suggest`. The skill
-reads the file at the start of Step 2; for any check with a memo,
-the onboarder's verdict is silently downgraded to PASS in the
-rendered report. The skill writes the memo on `skip` answers from
+`claude-md-solo-aware`, `upstream-loom-label-suggest`,
+`dedup-hook-skip-worktree` (item 12 — stores the recovery snippet
+applied by the default AUTOFIX, not a skip memo). The skill
+reads the file at the start of Step 2; for any check with a skip
+memo, the onboarder's verdict is silently downgraded to PASS in the
+rendered report. The `dedup-hook-skip-worktree` entry is a record of
+the applied recovery snippet rather than a user-skipped memo — its
+presence does not suppress the row, since a later upstream change to
+`settings.json` may re-introduce the duplicate. The skill writes the memo on `skip` answers from
 the per-item gate. The file is NOT a config file; it is never read
 outside `/audit-project`, and the `<root>/.gitignore` adds
 `.claude/loom-audit-state.json` on first audit so it stays out of
@@ -998,6 +1066,101 @@ form), apply the recipe:
   interactive OAuth/token flow that cannot run inside the audit;
   the user runs it in their own terminal, then re-runs
   `/audit-project` to confirm the WARN cleared.
+
+- **`[AUTOFIX:dedup-hook-skip-worktree]`** — the default (DEFAULT)
+  duplicate-hook resolution (item 12 WARN). Gate first
+  (`refuse_if_guest AUTOFIX:dedup-hook-skip-worktree`), then resolve
+  the duplicate **per-user and reversibly**:
+
+  ```bash
+  . "$LOOM_ROOT/lib/refuse-on-guest.sh"
+  refuse_if_guest AUTOFIX:dedup-hook-skip-worktree || exit $?
+  cd <root>
+  # 1. Stop tracking local edits to the shared settings file. This
+  #    ALSO defuses the "would be overwritten by checkout" error a
+  #    future upstream pull would otherwise raise on the local strip.
+  git update-index --skip-worktree .claude/settings.json
+  # 2. Strip the duplicate (event, matcher, command) stanza from the
+  #    LOCAL copy — content-aware JSON edit (the dup hook the item-12
+  #    WARN line named; preserve every other stanza). Use the Edit
+  #    tool / a python json rewrite, not a blind sed.
+  # 3. Log the recovery snippet under the dedup-hook-skip-worktree key
+  #    in .claude/loom-audit-state.json (see below).
+  ```
+
+  The recovery snippet baked into `.claude/loom-audit-state.json`
+  (so the next upstream change to `settings.json` is not a surprise):
+
+  ```bash
+  git update-index --no-skip-worktree .claude/settings.json
+  git stash
+  git pull
+  git stash pop
+  # then re-apply skip-worktree + strip via /audit-project --apply-onboarding
+  ```
+
+  This recipe is safe to auto-apply on `--apply-onboarding` because it
+  is per-user and reversible — it never touches shared content, so it
+  cannot break a non-loom dev's checkout. It is the default offer for
+  item 12. The state-file entry shape:
+
+  ```json
+  {
+    "dedup-hook-skip-worktree": {
+      "applied_at": "<ISO-8601 timestamp>",
+      "hook": "<event> <command>",
+      "recovery": "git update-index --no-skip-worktree .claude/settings.json; git stash; git pull; git stash pop"
+    }
+  }
+  ```
+
+- **`[AUTOFIX:dedup-hook-commit]`** — the OPT-IN duplicate-hook
+  resolution (item 12 WARN) that **never auto-applies** without an
+  explicit y/N confirmation. This recipe changes **shared content** (it removes the
+  duplicate stanza from the *tracked* `.claude/settings.json` and
+  commits), so the binary `apply` shape does NOT fit — even with
+  `--apply-onboarding` set, the recipe **MUST NOT auto-apply**. It
+  plumbs a confirmation prompt through and obeys the same
+  conversational-pause invariant as Step 4 (loom-xcw): after printing
+  the prompt, STOP and wait for a user-typed reply.
+
+  Gate first (`refuse_if_guest AUTOFIX:dedup-hook-commit`), then print
+  the confirmation prompt verbatim (substitute the offending hook name
+  from the item-12 WARN line):
+
+  ```
+  This commits a change to .claude/settings.json that assumes loom
+  adoption for all devs on this repo. Non-loom devs lose <hook-name>
+  registration. Proceed? (y/N)
+  ```
+
+  On a typed `y` (and only then): strip the duplicate stanza from the
+  tracked file and commit with the scoped subject —
+
+  ```bash
+  cd <root>
+  # strip the duplicate (event, matcher, command) stanza (content-aware)
+  git add .claude/settings.json
+  git commit -m "audit: dedup <hook-name> SessionStart hook (loom-managed; plugin + user-global handle registration)"
+  ```
+
+  On `N` (or any non-`y` reply): leave the row in the per-item queue
+  and emit `AUTOFIX:dedup-hook-commit: declined — left for manual
+  handling`. The `LOOM_AUDIT_PROMPT_ANSWER` env var injects the
+  y/N answer non-interactively under tests (same mocking surface as
+  items 13/14).
+
+  The reason a resolution path is needed at all: Claude Code hook
+  layering is **additive across all four layers** (plugin +
+  user-global `~/.claude/settings.json` + project-tracked
+  `.claude/settings.json` + project-local `.claude/settings.local.json`).
+  Empty arrays in `settings.local.json` do NOT cancel an inherited
+  registration — layering is union, not override. Verified inert in
+  e2e-api-tests on 2026-05-27: bd prime still fired 3 times in a
+  fresh SessionStart after the empty-array override was applied. The
+  only resolutions that actually work are the two recipes above; see
+  [`docs/reference/claude-code-hook-layering.md`](../../docs/reference/claude-code-hook-layering.md)
+  for the full finding. (loom-jnn.)
 
 For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
 queue for Step 4. Emit one summary line per skipped item: `--apply-

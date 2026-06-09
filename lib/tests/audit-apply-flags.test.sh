@@ -458,8 +458,14 @@ assert_contains "onboarder item 12 names WARN as project-level verdict" \
   "$AGENT_FILE" 'WARN.*project|project.*WARN|WARN.*= .*project'
 assert_contains "onboarder item 12 names INFO as user-level verdict" \
   "$AGENT_FILE" 'INFO.*user|user.*INFO|user-level dup'
-assert_contains "onboarder item 12 explicitly says No AUTOFIX (content-aware)" \
-  "$AGENT_FILE" 'No AUTOFIX|excluded by the Wave 2 contract'
+# loom-jnn superseded the original "No AUTOFIX" verdict for item 12: the
+# RAW JSON-stanza removal stays content-aware (the skill performs it
+# inside each recipe, not via a blind deterministic substitution), but
+# item 12 now carries two purpose-built resolution AUTOFIX paths
+# (skip-worktree default + commit-removal behind y/N). Pin that the
+# content-aware framing survives.
+assert_contains "onboarder item 12 keeps the content-aware framing for the raw stanza removal" \
+  "$AGENT_FILE" 'content-aware|content[- ]aware'
 assert_contains "onboarder item 12 cites loom-ann lineage" \
   "$AGENT_FILE" 'loom-ann'
 assert_contains "onboarder item 12 cites loom-nsb research lineage" \
@@ -486,14 +492,18 @@ echo "==> loom-ann: SKILL lists the documented AUTOFIX recipes"
 # loom-k2g.6 added the fifth (loom-upstream-gc-handoff) and sixth
 # (gh-auth-prompt) — both are handoff recipes that print user-facing
 # instructions rather than writing the tree, so they trivially satisfy
-# the Wave 2 determinism contract (loom-a29). Update this guard only
-# after a future bead deliberately adds a new AUTOFIX:<recipe-id> with
-# documented determinism rationale.
+# the Wave 2 determinism contract (loom-a29). loom-jnn added the
+# seventh (dedup-hook-skip-worktree, the DEFAULT per-user reversible
+# resolution) and eighth (dedup-hook-commit, behind an explicit y/N
+# confirmation that names the shared-content consequence) for item 12's
+# duplicate-hook resolution gap. Update this guard only after a future
+# bead deliberately adds a new AUTOFIX:<recipe-id> with documented
+# determinism rationale.
 autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
-if [ "$autofix_recipe_count" = "6" ]; then
-  pass "SKILL AUTOFIX inventory is 6 (bd-hooks, workflow-json, gitignore-worktrees, loom-env-block, loom-upstream-gc-handoff, gh-auth-prompt)"
+if [ "$autofix_recipe_count" = "8" ]; then
+  pass "SKILL AUTOFIX inventory is 8 (bd-hooks, workflow-json, gitignore-worktrees, loom-env-block, loom-upstream-gc-handoff, gh-auth-prompt, dedup-hook-skip-worktree, dedup-hook-commit)"
 else
-  fail "SKILL AUTOFIX inventory should be 6 not $autofix_recipe_count" \
+  fail "SKILL AUTOFIX inventory should be 8 not $autofix_recipe_count" \
     "(if a new AUTOFIX recipe was added deliberately, update this guard)"
 fi
 
@@ -977,13 +987,15 @@ assert_contains "SKILL cites loom-z3m lineage on item 15" \
 # Re-check the AUTOFIX inventory count. Was 3 when loom-z3m.11 landed;
 # loom-7ro added the fourth (loom-env-block) for item 16, NOT item 15;
 # loom-k2g.6 added the fifth + sixth (loom-upstream-gc-handoff, gh-auth-prompt)
-# for items 17 + 18, NOT item 15. Item 15 remains informational/suggest-only.
+# for items 17 + 18, NOT item 15; loom-jnn added the seventh + eighth
+# (dedup-hook-skip-worktree, dedup-hook-commit) for item 12, NOT item 15.
+# Item 15 remains informational/suggest-only.
 autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
-if [ "$autofix_recipe_count" = "6" ]; then
-  pass "SKILL AUTOFIX inventory is 6 (item 15 correctly remains informational-only; loom-7ro added item 16; loom-k2g.6 added items 17+18)"
+if [ "$autofix_recipe_count" = "8" ]; then
+  pass "SKILL AUTOFIX inventory is 8 (item 15 correctly remains informational-only; loom-7ro added item 16; loom-k2g.6 added items 17+18; loom-jnn added item 12's two recipes)"
 else
-  fail "SKILL AUTOFIX inventory should be 6 not $autofix_recipe_count" \
-    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only; loom-7ro adds item 16 loom-env-block; loom-k2g.6 adds items 17+18 handoff recipes)"
+  fail "SKILL AUTOFIX inventory should be 8 not $autofix_recipe_count" \
+    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only; loom-7ro adds item 16 loom-env-block; loom-k2g.6 adds items 17+18 handoff recipes; loom-jnn adds item 12's dedup-hook recipes)"
 fi
 
 echo "==> loom-z3m.11: agents/project-onboarder.md item 15 declaration"
@@ -1102,6 +1114,201 @@ fi
 # SKILL must register the new check-name in the recognised list.
 assert_contains "SKILL state-file recognised-check-names list includes upstream-loom-label-suggest" \
   "$SKILL_FILE" 'upstream-loom-label-suggest'
+
+# =====================================================================
+# 12. loom-jnn: item 12 duplicate-hook AUTOFIX paths (skip-worktree +
+#     commit-removal) + claude-code-hook-layering.md reference doc
+# =====================================================================
+#
+# Item 12 (find-hook-dups.sh) WARNs on duplicate hook registrations but
+# had no AUTOFIX resolution path. The currently-implied mitigation
+# (empty-arrays in settings.local.json to cancel inherited registrations)
+# was VERIFIED INERT on 2026-05-27 in e2e-api-tests: Claude Code's hook
+# layering is ADDITIVE across all four layers (plugin + user-global +
+# project-tracked + project-local). Empty arrays don't cancel; bd prime
+# still fired 3 times in a fresh SessionStart after the override.
+#
+# loom-jnn ships TWO AUTOFIX paths for item 12:
+#   [AUTOFIX:dedup-hook-skip-worktree] — DEFAULT. git update-index
+#     --skip-worktree the tracked settings.json, strip the dup hook
+#     locally, log the recovery snippet. Per-user, reversible.
+#   [AUTOFIX:dedup-hook-commit] — behind an explicit y/N confirmation
+#     that names the shared-content consequence. Removes the dup from
+#     the tracked file and commits.
+# Plus docs/reference/claude-code-hook-layering.md (the empirical anchor).
+
+LAYERING_DOC="$LOOM_ROOT/docs/reference/claude-code-hook-layering.md"
+MKDOCS_FILE="$LOOM_ROOT/mkdocs.yml"
+
+echo "==> loom-jnn: SKILL.md documents both item-12 AUTOFIX tags"
+assert_contains "SKILL describes [AUTOFIX:dedup-hook-skip-worktree] tag" \
+  "$SKILL_FILE" '\[AUTOFIX:dedup-hook-skip-worktree\]'
+assert_contains "SKILL describes [AUTOFIX:dedup-hook-commit] tag" \
+  "$SKILL_FILE" '\[AUTOFIX:dedup-hook-commit\]'
+assert_contains "SKILL names skip-worktree as the DEFAULT offer" \
+  "$SKILL_FILE" 'default.*skip-worktree|skip-worktree.*default|DEFAULT.*dedup-hook-skip-worktree'
+assert_contains "SKILL skip-worktree recipe runs git update-index --skip-worktree" \
+  "$SKILL_FILE" 'git update-index --skip-worktree'
+assert_contains "SKILL skip-worktree recipe logs the recovery snippet (--no-skip-worktree)" \
+  "$SKILL_FILE" 'git update-index --no-skip-worktree'
+assert_contains "SKILL cites loom-jnn lineage" \
+  "$SKILL_FILE" 'loom-jnn'
+
+echo "==> loom-jnn: commit-removal AUTOFIX is gated behind an explicit y/N confirmation"
+# The commit-removal path MUST NOT auto-apply on --apply-onboarding; it
+# must name the shared-content consequence and require y/N. Flatten line
+# wraps before matching so markdown reflow doesn't break the assertion.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'dedup-hook-commit[^.]*(y/N|\(y/N\)|confirm)'; then
+  pass "SKILL: dedup-hook-commit is behind a y/N confirmation"
+else
+  fail "SKILL: dedup-hook-commit must be behind a y/N confirmation" \
+    "(confirmation prompt not found near dedup-hook-commit in flattened SKILL.md)"
+fi
+assert_contains "SKILL commit-removal confirmation names the non-loom-dev consequence" \
+  "$SKILL_FILE" 'Non-loom devs lose|non-loom devs lose'
+# The binary 'apply' shape doesn't fit commit-removal — the skill must
+# explicitly say it plumbs a prompt through rather than auto-applying.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'dedup-hook-commit[^.]*(NOT auto-?appl|not auto-?appl|never auto-?appl|MUST NOT.*without)'; then
+  pass "SKILL: dedup-hook-commit never auto-applies without confirmation"
+else
+  fail "SKILL: dedup-hook-commit never auto-applies without confirmation" \
+    "(anti-auto-apply guard not found near dedup-hook-commit in flattened SKILL.md)"
+fi
+
+echo "==> loom-jnn: SKILL anchors on the additive-layering empirical finding"
+assert_contains "SKILL states hook layering is additive across all layers" \
+  "$SKILL_FILE" 'additive across all|additive.*layer'
+assert_contains "SKILL records the empty-arrays-don't-cancel finding" \
+  "$SKILL_FILE" "empty.array|empty arrays don't cancel|do not cancel"
+assert_contains "SKILL points at the claude-code-hook-layering.md reference doc" \
+  "$SKILL_FILE" 'claude-code-hook-layering'
+
+echo "==> loom-jnn: project-onboarder item 12 documents both AUTOFIX tags"
+assert_contains "onboarder item 12 describes [AUTOFIX:dedup-hook-skip-worktree] tag" \
+  "$AGENT_FILE" '\[AUTOFIX:dedup-hook-skip-worktree\]'
+assert_contains "onboarder item 12 describes [AUTOFIX:dedup-hook-commit] tag" \
+  "$AGENT_FILE" '\[AUTOFIX:dedup-hook-commit\]'
+assert_contains "onboarder item 12 names skip-worktree as the default" \
+  "$AGENT_FILE" 'default.*skip-worktree|skip-worktree.*default|DEFAULT'
+assert_contains "onboarder item 12 cites loom-jnn lineage" \
+  "$AGENT_FILE" 'loom-jnn'
+# The detection mechanism (find-hook-dups.sh) is untouched — the bead's
+# anti-scope. Item 12 still shells out to it as the canonical detector.
+assert_contains "onboarder item 12 still uses find-hook-dups.sh as the detector" \
+  "$AGENT_FILE" 'find-hook-dups\.sh'
+
+echo "==> loom-jnn: anti-scope — find-hook-dups.sh detection is UNCHANGED"
+# The bead's hard anti-scope: do NOT touch find-hook-dups.sh. The script
+# must still exist, be executable, and keep its WARN/INFO emit contract.
+if [ -x "$SCRIPT_FILE" ]; then
+  pass "anti-scope: find-hook-dups.sh still exists and is executable"
+else
+  fail "anti-scope: find-hook-dups.sh missing or not executable (must be untouched)"
+fi
+assert_contains "anti-scope: find-hook-dups.sh still emits WARN for project-level dups" \
+  "$SCRIPT_FILE" 'emit_dups "WARN"'
+assert_contains "anti-scope: find-hook-dups.sh still emits INFO for user-level dups" \
+  "$SCRIPT_FILE" 'emit_dups "INFO"'
+
+echo "==> loom-jnn: claude-code-hook-layering.md reference doc exists"
+if [ -f "$LAYERING_DOC" ]; then
+  pass "claude-code-hook-layering.md reference doc exists"
+else
+  fail "claude-code-hook-layering.md reference doc missing"
+fi
+assert_contains "layering doc enumerates all four layers (plugin → ... → project-local)" \
+  "$LAYERING_DOC" 'plugin'
+assert_contains "layering doc names user-global ~/.claude/settings.json layer" \
+  "$LAYERING_DOC" '~/\.claude/settings\.json|user-global'
+assert_contains "layering doc names project-tracked .claude/settings.json layer" \
+  "$LAYERING_DOC" 'project-tracked|\.claude/settings\.json'
+assert_contains "layering doc names project-local .claude/settings.local.json layer" \
+  "$LAYERING_DOC" 'settings\.local\.json|project-local'
+assert_contains "layering doc records the 2026-05-27 empirical anchor (3 fires)" \
+  "$LAYERING_DOC" '2026-05-27|3 (fires|times|bd prime)|three (fires|bd prime)'
+assert_contains "layering doc cites e2e-api-tests as the empirical anchor" \
+  "$LAYERING_DOC" 'e2e-api-tests'
+assert_contains "layering doc explains why empty-arrays don't cancel (union not override)" \
+  "$LAYERING_DOC" 'union|do not cancel|don.t cancel'
+assert_contains "layering doc points at /audit-project item 12" \
+  "$LAYERING_DOC" 'item 12|Item 12'
+assert_contains "layering doc points at the skip-worktree AUTOFIX path" \
+  "$LAYERING_DOC" 'dedup-hook-skip-worktree|skip-worktree'
+assert_contains "layering doc points at the commit-removal AUTOFIX path" \
+  "$LAYERING_DOC" 'dedup-hook-commit|commit-removal'
+assert_contains "layering doc points at loom-env-vars.md sibling pattern (loom-7ro)" \
+  "$LAYERING_DOC" 'loom-env-vars'
+assert_contains "layering doc cites loom-jnn lineage" \
+  "$LAYERING_DOC" 'loom-jnn'
+
+echo "==> loom-jnn: claude-code-hook-layering.md registered in mkdocs.yml nav"
+assert_contains "mkdocs.yml nav registers the layering reference page" \
+  "$MKDOCS_FILE" 'reference/claude-code-hook-layering\.md'
+
+# ---------------------------------------------------------------------
+# Behavior fixture — skip-worktree AUTOFIX produces the right git state
+# ---------------------------------------------------------------------
+#
+# The default AUTOFIX path: git update-index --skip-worktree the tracked
+# settings.json so local edits to it are not tracked, then strip the
+# duplicate hook from the local copy. We exercise the git mechanics
+# against a real tmp repo to verify the recipe's commands work on disk
+# (the SKILL.md text describes them; this confirms they do what the
+# prose claims). Mirrors the workflow.json / gitignore fixture pattern.
+
+echo "==> loom-jnn: skip-worktree git mechanics round-trip in a tmp repo"
+TMP_SW="$(mktemp -d)"
+trap 'rm -rf "$TMP_SW" "$TMP_UP_STATE" "$TMP_LANG" "$TMP_WF" "$TMP_GI" "$TMP_GI2" "$TMP_GI3" "$TMP_GI4" "$TMP_GI5" "$TMP_STATE" "$TMP_CMD" "$TMP_CMD2" "$TMP_CMD3"' EXIT
+
+(
+  cd "$TMP_SW" || exit 1
+  git init -q
+  git config user.email t@t.t
+  git config user.name t
+  mkdir -p .claude
+  cat >.claude/settings.json <<'JSON'
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bd prime" } ] }
+    ]
+  }
+}
+JSON
+  git add .claude/settings.json
+  git commit -qm "track settings.json"
+) || { fail "skip-worktree fixture: repo setup failed"; }
+
+# Step 1: skip-worktree the tracked file.
+(cd "$TMP_SW" && git update-index --skip-worktree .claude/settings.json) \
+  && pass "skip-worktree: git update-index --skip-worktree succeeds on tracked file" \
+  || fail "skip-worktree: git update-index --skip-worktree failed"
+
+# Verify the skip-worktree bit is set (ls-files -v marks it with lowercase 'S').
+sw_flag=$(cd "$TMP_SW" && git ls-files -v .claude/settings.json | cut -c1)
+if [ "$sw_flag" = "S" ]; then
+  pass "skip-worktree: ls-files -v shows the skip-worktree bit (S)"
+else
+  fail "skip-worktree: expected ls-files flag 'S', got '$sw_flag'"
+fi
+
+# Step 2: strip the dup hook locally → the change is NOT seen by git status.
+(cd "$TMP_SW" && printf '{\n  "hooks": {}\n}\n' >.claude/settings.json)
+dirty=$(cd "$TMP_SW" && git status --porcelain .claude/settings.json)
+if [ -z "$dirty" ]; then
+  pass "skip-worktree: local strip is invisible to git status (per-user, untracked-locally)"
+else
+  fail "skip-worktree: local edit unexpectedly showed in git status ($dirty)"
+fi
+
+# Recovery: --no-skip-worktree restores tracking; the local edit reappears.
+(cd "$TMP_SW" && git update-index --no-skip-worktree .claude/settings.json)
+dirty2=$(cd "$TMP_SW" && git status --porcelain .claude/settings.json)
+if [ -n "$dirty2" ]; then
+  pass "skip-worktree: --no-skip-worktree recovery re-exposes the local edit"
+else
+  fail "skip-worktree: --no-skip-worktree did not re-expose the local edit"
+fi
 
 # =====================================================================
 # Summary
