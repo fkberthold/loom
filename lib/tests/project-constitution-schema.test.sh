@@ -115,9 +115,79 @@ assert_contains "schema declares draft 2020-12" "$SCHEMA" \
   '2020-12/schema'
 # Schema must declare every front-matter property at some nesting level.
 for key in shell enter run_prefix package_manager language runtime version \
-           forbidden canonical_commands build test lint gen dev bypass_patterns; do
+           forbidden canonical_commands build test lint gen dev deploy bypass_patterns; do
   assert_contains "schema declares property: $key" "$SCHEMA" "\"${key}\""
 done
+
+# =====================================================================
+# 6. canonical_commands.deploy — schema accepts it + dogfood validates
+#    (loom-oxs.3: deploy joins build/test/lint/gen/dev; workflow.json
+#    .deploy deprecated in favour of canonical_commands.deploy)
+# =====================================================================
+echo "==> canonical_commands.deploy is a first-class verb"
+
+# 6a. Schema's canonical_commands declares a 'deploy' property
+#     (sibling of build/test/lint/gen/dev).
+assert_contains "schema canonical_commands declares deploy" "$SCHEMA" \
+  '"deploy"'
+
+# 6b. A minimal constitution front-matter carrying canonical_commands.deploy
+#     VALIDATES against the schema (jsonschema.validate, draft 2020-12).
+#     This is RED against a schema whose canonical_commands has
+#     additionalProperties:false and no deploy property.
+echo "==> minimal front-matter with deploy validates against schema"
+if python3 -c "
+import json, sys
+import jsonschema
+schema = json.load(open('$SCHEMA'))
+doc = {
+  'shell': {'enter': '', 'run_prefix': ''},
+  'package_manager': 'none',
+  'language': {'runtime': 'bash', 'version': ''},
+  'canonical_commands': {
+    'build': '', 'test': 'x', 'lint': '', 'gen': '', 'dev': '',
+    'deploy': './script/deploy',
+  },
+}
+jsonschema.validate(doc, schema)
+" 2>/dev/null; then
+  pass "front-matter with canonical_commands.deploy validates"
+else
+  fail "front-matter with canonical_commands.deploy validates" \
+    "(jsonschema.validate rejected a deploy field — schema missing the property)"
+fi
+
+# 6c. Loom's own dogfood constitution VALIDATES against the schema with
+#     its real front-matter (deploy present). Extracts the YAML
+#     front-matter block (between the first two '---' fences) and runs
+#     jsonschema.validate.
+echo "==> loom dogfood constitution validates against schema (deploy present)"
+if python3 -c "
+import json, sys
+import yaml, jsonschema
+text = open('$SAMPLE').read()
+parts = text.split('---', 2)
+if len(parts) < 3:
+    print('no front-matter fence', file=sys.stderr); sys.exit(1)
+fm = yaml.safe_load(parts[1])
+schema = json.load(open('$SCHEMA'))
+jsonschema.validate(fm, schema)
+cc = fm.get('canonical_commands', {})
+assert 'deploy' in cc, 'dogfood canonical_commands missing deploy key'
+" 2>/dev/null; then
+  pass "loom dogfood validates with canonical_commands.deploy present"
+else
+  fail "loom dogfood validates with canonical_commands.deploy present" \
+    "(jsonschema.validate rejected the dogfood, or deploy key absent)"
+fi
+
+# 6d. The deprecation of workflow.json .deploy is documented in favour
+#     of canonical_commands.deploy — the migration target is named.
+echo "==> workflow.json .deploy deprecation is documented"
+assert_contains "schema documents workflow.json .deploy deprecation" \
+  "$SCHEMA" 'workflow.json .deploy'
+assert_contains "template documents workflow.json .deploy deprecation" \
+  "$TEMPLATE" 'workflow.json .deploy'
 
 # =====================================================================
 # Summary

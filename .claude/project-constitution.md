@@ -33,6 +33,10 @@ canonical_commands:
   lint: "shellcheck hooks/*.sh lib/*.sh scripts/*"
   gen: ""
   dev: ""
+  # No deploy step — loom installs via ./install.sh (symlinks), which
+  # is surfaced as the workflow.json deploy HINT, not an automated
+  # deploy. Empty here per the canonical_commands.deploy convention.
+  deploy: ""
 
 bypass_patterns:
   - "python3 -c"
