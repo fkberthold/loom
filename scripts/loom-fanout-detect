@@ -55,7 +55,14 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # --- 1. Candidate set: ready bead IDs --------------------------------
-ready_json="$(bd ready --json 2>/dev/null)"
+# Pass an explicit high limit: `bd ready` defaults to a 10-issue window
+# (`-n/--limit`, default 10). Without an override, lower-priority but
+# genuinely-dispatchable beads ranked below the top 10 fall OUTSIDE the
+# window and are never considered — so when the top 10 are saturated
+# with excluded/placeholder beads, the detector emits no wave even
+# though disjoint dispatchable beads exist (loom-u2wp). bd has no
+# `--all`; `-n 100` covers the full ready queue we ever face.
+ready_json="$(bd ready --json -n 100 2>/dev/null)"
 if [ -z "$ready_json" ]; then
   exit 0
 fi
