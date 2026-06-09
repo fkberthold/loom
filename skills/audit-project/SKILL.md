@@ -74,6 +74,22 @@ audit. This is a deliberately user-pulled workflow.
   doc-vs-reality sweep.
 - `--check=all` (default when the project has a Diataxis substrate;
   see Step 1) — run both.
+- `--check=constitution` — run ONLY the project-constitution capture
+  flow (Step 7 below): detect the project's tooling fingerprint,
+  render draft front-matter, confirm each field with the user **one
+  field at a time** (never lump-sum, per loom-xcw), write
+  `.claude/project-constitution.md` UNSTAGED, mirror to the
+  `<wing>/decisions` MemPalace drawer, and emit KG triples for the
+  tooling. The prose body is emitted as a `[HUMAN AUTHOR]` TODO stub —
+  **never agent-authored** (loom-d50). On re-run, detection is diffed
+  against the captured file and per-field drift is surfaced without
+  overwriting the prose body. This mode runs neither the onboarding
+  scan nor the docs check — it is the loom-6f8 Constitution epic's
+  capture half (loom-1iz). The schema, dogfooded sample, and field
+  reference were shipped by loom-vin
+  (`references/project-constitution.schema.json`,
+  `templates/project-constitution.md`,
+  `docs/reference/project-constitution.md`).
 - `--apply-trivial` — auto-apply doc-drift items the skill has tagged
   `[DOC FIX][TRIVIAL]`: cardinality count corrections (the loom-469
   class — single-numeral substitution at a known file:line) and dead
@@ -1365,6 +1381,181 @@ delegate to the `/loom-mine-history` skill against the resolved
 Do not bypass `loom-mine-history`'s cost gate — the audit delegating
 to it does not change the "preview-before-spend, explicit go-ahead"
 contract.
+
+### Step 7 — project-constitution capture (`--check=constitution`)
+
+This step runs **only when `--check=constitution` was passed** (it is
+NOT part of `--check=all`). It is the capture half of the loom-6f8
+Constitution epic (loom-1iz). The schema, the fillable template, the
+dogfooded loom sample, and the field reference are loom-vin artifacts:
+
+- Schema: `references/project-constitution.schema.json`
+- Template: `templates/project-constitution.md`
+- Dogfood: loom's own `.claude/project-constitution.md`
+- Reference: `docs/reference/project-constitution.md`
+
+The output is one file per project at
+`<root>/.claude/project-constitution.md` — YAML front-matter (the
+machine-read tooling fingerprint) plus a Markdown prose body (human
+rationale). This step writes the front-matter from detected signals
+and stubs the prose body for a human to author; it never authors the
+prose itself (loom-d50).
+
+#### Step 7a — detect the tooling fingerprint
+
+Dispatch the `project-onboarder` subagent (or, if it was already
+dispatched in Step 2, reuse its fingerprint section) to scan
+`<root>` and return a tooling fingerprint. The onboarder is
+read-only — it reports the fingerprint; this skill owns every write,
+the per-field confirmation, and the MemPalace mirror.
+
+The detection heuristics (all filesystem-marker based, relative to
+`<root>`), in the order they resolve each field:
+
+- **`shell`** — `<root>/devbox.json` present → `shell.enter: "devbox
+  shell"`, `shell.run_prefix: "devbox run"`. Else `<root>/flake.nix`
+  present → `shell.enter: "nix-shell"`, `shell.run_prefix: "nix-shell
+  --run"`. Else both empty (no shell wrapper). `devbox.json` wins over
+  `flake.nix` when both are present (devbox is the outer envelope).
+- **`package_manager`** — first decisive lockfile / manifest wins, in
+  this precedence: `<root>/pnpm-lock.yaml` → `pnpm`; `<root>/yarn.lock`
+  → `yarn`; `<root>/package-lock.json` → `npm`; `<root>/uv.lock` →
+  `uv`; `<root>/poetry.lock` → `poetry`; `<root>/Cargo.toml` →
+  `cargo`; `<root>/go.mod` → `go`. None present → `none`.
+- **`language.runtime`** — `<root>/Cargo.toml` → `rust`;
+  `<root>/go.mod` → `go`; any of `pyproject.toml` / `setup.py` /
+  `setup.cfg` / `requirements*.txt` → `python`; `<root>/package.json`
+  (with a non-`none` package_manager) → `node`; a `<root>/scripts/`
+  directory containing `*.sh` and no other language marker → `bash`;
+  otherwise `unknown` (polyglot or undetected — never guess).
+  `language.version` is left EMPTY (version pins are a human choice,
+  not a filesystem signal).
+- **`canonical_commands`** — `<root>/Makefile` with a `build:` /
+  `test:` / `lint:` target → `make build` / `make test` / `make lint`
+  for those verbs. For any verb the Makefile does not cover (and for
+  all five verbs when there is no Makefile), an executable
+  `<root>/scripts/<verb>` fills it: `scripts/build` → build,
+  `scripts/test` → test, `scripts/lint` → lint, `scripts/gen` → gen,
+  `scripts/server` → dev. The Makefile target wins over the script for
+  the same verb. Verbs with neither signal stay EMPTY.
+- **`forbidden`** / **`bypass_patterns`** — NOT auto-detected. These
+  encode a project-specific lock-in posture (e.g. forbid `pip install`
+  on a uv project) that is a human judgment, not a filesystem signal.
+  They are rendered as empty lists in the draft for the human to fill.
+
+**Empty fields stay empty.** The detector never invents a value it
+could not read from a marker — an undetected verb, an unpinned
+version, an absent shell wrapper all render as `""` (or `[]` for the
+lists). This is the same discipline as the loom-vin template: leave
+keys present with empty values rather than guessing.
+
+#### Step 7b — render the draft front-matter
+
+Render the detected fingerprint into the YAML front-matter shape from
+`templates/project-constitution.md` (and validated by
+`references/project-constitution.schema.json`). Every required key is
+present; detected fields carry their value; undetected fields carry
+`""` / `[]`. Do NOT write the file yet — Step 7c confirms each field
+first.
+
+#### Step 7c — per-field interactive confirmation (one field at a time)
+
+**Invariant (loom-xcw): confirm ONE field at a time — never
+lump-sum.** Walk the front-matter fields in schema order
+(`shell.enter`, `shell.run_prefix`, `package_manager`,
+`language.runtime`, `language.version`, each `canonical_commands.*`
+verb, `forbidden`, `bypass_patterns`). For EACH field, show the
+detected value and ask the user to confirm, edit, or clear it:
+
+```
+Field `<name>`: detected `<value>` (from `<marker>`).
+Keep / edit / clear? (keep / <new value> / clear)
+```
+
+After printing each field's prompt, STOP and wait for a user-typed
+reply before moving to the next field. Do NOT batch all fields into
+one prompt and accept a single lump-sum approval — that is exactly
+the loom-xcw / loom-wxo failure mode (multiple items applied without
+an intervening user turn). This is a USER-approval gate (a
+conversational pause), distinct from the TOOL-permission gate;
+`--dangerously-skip-permissions` does NOT auto-resolve it.
+
+Test mocking surface: the `LOOM_AUDIT_PROMPT_ANSWER` env var (same
+surface as items 13/14) injects per-field answers non-interactively
+for fixtures.
+
+#### Step 7d — write the file UNSTAGED + stub the prose body
+
+After every field is confirmed, write
+`<root>/.claude/project-constitution.md`:
+
+- The confirmed YAML front-matter.
+- The Markdown prose body emitted as a **`[HUMAN AUTHOR]` TODO
+  stub** — section headers (`## Tooling choices`, `## Forbidden
+  patterns`, `## Bypass patterns`, `## Lineage`) each carrying a
+  `> [HUMAN AUTHOR] TODO: …` placeholder line. **The skill NEVER
+  authors the prose body itself** — this is the loom-d50 lesson: in
+  the loom-wxo liza_base trial the audit silently drafted+applied
+  `.claude/rules/tests.md` content (project conventions) without human
+  authorship; the constitution prose is the same class of
+  convention-encoding text and MUST stay a human-authored MISS, not an
+  agent draft. The agent fills the machine-read front-matter; the
+  human fills the prose.
+
+The file is written **UNSTAGED** — the skill does not `git add` it.
+The user reviews with `git diff`, authors the prose body, and commits
+when ready. (Same posture as the Step 3.5 AUTOFIX recipes: write to
+the working tree, leave git dirty, never commit on the user's behalf.)
+
+#### Step 7e — mirror to MemPalace + emit KG triples
+
+Mirror the captured constitution to a single drawer in the
+`<wing>/decisions` room (the resolved `--wing` from Step 1 — same
+hardcoded destination as the Step 5 audit-findings drawer):
+
+- `mempalace_add_drawer(wing=<wing>, room='decisions', title='Project
+  constitution: <project-short-name> (<YYYY-MM-DD>)', content=<the
+  confirmed front-matter + the field-by-field detection provenance>)`.
+
+Then emit KG triples for the tooling so the fingerprint is queryable
+(via `mempalace_kg_add`):
+
+- `<project> uses_shell <shell.enter>` (omit when no shell wrapper)
+- `<project> uses_package_manager <package_manager>`
+- `<project> uses_language <language.runtime>`
+
+These triples let session-startup, subagent-dispatch briefs, and the
+debugging recipes (loom-ld4 surfacing) query a project's tooling
+fingerprint without re-reading the file.
+
+#### Step 7f — re-run drift detection (idempotent)
+
+When `<root>/.claude/project-constitution.md` already exists, Step 7
+becomes a drift check rather than a fresh capture:
+
+1. Parse the captured front-matter.
+2. Re-run the Step 7a detection against the current tree.
+3. For each field where the detected value differs from the captured
+   value, surface the drift per field:
+
+   ```
+   [CONSTITUTION DRIFT] <field>
+     captured:   <value in the file>
+     detected:   <value from the current tree>
+     suggested:  confirm / skip (per-field — same one-at-a-time gate
+                 as Step 7c)
+   ```
+
+4. The drift loop reuses the Step 7c one-field-at-a-time confirmation
+   — the user confirms or skips each drifted field. Only the
+   front-matter is rewritten, and only for confirmed fields.
+
+**The prose body is NEVER overwritten on re-run.** Detection is
+read-only against the prose; the drift check rewrites front-matter
+fields the user confirms and leaves the entire Markdown body
+(including any human-authored rationale) untouched. A re-run that
+finds no front-matter drift is a no-op that does not modify the file
+at all.
 
 ## Output format (drift items)
 
