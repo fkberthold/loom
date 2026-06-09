@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# script/deploy — push this project to its run target.
+#
+# Canonical "script/ convention" stub (loom). `deploy` ships a built
+# artifact to where it runs: push an image, apply manifests, publish a
+# package, run a release pipeline. This is the command loom's
+# `workflow.json .deploy` hint (loom-0k0) surfaces at wrap-up time.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     docker build -t "$IMAGE" . && docker push "$IMAGE"
+#   # Python: python -m build && twine upload dist/*
+#   # Node:   npm publish            # or: npm run deploy
+#   # bash:   ./install.sh           # symlink-install primitives (loom's own deploy)
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "deploy: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/deploy: not implemented for this project — wire up the deploy step or mark N/A." >&2
+exit 2

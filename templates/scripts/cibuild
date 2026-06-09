@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# script/cibuild — the full CI build + test pass.
+#
+# Canonical "script/ convention" stub (loom). `cibuild` is what the CI
+# server runs: the superset of `script/test` plus integration tests, the
+# release build, coverage, and any slow checks excluded from the fast local
+# `test`. It is the single entry point CI invokes.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     go build ./... && go test -race -tags integration ./...
+#   # Python: python -m pytest --cov --cov-report=xml
+#   # Node:   npm ci && npm run build && npm test
+#   # bash:   for t in lib/tests/*.test.sh; do bash "$t" || exit 1; done
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "cibuild: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/cibuild: not implemented for this project — wire up the CI build or mark N/A." >&2
+exit 2

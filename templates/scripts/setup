@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# script/setup — make a fresh checkout ready to run.
+#
+# Canonical "script/ convention" stub (loom). `setup` installs the
+# project's own dependencies (after `script/bootstrap` has provided the
+# toolchain) and performs any first-run wiring: fetch deps, build local
+# binaries, create config files, seed a dev database. Idempotent.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     go mod download
+#   # Python: python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+#   # Node:   npm install        # or: pnpm install / yarn install
+#   # bash:   true               # nothing to install; bash projects often no-op here
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "setup: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/setup: not implemented for this project — wire up dependency install or mark N/A." >&2
+exit 2
