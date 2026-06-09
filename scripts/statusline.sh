@@ -76,6 +76,7 @@ DISPATCH=$(workflow_state_get dispatch "$CWD")
 DISPATCHED=$(workflow_state_get dispatched "$CWD")
 INLINE=$(workflow_state_get inline "$CWD")
 STAGE_SPEND=$(workflow_state_get stage_spend "$CWD")
+CONTEXT_PRESSURE=$(workflow_state_get context_pressure "$CWD")
 ACTIVITY="${ACTIVITY:-idle}"
 STAGE="${STAGE:-idle}"
 
@@ -135,5 +136,14 @@ fi
 if [ -n "$STAGE_SPEND" ] && [ "$STAGE_SPEND" != "null" ]; then
   printf ' | spend:%s' "$STAGE_SPEND"
 fi
+
+# Context-budget cue (loom-z3m.9): surface "CTX:Y" / "CTX:R" when the
+# context-budget sensor has flagged accumulated context as yellow/red.
+# Silent at green (the steady state) — the indicator only appears when
+# context is getting heavy enough to warrant a wrap-up nudge.
+case "$CONTEXT_PRESSURE" in
+  yellow) printf ' | CTX:Y' ;;
+  red)    printf ' | CTX:R' ;;
+esac
 
 printf '\n'
