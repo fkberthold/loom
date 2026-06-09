@@ -32,7 +32,15 @@ echo "$CMD" | grep -qE '\-\-dry-run' && exit 0
 # the chain itself handles staging, so the .beads/ dirty-at-fire-time check
 # would warn unnecessarily. Detect: `git commit` appears earlier in the
 # command than `git push` (separated by `&&` or `;`). See loom-0r6.
-if echo "$CMD" | grep -qE '(^|[;&|])[[:space:]]*git[[:space:]]+commit\b.*(&&|;)[[:space:]]*.*git[[:space:]]+push\b'; then
+#
+# A newline is also a shell command separator. The canonical session-close
+# block is typically batched as a MULTILINE Bash command (one command per
+# line) — but `grep` is line-oriented, so the single-line regex below can
+# never see `git commit` and `git push` together when they sit on separate
+# lines. Flatten newlines to `;` first so a multiline chain is matched
+# identically to a `;`-separated one. See loom-phb.
+if printf '%s' "$CMD" | tr '\n' ';' \
+    | grep -qE '(^|[;&|])[[:space:]]*git[[:space:]]+commit\b.*(&&|;)[[:space:]]*.*git[[:space:]]+push\b'; then
   exit 0
 fi
 
