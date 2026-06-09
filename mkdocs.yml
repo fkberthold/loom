@@ -133,8 +133,10 @@ nav:
           - bd-state integrity: reference/bd-state-integrity.md
           - bd prime wrapper: reference/bd-prime-wrapper.md
           - bd remember guest guard: reference/bd-remember-guest-guard.md
+          - loom-print-deploy-hint: reference/loom-print-deploy-hint.md
           - loom-subagent-lean: reference/loom-subagent-lean.md
       - Path-scoped rules: reference/path-scoped-rules.md
+      - workflow.json schema: reference/workflow-json.md
       - Project constitution: reference/project-constitution.md
       - bd CLI: reference/bd-cli.md
       - MemPalace MCP: reference/mempalace-mcp.md
