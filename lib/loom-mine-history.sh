@@ -417,7 +417,11 @@ loom_mine_history() {
   done
 
   local gated_count=0
-  [ -f "$survivors" ] && gated_count=$(grep -c . "$survivors" 2>/dev/null || echo 0)
+  # `grep -c` ALWAYS prints a count (0 on no-match) and exits 1 when
+  # zero — so `|| echo 0` would APPEND a second 0 (gated_count="0\n0",
+  # loom-6iy). Drop the `|| echo 0`; default the file-missing case via
+  # ${gated_count:-0}. Mirrors the loom-bn7.2 n_clusters/n_arcs fix.
+  [ -f "$survivors" ] && { gated_count=$(grep -c . "$survivors" 2>/dev/null); gated_count=${gated_count:-0}; }
 
   # Apply --max-units cap to survivors fed to the LLM pass.
   if [ -n "$max_units" ] && [ "$max_units" -ge 0 ] 2>/dev/null; then
@@ -425,7 +429,7 @@ loom_mine_history() {
     mv "${survivors}.capped" "$survivors"
     head -n "$max_units" "$candidates_jsonl" > "${candidates_jsonl}.capped" 2>/dev/null
     mv "${candidates_jsonl}.capped" "$candidates_jsonl"
-    gated_count=$(grep -c . "$survivors" 2>/dev/null || echo 0)
+    gated_count=$(grep -c . "$survivors" 2>/dev/null); gated_count=${gated_count:-0}
   fi
 
   # Write candidates.jsonl if --out given.
