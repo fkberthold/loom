@@ -61,9 +61,30 @@ Then continue with the user-confirmation flow:
 ## 2. Preflight checks
 
 - `bd preflight` for PR-readiness gates (lint, stale, orphans).
-- Run the project's full test suite with the standard command
-  (e.g., `python3 -m pytest -q`) and report exact pass/skip/fail
-  counts. Block the wrap-up if any test fails.
+- Run the project's full test suite via the **script/ convention
+  resolver** — do NOT hardcode a single project's test runner. Source
+  `lib/loom-script-resolve.sh` and call `loom_resolve_command test`,
+  which resolves `script/test` → `canonical_commands.test`
+  (`.claude/project-constitution.md`) → warn, running whatever it
+  resolves and propagating that command's exit code:
+
+  ```bash
+  # Resolve + run the project's test command (script/test ->
+  # canonical_commands.test -> warn). The resolver RUNS the resolved
+  # command and surfaces its exit code verbatim.
+  source ~/.claude/lib/loom-script-resolve.sh 2>/dev/null \
+    || source lib/loom-script-resolve.sh
+  loom_resolve_command test
+  ```
+
+  Report exact pass/skip/fail counts from the resolved command and
+  **block the wrap-up if any test fails**. Rung 3 of the resolver is
+  the no-false-green guard: when NO test command resolves (no
+  `script/test`, no `canonical_commands.test`), `loom_resolve_command`
+  **warns and returns non-zero — it never reports green**. Treat that
+  warn as a block too: a missing test command is a refusal, not a pass.
+  Do not substitute a hardcoded `pytest`/`go test`/etc. invocation —
+  the resolved command IS the project's canonical test command.
 - `git status` to confirm working tree is clean.
 
 ## 3. Draft decision drawer + KG triples (DEFAULT capture fan-out)
