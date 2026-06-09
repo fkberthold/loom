@@ -93,6 +93,39 @@ norm_path() {
   printf '%s' "$p"
 }
 
+# Decide whether a normalized token actually looks like a repo path
+# (loom-ytjr). Placeholder-prose Files: lines — e.g.
+# "Files: (investigate — likely a loom convention in docs or CLAUDE.md,
+# or upstream)" — split on commas into prose FRAGMENTS that are not
+# paths. Treating them as paths makes the bead look like it has a
+# disjoint footprint (no token exact-matches a real path), so the
+# detector falsely proposes it as dispatchable when its footprint is in
+# fact UNKNOWN. Drop any token that is NOT path-shaped; a bead whose
+# Files: line yields ZERO path-shaped tokens is then handled upstream as
+# "no real Files: declared" (excluded, conservative).
+#
+# A token IS a path iff it is non-empty AND has no internal whitespace
+# AND is not a leftover parenthetical, and EITHER contains a path
+# separator ('/') OR is a dotfile (leading dot, e.g. .gitattributes) OR
+# is an extension-bearing filename (non-empty base AND non-empty ext,
+# e.g. CLAUDE.md / install.sh / mkdocs.yml — these survive despite
+# having no slash). A bare word like "investigate" / "upstream" (no
+# slash, no extension) is NOT a path and is dropped.
+is_path() {
+  local p="$1"
+  [ -n "$p" ] || return 1
+  case "$p" in *[[:space:]]*) return 1 ;; esac   # whitespace → prose, not a path
+  case "$p" in '('*) return 1 ;; esac            # leftover open-paren → not a path
+  case "$p" in */*) return 0 ;; esac             # has a path separator → path
+  case "$p" in .?*) return 0 ;; esac             # dotfile (.gitattributes) → path
+  # no slash: extension-bearing filename → path (require non-empty base
+  # AND non-empty extension; rejects bare words and "foo.")
+  case "$p" in
+    *.*) [ -n "${p%.*}" ] && [ -n "${p##*.}" ] && return 0 ;;
+  esac
+  return 1
+}
+
 candidates=()
 for id in $ids; do
   show_json="$(bd show "$id" --json 2>/dev/null)"
@@ -118,18 +151,28 @@ for id in $ids; do
     HASFILES["$id"]=0
     FILES["$id"]=""
   else
-    HASFILES["$id"]=1
-    # strip the "Files:" label, split on commas, normalize each.
+    # strip the "Files:" label, split on commas, normalize each, keep
+    # only path-shaped tokens (loom-ytjr: drop placeholder-prose).
     rest="$(printf '%s' "$files_line" | sed -E 's/^[[:space:]]*[Ff]iles:[[:space:]]*//')"
     paths=""
     local_oldifs="$IFS"
     IFS=','
     for raw in $rest; do
       np="$(norm_path "$raw")"
-      [ -n "$np" ] && paths="$paths$np"$'\n'
+      is_path "$np" && paths="$paths$np"$'\n'
     done
     IFS="$local_oldifs"
-    FILES["$id"]="$paths"
+    if [ -z "$paths" ]; then
+      # A Files: line that yields ZERO real path tokens (placeholder
+      # prose only) is treated as "no real Files: declared" — footprint
+      # is UNKNOWN, so the bead is EXCLUDED (conservative), NOT proposed
+      # as a disjoint footprint.
+      HASFILES["$id"]=0
+      FILES["$id"]=""
+    else
+      HASFILES["$id"]=1
+      FILES["$id"]="$paths"
+    fi
   fi
   candidates+=("$id")
 done

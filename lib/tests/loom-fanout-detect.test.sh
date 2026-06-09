@@ -242,6 +242,103 @@ nlines=$(printf '%s\n' "$out" | grep -c 'loom-' || true)
 if [ "$nlines" -eq 0 ]; then pass "single ready bead → no wave proposed"; else fail "single bead wrongly proposed as wave" "out=$out"; fi
 rm -rf "$FDIR"
 
+# =====================================================================
+# (f) placeholder-prose Files: line → token-dropped → EXCLUDED.
+#     (loom-ytjr) A bead whose Files: line is a parenthetical prose
+#     placeholder (e.g. "(investigate — likely a loom convention in
+#     docs or CLAUDE.md, or upstream)") must NOT be treated as having
+#     a disjoint footprint. The comma-split yields prose fragments,
+#     not paths; none look like a repo path, so the bead is treated
+#     as "no real Files: declared" → EXCLUDED (conservative), exactly
+#     like a bead with no Files: line at all.
+# =====================================================================
+echo "==> (f) placeholder-prose Files: line → excluded (footprint unknown)"
+FDIR=$(mk_fixture <<'F'
+loom-real||scripts/x.sh, lib/tests/x.test.sh
+loom-ph|(investigate — likely a loom convention/wrapper in docs or CLAUDE.md, or upstream)
+F
+)
+out=$(run_detect "$STUB" "$FDIR")
+# loom-ph carries ONLY placeholder prose — it must never be proposed.
+if printf '%s\n' "$out" | grep -qE '(^| )loom-ph( |$)'; then
+  fail "placeholder-prose bead loom-ph was proposed (footprint is UNKNOWN, must be excluded)" "out=$out"
+else
+  pass "loom-ph (placeholder-prose Files:) excluded — footprint treated as unknown"
+fi
+# And since loom-ph is excluded, only one real-Files: bead remains —
+# no wave of size >=2 is possible, so stdout must be empty.
+nlines=$(printf '%s\n' "$out" | grep -c 'loom-' || true)
+if [ "$nlines" -eq 0 ]; then
+  pass "no wave proposed (loom-real alone, loom-ph excluded → size <2)"
+else
+  fail "expected no wave (placeholder excluded leaves a lone bead), got $nlines line(s)" "out=$out"
+fi
+rm -rf "$FDIR"
+
+# =====================================================================
+# (g) real disjoint Files: still proposed alongside a placeholder bead.
+#     (loom-ytjr) The hardening must NOT regress real waves: two beads
+#     with genuine disjoint Files: still form a wave even when a third
+#     bead in the queue carries a placeholder-prose Files: line. Also
+#     confirms dotted-no-slash paths (CLAUDE.md / install.sh style)
+#     SURVIVE the path filter.
+# =====================================================================
+echo "==> (g) real disjoint waves survive; dotted-no-slash paths survive"
+FDIR=$(mk_fixture <<'F'
+loom-r1||CLAUDE.md, scripts/loom-fanout-detect
+loom-r2||install.sh, mkdocs.yml
+loom-bad|(investigate — likely a loom convention or upstream request)
+F
+)
+out=$(run_detect "$STUB" "$FDIR")
+# loom-r1 + loom-r2 are real + disjoint → MUST be proposed together.
+if printf '%s\n' "$out" | grep -qE 'loom-r1.*loom-r2|loom-r2.*loom-r1'; then
+  pass "real disjoint beads loom-r1 + loom-r2 still proposed as a wave"
+else
+  fail "real disjoint wave regressed — loom-r1 + loom-r2 not grouped" "out=$out"
+fi
+# CLAUDE.md / install.sh / mkdocs.yml are dotted-no-slash real paths;
+# their survival is what makes loom-r1/loom-r2 eligible at all. The
+# placeholder bead must NOT appear.
+if printf '%s\n' "$out" | grep -qE '(^| )loom-bad( |$)'; then
+  fail "placeholder bead loom-bad was proposed (must be excluded)" "out=$out"
+else
+  pass "loom-bad (placeholder) excluded; dotted-no-slash paths survived the filter"
+fi
+rm -rf "$FDIR"
+
+# =====================================================================
+# (h) MIXED Files: line — one real path + prose fragments → the real
+#     path SURVIVES, prose dropped; the bead keeps its (partial)
+#     footprint and a genuine collision on the real path is still
+#     detected. (loom-ytjr) Guards against over-dropping: a line that
+#     yields at least one real path is NOT treated as "no Files:".
+# =====================================================================
+echo "==> (h) mixed real+prose Files: → real path survives, collision still caught"
+FDIR=$(mk_fixture <<'F'
+loom-mix|/scripts/shared.sh, or maybe upstream
+loom-col||scripts/shared.sh, lib/tests/col.test.sh
+F
+)
+out=$(run_detect "$STUB" "$FDIR")
+# loom-mix declares scripts/shared.sh (real, leading slash stripped by
+# norm? no — leading slash is part of the token). Use a real shared path.
+rm -rf "$FDIR"
+FDIR=$(mk_fixture <<'F'
+loom-mix|scripts/shared.sh, or maybe upstream prose
+loom-col||scripts/shared.sh, lib/tests/col.test.sh
+F
+)
+out=$(run_detect "$STUB" "$FDIR")
+# loom-mix keeps scripts/shared.sh (prose dropped). It collides with
+# loom-col on scripts/shared.sh → they must NOT be grouped.
+if printf '%s\n' "$out" | grep -qE 'loom-mix.*loom-col|loom-col.*loom-mix'; then
+  fail "mixed-line bead lost its real path → false disjoint grouping" "out=$out"
+else
+  pass "mixed real+prose Files: keeps real path → collision on scripts/shared.sh still caught"
+fi
+rm -rf "$FDIR"
+
 rm -rf "$STUB"
 
 # =====================================================================
