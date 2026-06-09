@@ -19,6 +19,11 @@
 #     "stage_spend": "<tally>" | null,  # loom-0ahj.3 per-stage net token
 #                                       # spend, e.g. "test-author:30705,
 #                                       # implementer:81810,verify:18300"
+#     "context_pressure": "green" | "yellow" | "red" | null,
+#                                       # loom-z3m.9 — accumulated-context
+#                                       # budget tier read off the live
+#                                       # transcript usage high-water mark
+#                                       # by hooks/context-budget-sensor.sh
 #     "updated":  "ISO-8601 UTC"
 #   }
 #
@@ -183,6 +188,19 @@ workflow_state_set() {
             jq_args+=(--arg stage_spend "$v")
           fi
           ;;
+        context_pressure)
+          # Accumulated-context budget tier (loom-z3m.9). Latest-write-wins
+          # string: green | yellow | red. Empty/null clears it. No counter
+          # side-effect (like stage_spend). Written by
+          # hooks/context-budget-sensor.sh off the live transcript usage
+          # high-water mark; rendered by statusline.sh as CTX:Y / CTX:R.
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            jq_filter="$jq_filter | .context_pressure = null"
+          else
+            jq_filter="$jq_filter | .context_pressure = \$context_pressure"
+            jq_args+=(--arg context_pressure "$v")
+          fi
+          ;;
         *) ;;
       esac
     done
@@ -203,6 +221,8 @@ workflow_state_set() {
     cur_inline=$(workflow_state_get inline "$start_dir")
     local cur_stage_spend
     cur_stage_spend=$(workflow_state_get stage_spend "$start_dir")
+    local cur_context_pressure
+    cur_context_pressure=$(workflow_state_get context_pressure "$start_dir")
     [ -z "$cur_v" ] && cur_v=1
     [ -z "$cur_mode" ] && cur_mode=full
     [ -z "$cur_activity" ] && cur_activity=idle
@@ -250,6 +270,15 @@ workflow_state_set() {
             cur_stage_spend="$v"
           fi
           ;;
+        context_pressure)
+          # See jq branch above (loom-z3m.9). green | yellow | red.
+          # Empty/null clears it.
+          if [ -z "$v" ] || [ "$v" = "null" ]; then
+            cur_context_pressure=""
+          else
+            cur_context_pressure="$v"
+          fi
+          ;;
       esac
     done
 
@@ -274,9 +303,16 @@ workflow_state_set() {
       stage_spend_json="\"$cur_stage_spend\""
     fi
 
-    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"stage_spend":%s,"updated":"%s"}\n' \
+    local context_pressure_json
+    if [ -z "$cur_context_pressure" ] || [ "$cur_context_pressure" = "null" ]; then
+      context_pressure_json=null
+    else
+      context_pressure_json="\"$cur_context_pressure\""
+    fi
+
+    printf '{"v":%s,"mode":"%s","activity":"%s","bead":%s,"stage":"%s","parallel_candidates":%s,"dispatch":%s,"dispatched":%s,"inline":%s,"stage_spend":%s,"context_pressure":%s,"updated":"%s"}\n' \
       "$cur_v" "$cur_mode" "$cur_activity" "$bead_json" "$cur_stage" "$cur_pc" \
-      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$stage_spend_json" "$now" \
+      "$dispatch_json" "$cur_dispatched" "$cur_inline" "$stage_spend_json" "$context_pressure_json" "$now" \
       > "$path.tmp.$$"
     mv "$path.tmp.$$" "$path"
   fi
