@@ -713,7 +713,7 @@ to address the orthogonal "cross-tracker dependency awareness" gap.
 
 ### Step 3 — docs drift detection (unless `--check=onboarding`)
 
-Run the five sub-checks below in order. Each produces zero or more
+Run the six sub-checks below in order. Each produces zero or more
 report lines tagged `[DOC FIX]`, with three fields:
 
 - **what doc says** — the verbatim claim (or path) the doc makes
@@ -762,8 +762,9 @@ If neither `<root>/docs/` nor any of `<root>/README.{md,rst,txt}`
 exists, emit `## Docs drift detection` with a single line `no
 in-scope doc files at <root> — skipping docs drift detection` and
 proceed to Step 4. If `<root>/docs/.no-diataxis` is present, emit a
-`[DOC FIX][INFO] diataxis-opt-out` note explaining that Check 4 is
-skipped, then run Checks 1, 2, 3, and 5 normally.
+`[DOC FIX][INFO] diataxis-opt-out` note explaining that Checks 4 and
+6 are skipped (both assume the Diataxis/mkdocs setup the opt-out
+marker disclaims), then run Checks 1, 2, 3, and 5 normally.
 
 #### Check 1 — Cardinality
 
@@ -1000,6 +1001,53 @@ unstructured, so the patterns are fuzzy. If the project uses a
 convention like `> Drawer: <wing>/<slug>` or footnote-style
 citations, prefer those structured patterns and skip free-text
 matching.
+
+#### Check 6 — mkdocs markdown_extensions drift
+
+**GATE:** fire ONLY when `<root>/mkdocs.yml` exists AND
+`<root>/docs/.no-diataxis` is absent. A project that doesn't use
+mkdocs has no `mkdocs.yml` and nothing to check — when
+`<root>/mkdocs.yml` is absent, this check is silently skipped (no
+line emitted). Under the `.no-diataxis` opt-out it is skipped too
+(Check 6 assumes the Diataxis/mkdocs setup, same as Check 4).
+
+This check detects a project's own site `mkdocs.yml` silently
+lagging the diataxis template's `markdown_extensions` — the
+loom-be3t / loom-p4tf "instance silently lags the diataxis
+template" class. It is invisible to `mkdocs build --strict` (a
+stray icon shortcode like `:material-school:` is valid markdown —
+it just renders as literal text, exit 0) AND to the serving check
+(the page still returns HTTP 200). A dropped extension surfaces only
+as a human eyeballing the rendered page; this check catches it at
+the source-text level before any build.
+
+Locate loom's template via the loom-install root — the SAME
+`<loom>` root mechanism Check 2 uses for `<loom>/lib/bd-id-extract.sh`
+— at `<loom>/templates/diataxis/mkdocs.yml.template`.
+
+Compare extension NAME sets (name-altitude, NOT full per-extension
+config blocks): the NAME is the token in the `markdown_extensions`
+list after `- `, up to a trailing `:` or EOL, trimmed (`- admonition`
+bare, `- toc:` with sub-config, `- pymdownx.emoji:` with sub-config).
+Comparing names — not config — means a project legitimately tuning a
+per-extension sub-config block never false-positives, while a WHOLE
+extension going missing (the be3t bug) is still caught.
+
+For every template extension NAME NOT present in `<root>/mkdocs.yml`'s
+`markdown_extensions` (template name-set ⊄ instance name-set), emit
+one line:
+
+```
+[DOC FIX] mkdocs-extension-drift
+  doc:        <root>/mkdocs.yml markdown_extensions
+  reality:    diataxis template declares `<ext>` but the instance does not
+  suggested:  add `<ext>` to <root>/mkdocs.yml markdown_extensions (sync from templates/diataxis/mkdocs.yml.template)
+```
+
+Do NOT tag these `[TRIVIAL]`: adding an extension block — especially
+one with sub-config like `pymdownx.emoji`'s `emoji_index` /
+`emoji_generator` lines — is not a safe one-numeral substitution, so
+it stays in the per-item human-approval queue (Step 4).
 
 ### Step 3.5 — apply tagged items (only when --apply-trivial / --apply-onboarding set)
 
