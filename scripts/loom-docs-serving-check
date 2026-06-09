@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# loom-docs-serving-check — wrap-up gate that verifies a Diataxis docs
+# site ACTUALLY SERVES, not merely that the build is green.
+#
+# loom-7q1g. Motivated by a live silent-green outage (2026-06-08):
+# every Deploy-docs run succeeded AND gh-pages was a valid site, yet
+# https://fkberthold.github.io/loom/ 404'd for an unknown period
+# because GitHub Pages had been DISABLED. Neither `mkdocs build
+# --strict` NOR session-startup step 1c (which only flags RED
+# Deploy-docs runs) caught it — both verify BUILD, not SERVING.
+# Root-cause finding: drawer drawer_loom_decisions_c3994a92d4bfb6d5a0e41981
+# (Finding A). Composes with session-startup step 1c (red-run detection).
+#
+# THE INVARIANT (RED spec):
+#   the docs-deploy gate verifies actual SERVING (HTTP 200 / GitHub-
+#   Pages status=built), not merely mkdocs build success, and only
+#   fires on full-Diataxis projects (docs/ + mkdocs.yml present, AND no
+#   docs/.no-diataxis marker); INFO/nudge posture (never hard-blocks).
+#
+# THREE LAYERS (all INFO/nudge — see Exit below):
+#   Layer 1: `mkdocs build --strict`            — build integrity.
+#   Layer 2: latest Deploy-docs GitHub Actions  — conclusion=success.
+#            run (via `gh run list`).
+#   Layer 3 (NEW — catches dead-Pages/silent-green):
+#            the site ACTUALLY SERVES. `curl -sI <site_url>` → HTTP 200,
+#            OR (curl unavailable / inconclusive) the GitHub Pages API
+#            (`gh api repos/{owner}/{repo}/pages`) reports status=built
+#            and is not 404. <site_url> is derived from mkdocs.yml's
+#            `site_url`, or accepted as $1.
+#
+# FULL-DIATAXIS GATING. Only runs when docs/ AND mkdocs.yml are present
+# AND there is NO docs/.no-diataxis marker; otherwise skips cleanly.
+#
+# Exit: ALWAYS 0. This is a DETECTOR/nudge, not a gate — it mirrors
+#   loom-fanout-detect and the nudge-not-block posture (loom-yb5):
+#   blocks become bypass-magnets, and a wrap-up must never be hard-
+#   failed by a serving probe that may be offline. Findings go to
+#   stdout as INFO/WARN lines; the caller (wrap-up / session-close)
+#   reads them and decides.
+#
+# Usage:
+#   scripts/loom-docs-serving-check                 # derive site_url from mkdocs.yml
+#   scripts/loom-docs-serving-check <site_url>      # explicit site URL
+#
+# Injection points (for tests + overrides):
+#   MKDOCS_BIN=<path>   override the mkdocs binary (Layer 1).
+#   curl / gh are resolved from PATH and stubbable in tests.
+
+set -uo pipefail
+
+info() { printf 'loom-docs-serving-check: %s\n' "$*"; }
+warn() { printf 'loom-docs-serving-check: WARN — %s\n' "$*"; }
+
+# ---------------------------------------------------------------------------
+# 0. Full-Diataxis gating
+# ---------------------------------------------------------------------------
+# Full-Diataxis == docs/ dir + mkdocs.yml present AND no opt-out marker.
+if [ ! -f mkdocs.yml ] || [ ! -d docs ]; then
+  info "skip — not a full-Diataxis project (docs/ + mkdocs.yml required)"
+  exit 0
+fi
+if [ -f docs/.no-diataxis ]; then
+  info "skip — docs/.no-diataxis opt-out marker present"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Resolve site_url: explicit arg wins; else parse mkdocs.yml.
+# ---------------------------------------------------------------------------
+site_url="${1:-}"
+if [ -z "$site_url" ]; then
+  # `site_url: https://...` — tolerate quotes + surrounding whitespace.
+  site_url="$(grep -iE '^[[:space:]]*site_url:' mkdocs.yml 2>/dev/null | head -1 \
+    | sed -E 's/^[[:space:]]*site_url:[[:space:]]*//; s/^["'\'']//; s/["'\'']?[[:space:]]*$//')"
+fi
+
+# ---------------------------------------------------------------------------
+# Layer 1 — mkdocs build --strict (build integrity)
+# ---------------------------------------------------------------------------
+MKDOCS_BIN="${MKDOCS_BIN:-mkdocs}"
+if command -v "$MKDOCS_BIN" >/dev/null 2>&1; then
+  if build_out="$("$MKDOCS_BIN" build --strict 2>&1)"; then
+    info "Layer 1 (build): mkdocs build --strict OK"
+  else
+    warn "Layer 1 (build): mkdocs build --strict FAILED — site will not deploy correctly"
+    printf '%s\n' "$build_out" | grep -E 'WARNING|ERROR|Aborted' | head -3 | sed 's/^/    /'
+  fi
+else
+  info "Layer 1 (build): mkdocs not installed — skipped"
+fi
+
+# ---------------------------------------------------------------------------
+# Layer 2 — latest Deploy-docs GitHub Actions run conclusion=success
+# ---------------------------------------------------------------------------
+if command -v gh >/dev/null 2>&1; then
+  runs_json="$(gh run list --limit 10 \
+    --json name,conclusion,status,headSha,databaseId 2>/dev/null)"
+  if [ -n "$runs_json" ]; then
+    if command -v jq >/dev/null 2>&1; then
+      deploy_concl="$(printf '%s' "$runs_json" | jq -r '
+        [ .[] | select((.name // "") | test("[Dd]eploy.*[Dd]ocs|[Dd]ocs")) ]
+        | (.[0].conclusion // "unknown")' 2>/dev/null)"
+    else
+      # No jq: best-effort grep for a docs run conclusion.
+      deploy_concl="$(printf '%s' "$runs_json" | grep -oiE '"conclusion":"[a-z]*"' \
+        | head -1 | sed -E 's/.*:"([a-z]*)"/\1/')"
+      [ -n "$deploy_concl" ] || deploy_concl="unknown"
+    fi
+    case "$deploy_concl" in
+      success) info "Layer 2 (CI): latest Deploy-docs run conclusion=success" ;;
+      unknown|null|"") info "Layer 2 (CI): no Deploy-docs run found — skipped" ;;
+      *) warn "Layer 2 (CI): latest Deploy-docs run conclusion=$deploy_concl" ;;
+    esac
+  else
+    info "Layer 2 (CI): gh returned no runs (unauth / no network) — skipped"
+  fi
+else
+  info "Layer 2 (CI): gh not installed — skipped"
+fi
+
+# ---------------------------------------------------------------------------
+# Layer 3 (NEW) — the site ACTUALLY SERVES
+# ---------------------------------------------------------------------------
+# Strategy:
+#   3a. If curl is present AND we have a site_url, HEAD the URL and read
+#       the HTTP status. 200 → serving; 404 → dead Pages (flag); other →
+#       inconclusive, fall through to the Pages API.
+#   3b. If curl is absent/inconclusive, ask the GitHub Pages API via gh:
+#       status=built and not 404 → serving; 404 → Pages disabled (flag).
+#   3c. If BOTH curl and gh are unavailable (or we cannot probe), skip
+#       Layer 3 with a note. Always exit 0 regardless.
+serving_resolved=0
+
+probe_curl() {
+  # Echoes the integer HTTP status code on stdout, or nothing if curl
+  # produced no parseable status. Uses -sI (HEAD) and follows redirects
+  # (GitHub Pages 301→200 for the canonical trailing-slash URL).
+  local url="$1" headers code
+  headers="$(curl -sIL --max-time 15 "$url" 2>/dev/null)" || return 1
+  # Last status line wins (after any redirects).
+  code="$(printf '%s\n' "$headers" \
+    | grep -oiE '^HTTP/[0-9.]+ [0-9]{3}' | tail -1 \
+    | grep -oE '[0-9]{3}$')"
+  [ -n "$code" ] && printf '%s' "$code"
+}
+
+probe_pages_api() {
+  # Echoes the Pages `status` value, or "404" if the API 404s, or
+  # nothing if gh/jq unavailable or the call failed otherwise.
+  local owner_repo="$1" out
+  if out="$(gh api "repos/$owner_repo/pages" 2>/dev/null)"; then
+    if command -v jq >/dev/null 2>&1; then
+      printf '%s' "$out" | jq -r '.status // "unknown"' 2>/dev/null
+    else
+      printf '%s' "$out" | grep -oiE '"status":"[a-z]*"' | head -1 \
+        | sed -E 's/.*:"([a-z]*)"/\1/'
+    fi
+  else
+    # gh exited non-zero — most commonly a 404 (Pages disabled).
+    printf '404'
+  fi
+}
+
+derive_owner_repo() {
+  # From mkdocs.yml repo_url (https://github.com/<owner>/<repo>) or the
+  # git remote. Echoes "owner/repo" or nothing.
+  local r
+  r="$(grep -iE '^[[:space:]]*repo_url:' mkdocs.yml 2>/dev/null | head -1 \
+    | sed -E 's#.*github\.com/##; s#/?[[:space:]]*$##; s#\.git$##')"
+  if [ -z "$r" ] && command -v git >/dev/null 2>&1; then
+    r="$(git config --get remote.origin.url 2>/dev/null \
+      | sed -E 's#.*github\.com[:/]##; s#\.git$##')"
+  fi
+  [ -n "$r" ] && printf '%s' "$r"
+}
+
+if [ -z "$site_url" ]; then
+  info "Layer 3 (serving): no site_url (mkdocs.yml site_url unset, no arg) — skipped"
+elif command -v curl >/dev/null 2>&1; then
+  code="$(probe_curl "$site_url")"
+  case "$code" in
+    200) info "Layer 3 (serving): $site_url → HTTP 200 — SERVING"; serving_resolved=1 ;;
+    404) warn "Layer 3 (serving): $site_url → HTTP 404 — site DOES NOT SERVE (dead Pages / silent-green). Check that GitHub Pages is ENABLED."; serving_resolved=1 ;;
+    "") : ;;  # no parseable status — fall through to Pages API
+    *)  warn "Layer 3 (serving): $site_url → HTTP $code — not a clean 200, verify serving"; serving_resolved=1 ;;
+  esac
+fi
+
+# 3b. Pages-API fallback when curl was absent or inconclusive.
+if [ "$serving_resolved" = "0" ]; then
+  if command -v gh >/dev/null 2>&1; then
+    owner_repo="$(derive_owner_repo)"
+    if [ -n "$owner_repo" ]; then
+      pages_status="$(probe_pages_api "$owner_repo")"
+      case "$pages_status" in
+        built) info "Layer 3 (serving): GitHub Pages API status=built ($owner_repo) — SERVING"; serving_resolved=1 ;;
+        404)   warn "Layer 3 (serving): GitHub Pages API 404 for $owner_repo — Pages appears DISABLED (silent-green risk). Enable Pages in repo settings."; serving_resolved=1 ;;
+        ""|unknown|null) : ;;
+        *)     warn "Layer 3 (serving): GitHub Pages API status=$pages_status ($owner_repo) — not 'built', verify serving"; serving_resolved=1 ;;
+      esac
+    fi
+  fi
+fi
+
+# 3c. Could not probe at all.
+if [ "$serving_resolved" = "0" ]; then
+  if ! command -v curl >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
+    info "Layer 3 (serving): curl AND gh both unavailable (offline) — serving check skipped"
+  else
+    info "Layer 3 (serving): could not verify serving (network/API unavailable) — skipped"
+  fi
+fi
+
+exit 0
