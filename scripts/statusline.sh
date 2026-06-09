@@ -75,6 +75,7 @@ PAR=$(workflow_state_get parallel_candidates "$CWD")
 DISPATCH=$(workflow_state_get dispatch "$CWD")
 DISPATCHED=$(workflow_state_get dispatched "$CWD")
 INLINE=$(workflow_state_get inline "$CWD")
+STAGE_SPEND=$(workflow_state_get stage_spend "$CWD")
 ACTIVITY="${ACTIVITY:-idle}"
 STAGE="${STAGE:-idle}"
 
@@ -126,6 +127,13 @@ if [ -n "$DISPATCH" ] && [ "$DISPATCH" != "null" ]; then
 fi
 if [ "$DISPATCHED" != "0" ] || [ "$INLINE" != "0" ]; then
   printf ' | inline:%s/dispatched:%s' "$INLINE" "$DISPATCHED"
+fi
+
+# Per-stage spend cue (loom-0ahj.3): surface the compact net-spend tally
+# (e.g. "spend:test-author:30705,implementer:81810") when stage_spend is
+# set. Silent otherwise.
+if [ -n "$STAGE_SPEND" ] && [ "$STAGE_SPEND" != "null" ]; then
+  printf ' | spend:%s' "$STAGE_SPEND"
 fi
 
 printf '\n'
