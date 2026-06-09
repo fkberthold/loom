@@ -189,10 +189,60 @@ definition.
 
 ---
 
+## Dispatch mode — `run_in_background: true` is the DEFAULT (loom-li8h)
+
+Dispatch every agent in this pipeline with **`run_in_background: true`
+by DEFAULT**. The test-author (Step 2), the implementer (Step 3), and
+the optional verifier (Step 4) are all background dispatches unless the
+exception below applies.
+
+**Rationale — dispatch-v2 lean-central.** A foreground dispatch holds
+central's turn idle until the agent returns; central sits and waits,
+doing nothing, which directly contradicts the lean-central goal this
+skill exists to serve. With `run_in_background: true`, central
+**yields the turn** the moment it dispatches and **resumes on the
+agent's completion event** — free meanwhile to converse with the user,
+explain in-flight decisions, pre-stage the next bead, or revise the
+in-flight contract (exactly the "Allowed while the pipeline runs" list
+in `bead-lifecycle-shell`). Backgrounding is what makes
+"central writes nothing in the middle" also mean "central is not
+*blocked* during the middle."
+
+**Foreground is the explicit EXCEPTION**, reserved for the narrow case
+where **the next step is immediate integration with nothing else
+interleavable** — e.g. a single short dispatch whose return is the only
+thing central is waiting on and which it will merge + close the instant
+it lands, with no conversation, planning, or staging to fill the gap.
+If anything else could usefully happen while the agent runs, background
+it.
+
+### Concurrency caution — never two full-suite loops in one repo at once
+
+Backgrounding makes it *easy* to have multiple agents in flight; that
+is the point. But there is one hard concurrency rule: **never run two
+full-suite loops in the same repo at the same time.** Two suite runs
+racing in one working tree contend on shared git/bd state and produce
+nonsense results.
+
+This is not hypothetical. During the loom-fx9m close detour
+(2026-06-08), a foreground-wait combined with the harness
+auto-backgrounding a long-running loop produced **two suite runs racing
+in one repo**. When the duplicate suite task was `TaskStop`'d, it left
+**orphan `bd-post-rewrite` child processes** behind — `TaskStop` reaps
+the task it targets but **may not reap that task's grandchildren**, so
+the orphaned children kept racing on git/bd state and yielded a **false
+`63/2` suite result**. The lesson: one suite loop per repo at a time,
+and after a `TaskStop` confirm no orphan `bd-post-rewrite` (or other
+grandchild) processes survived before trusting any suite number.
+
+---
+
 ## Central's sequence
 
 Central runs these steps. Central **writes nothing** between step 1
-and step 5 — every test/code edit happens inside a subagent.
+and step 5 — every test/code edit happens inside a subagent (and, per
+the Dispatch-mode section above, dispatches each with
+`run_in_background: true` by default so the turn is never held idle).
 
 ### Step 1 — No shared worktree to set up
 
@@ -396,6 +446,10 @@ stop-and-report.
 
 - **DO** keep central orchestration-only through the middle — central
   writes nothing.
+- **DO** dispatch each agent with **`run_in_background: true` by
+  default** (lean-central: central yields the turn and resumes on the
+  completion event); reserve foreground for the narrow
+  immediate-integration exception (see the Dispatch-mode section).
 - **DO** give each agent its OWN `isolation: "worktree"`; relay the
   test-author's verbatim content to the implementer over the
   content-bridge (or use the path-capture fallback for a large test).
@@ -417,4 +471,8 @@ stop-and-report.
   test-author — that inverts the ceiling rule. And **don't** bake a
   tier into any agent definition; tier is per-dispatch, definitions
   stay `model:inherit`.
+- **DON'T** run two full-suite loops in the same repo at once — they
+  race on git/bd state. After a `TaskStop`, confirm no orphan
+  `bd-post-rewrite` grandchild processes survived before trusting any
+  suite number (the loom-fx9m false `63/2` result).
 - **DON'T** dump session history into a brief.

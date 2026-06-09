@@ -102,6 +102,24 @@ slash commands.
   lines AND touches a single non-test file AND adds no new test. See
   the "Dispatch discipline" section of `bead-lifecycle-shell` for the
   full threshold + the `workflow-state` `dispatch` field recording.
+- **Background dispatch is the DEFAULT (loom-li8h).** When dispatching
+  a worker (via `Agent` or `/dispatch-middle`), use
+  **`run_in_background: true` by default**. Rationale is dispatch-v2
+  lean-central: a foreground dispatch holds central's turn idle until
+  the worker returns (central sits and waits), whereas background
+  dispatch lets central **yield the turn** and **resume on the
+  worker's completion event** — free meanwhile to converse, plan,
+  pre-stage the next bead, or revise the in-flight contract.
+  **Foreground is the explicit exception**, reserved for the narrow
+  case where the **next step is immediate integration with nothing
+  else interleavable** (a short dispatch central will merge + close the
+  instant it lands). Also: **never run two full-suite loops in one repo
+  at once** — they race on git/bd state, and a `TaskStop` may not reap
+  grandchildren (orphan `bd-post-rewrite` children raced on git/bd
+  state → a false `63/2` suite result during the loom-fx9m detour
+  2026-06-08). See the Dispatch-mode + concurrency-caution sections of
+  `skills/dispatch-middle/SKILL.md`, `skills/bead-lifecycle-shell`, and
+  `.claude/rules/dispatched-agents.md`.
 - **Splitting heuristic at bead creation.** When filing 2+ candidate
   items, ask: are they independent (no shared files, no sequential
   dependency)? If yes, file as sibling beads under an umbrella
