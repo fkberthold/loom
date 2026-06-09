@@ -372,10 +372,13 @@ fi
 # against the silent-auto-merge regression class.
 #
 # The configured driver (scripts/bd-merge-driver.sh) routes `bd
-# export` through lib/bd-canonical-export.sh (loom-0ahj.1), which
-# sorts the `_type:memory` lines into a stable order so the export
-# is byte-stable on the current bd (v1.0.2) — killing the loom-n1sk
-# spurious memory-line churn that would otherwise re-dirty
+# export` through lib/bd-canonical-export.sh (loom-0ahj.1 / loom-hsm7),
+# which keeps the export byte-stable AND memory-retaining across bd
+# versions: on the controlled bd v1.0.4 it passes `--include-memories`
+# (v1.0.4 excludes memories by default; the rows are sorted natively),
+# and on the v1.0.2 downstream backstop it includes memories by default
+# and sorts the `_type:memory` lines into a stable order — killing the
+# loom-n1sk spurious memory-line churn that would otherwise re-dirty
 # issues.jsonl on every merge. No config change is needed for the
 # canonicalizer: it lives inside the driver script, so the same
 # `merge.bd-export.driver` value benefits automatically.
@@ -393,6 +396,27 @@ else
   git -C "$LOOM_ROOT" config merge.bd-export.name 'bd-export merge driver (loom-4um)' || true
   git -C "$LOOM_ROOT" config merge.bd-export.driver 'scripts/bd-merge-driver.sh %O %A %B %P' || true
   log "  set merge.bd-export.driver → scripts/bd-merge-driver.sh"
+fi
+
+# bd-version advisory (loom-hsm7). loom's controlled bd is PINNED at
+# v1.0.2. v1.0.4+ DOES fix the v1.0.2 memory-row export non-determinism
+# upstream (beads #3474/#4086) — but its `bd export` AND its throttled
+# AUTO-export now EXCLUDE `bd remember` memories by default, and the
+# `export.include-memories` config key is accepted-but-IGNORED by
+# auto-export. Since loom commits memories INTO issues.jsonl (dolt is
+# local-only), v1.0.4+ silently strips them on every bd write. This was
+# validated then ROLLED BACK in loom-hsm7; the canonicalizer already
+# delivers determinism on v1.0.2, so loom loses nothing by staying.
+# Revisit once upstream makes auto-export honor memory inclusion. NUDGE,
+# never a gate — never blocks install.
+if command -v bd >/dev/null 2>&1; then
+  _bd_ver="$(bd version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  if [ -n "$_bd_ver" ] && [ "$(printf '%s\n%s\n' '1.0.4' "$_bd_ver" | sort -V | head -1)" = "1.0.4" ]; then
+    log "  ADVISORY: bd $_bd_ver >= 1.0.4 — its auto-export DROPS bd-remember"
+    log "            memories from issues.jsonl (config key ignored; loom-hsm7);"
+    log "            loom commits memories there. Consider pinning v1.0.2 until"
+    log "            upstream fixes auto-export memory inclusion."
+  fi
 fi
 
 # Wire the pre-push mkdocs-strict hook into loom's own .git/hooks/
