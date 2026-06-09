@@ -307,6 +307,27 @@ in T3 to point at `/dispatch-middle`) reads this field and prompts when
 a bead with a RED→GREEN-shaped variable middle is about to be worked
 inline without a recorded `inline:<reason>`.
 
+**Model-tier nudge — test-author ≥ implementer (loom-0ahj.4, D5).**
+When the middle splits into the test-author → implementer pipeline,
+the model TIER is a per-dispatch choice, and the two roles do not
+deserve the same tier. The test-author writes the SPEC — the RED test
+is the *ceiling* the implementer is gated against (F9, the
+imperfect-test ceiling, arXiv 2411.17501) — so it gets the stronger
+model; the implementer's narrower job (turn that fixed artifact GREEN
+with the minimal change) can run on a cheaper one. **The INVARIANT:
+the test-author's model tier is ≥ the implementer's** — the
+ceiling-setting role is never cheaper than the role gated beneath it
+(the *inverted* model-tier rule). This is a **default NUDGE, not a
+gate** (loom-yb5, nudge-not-block); pick concrete tiers to fit the
+bead, but keep author ≥ implementer when you split. Tier is chosen
+**per-dispatch, not per-agent-type** — the agent DEFINITION files stay
+`model:inherit`; central picks the tier on each `Agent` call. The
+payoff is **validated via Move-3a telemetry** (`scripts/loom-stage-
+spend`, loom-0ahj.3) — no separate A/B. `dispatch-middle` owns the
+full rationale, the per-step `model:` slots (Steps 2/3), and the two
+brief templates; the shell only states the nudge so recipes inherit
+it.
+
 **Allowed while the pipeline runs (central session):**
 - Answer the user's questions; explain in-flight decisions.
 - Pre-stage the next bead (read its description, surface prior art,
