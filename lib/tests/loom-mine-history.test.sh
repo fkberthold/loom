@@ -188,6 +188,39 @@ consumers depend on this contract; breaking it requires an RFC."
   echo "$repo"
 }
 
+# All-junk fixture: EVERY commit is dropped by the heuristic gate, so
+# the survivors file ends up empty (0 survivors). Exercises the
+# loom-6iy cost-preview boundary (gated_count must render as a clean
+# single "0", not a split "0\n0").
+mk_fixture_repo_all_junk() {
+  local work repo
+  work=$(mktemp -d)
+  repo="$work/repo"
+  mkdir -p "$repo"
+  (
+    cd "$repo" || exit 1
+    git init -q -b main
+    git config user.email miner@test
+    git config user.name "Decision Miner"
+
+    echo "base" > README.md
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "initial"
+
+    echo "scratch" > scratch.txt
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "wip: scratch"
+
+    echo "f" > f.txt
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "fixup! earlier"
+
+    echo "t" >> README.md
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "typo"
+
+    echo "deps" > deps.txt
+    git add -A && git -c core.hooksPath=/dev/null commit -q -m "bump deps to v2"
+  ) || { echo "FIXTURE_BUILD_FAILED" >&2; return 1; }
+  echo "$repo"
+}
+
 # Source the lib in a subshell with stubs on PATH and run the entry
 # point. Echoes stdout+stderr; rc propagated.
 run_mine() {
@@ -305,6 +338,44 @@ else
 fi
 
 unset CLAUDE_CALLS_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
+
+# =====================================================================
+# 2b. Zero survivors → cost-preview renders gated_count as a SINGLE
+#     "0" line (loom-6iy regression). When the gate drops every
+#     commit the survivors file is empty; the buggy
+#     `grep -c . "$survivors" || echo 0` appended a second "0", so
+#     gated_count became "0\n0" and the cost-preview line split across
+#     two physical lines. Assert the line stays on ONE line.
+# =====================================================================
+echo "==> 2b. Zero survivors → cost preview is one line (loom-6iy)"
+
+STUBS=$(mk_stubs_dir)
+REPO=$(mk_fixture_repo_all_junk)
+OUT=$(mktemp -d)
+export GH_AUTH_OK=0   # git-only harvest; all commits are junk
+
+out=$(run_mine "$REPO" --dry-run --out "$OUT"); rc=$?
+
+if [ "$rc" -eq 0 ]; then pass "all-junk dry-run exits 0"; else fail "all-junk dry-run rc=$rc" "$out"; fi
+
+# The whole "N harvested -> 0 gated" phrase must land on ONE physical
+# line. The 0\n0 bug splits it, so grep -E for the contiguous phrase
+# fails (the "0" and "gated" end up on different lines).
+if echo "$out" | grep -qE 'harvested.*-> 0 gated'; then
+  pass "cost-preview 'harvested -> 0 gated' is one contiguous line"
+else
+  fail "cost-preview split across lines on 0 survivors (gated_count='0\\n0')" "$out"
+fi
+
+# Belt-and-suspenders: there must NOT be a bare "0" line immediately
+# following a line that ends in "harvested ->" (the split signature).
+if echo "$out" | grep -Pzq 'harvested ->\s*\n0' 2>/dev/null; then
+  fail "found split signature: 'harvested ->' followed by bare '0' line" "$out"
+else
+  pass "no split signature (no bare '0' line after 'harvested ->')"
+fi
+
 rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT"
 
 # =====================================================================
