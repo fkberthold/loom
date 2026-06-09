@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# script/update — update a checkout to run with the latest code.
+#
+# Canonical "script/ convention" stub (loom). `update` is `setup` for an
+# existing checkout: pull deps to current lockfile versions, run pending
+# migrations, regenerate code. Run after pulling new commits. Idempotent.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     go mod download && go generate ./...
+#   # Python: pip install -r requirements.txt   # re-sync to the current lockfile
+#   # Node:   npm install                       # or: pnpm install / yarn install
+#   # bash:   true                              # usually nothing to update
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "update: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/update: not implemented for this project — wire up the refresh step or mark N/A." >&2
+exit 2

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# script/test — run this project's automated tests.
+#
+# Canonical "script/ convention" stub (loom). `test` runs the full unit
+# suite (the cheap, no-external-deps tier). `script/cibuild` is the wider
+# CI-only superset. This is the script `/audit-project` and the activity
+# recipes invoke as the project's canonical test command.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     go test ./...           # add -race in CI
+#   # Python: python -m pytest        # or: python -m pytest --cov
+#   # Node:   npm test
+#   # bash:   bash lib/tests/*.test.sh
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "test: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/test: not implemented for this project — wire up the test command or mark N/A." >&2
+exit 2

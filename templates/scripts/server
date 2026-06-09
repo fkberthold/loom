@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# script/server — start the application locally for development.
+#
+# Canonical "script/ convention" stub (loom). `server` launches the app in
+# development mode (hot-reload where available). A library or pure-CLI
+# project legitimately has no server — that is the textbook case for the
+# N/A downgrade described at the bottom.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     go run ./cmd/server        # or: ./scripts/server from a Goa service
+#   # Python: python -m flask run        # or: uvicorn app:app --reload
+#   # Node:   npm run dev                # or: npm start
+#   # bash:   true                       # bash projects rarely have a server — see N/A note
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable (common
+# for a library — there is nothing to serve), replace the body with:
+#   echo "server: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/server: not implemented for this project — wire up the dev server or mark N/A." >&2
+exit 2

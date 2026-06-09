@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# script/lint — run static analysis / style checks.
+#
+# Canonical "script/ convention" stub (loom). `lint` runs the linters and
+# formatters in check mode (no mutation). Wire it to fail non-zero on any
+# finding so CI and pre-commit gates can rely on it.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     golangci-lint run       # or: gofmt -l . && go vet ./...
+#   # Python: ruff check .            # or: flake8 / black --check .
+#   # Node:   npm run lint            # or: eslint .
+#   # bash:   shellcheck hooks/*.sh lib/*.sh scripts/*
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "lint: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/lint: not implemented for this project — wire up the linter or mark N/A." >&2
+exit 2

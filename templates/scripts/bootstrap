@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# script/bootstrap — one-time machine prerequisites for this project.
+#
+# Canonical "script/ convention" stub (loom). `bootstrap` installs the
+# system-level prerequisites a fresh checkout needs before `script/setup`
+# can run: language toolchains, system packages, container runtimes,
+# credentials. Idempotent — safe to re-run.
+#
+# Uncomment + adapt the line matching this project's stack:
+#   # Go:     command -v go     || asdf install golang   # or: brew/apt install go
+#   # Python: command -v python3 || pyenv install         # ensure the runtime exists
+#   # Node:   command -v node    || nvm install           # ensure the runtime exists
+#   # bash:   command -v shellcheck || sudo apt-get install -y shellcheck
+#
+# Until implemented, this stub fails loudly so a half-wired project can't
+# silently "succeed". To mark this script genuinely not-applicable, replace
+# the body with:  echo "bootstrap: N/A for this project type" && exit 0
+set -euo pipefail
+
+echo "script/bootstrap: not implemented for this project — wire up prerequisites or mark N/A." >&2
+exit 2
