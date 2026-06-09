@@ -223,6 +223,24 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - **No AUTOFIX tag** — the fix is **recipe-only** and is **NEVER auto-run**. The recipe is `cd <grammar-dir> && tree-sitter init -p .` (scaffolds `tree-sitter.json` from the existing `package.json` `[tree-sitter]` block / interactively), OR hand-write `tree-sitter.json` mirroring `package.json`'s `[tree-sitter]` block. `tree-sitter init` requires a TTY (it is interactive) so it cannot run inside the audit — same interactive-handoff posture as item 18's `gh auth login`. Out of scope: validating the `tree-sitter.json` schema beyond presence (`tree-sitter generate` itself does that).
     - Lineage: loom-qvs (surfaced 2026-05-24 by mforth; downstream fix mforth commit 216f482, which hand-wrote `tree-sitter.json` mirroring the existing `package.json` `[tree-sitter]` block). Runs on `--check=onboarding|all`, and in isolation under `--check=tree-sitter`.
 
+23. **`script/` convention recognition + gap surfacing**
+    - The loom **`script/` convention** (GitHub "scripts to rule them all" lineage, locked in the loom-adm `script/`-convention decision drawer; canonical skeleton shipped by loom-oxs.1 at `templates/scripts/`) is a fixed set of 8 normalized entry-point scripts every loom-managed repo carries: `bootstrap` `setup` `update` `server` `test` `lint` `cibuild` `deploy`. A contributor, an automated agent, or CI can `script/setup` and `script/test` *any* loom-managed project without learning its bespoke tooling. This check recognizes the convention, surfaces missing/half-wired canonical scripts as per-script verdicts, and feeds the skill's scaffold + `.deploy`-migration offers.
+    - **Directory recognizer — BOTH names accepted.** A project "has the `script/` convention" iff it carries a `script/` (singular, the canonical GitHub spelling and the loom default) OR a `scripts/` (plural, tolerated for projects that already use that name) directory. Probe `<root>/script/` first, then `<root>/scripts/`; the first present dir is the recognized convention dir. EITHER name is accepted — new projects should prefer singular `script/`, but the recognizer treats both equivalently. Neither present → the convention is not recognized for this project (no canonical scripts to compare against).
+    - **Per-script gap classifier.** For each of the 8 canonical scripts `<s>` under the recognized dir `<d>`:
+      - **PASS** = `<d>/<s>` exists AND is executable AND is wired (NOT the unedited `exit 2` "not implemented" stub `templates/scripts/` ships — a stub that still prints "not implemented" counts as not-ready, NOT as PASS, so a half-wired project never looks healthy).
+      - **WARN** = `<d>/<s>` exists but is non-executable, OR is still the unedited `exit 2` stub (present-but-not-ready).
+      - **MISS** = `<d>/<s>` is absent.
+      Render one verdict line per canonical script (or a compact roll-up naming the PASS/WARN/MISS sets). When NO `script/` or `scripts/` dir exists at all, render a single INFO line ("no `script/` convention dir — `/audit-project` can scaffold the canonical 8-script skeleton from `templates/scripts/`") rather than 8 MISS lines.
+    - **Scaffold offer (read-only here; the skill drives the write).** When ≥1 canonical script is MISS (or the whole dir is absent), point the suggested-fix line at the skill's scaffold offer: the skill OFFERS to copy the missing scripts from `templates/scripts/` into the project's `script/` dir (per-file y/N, never silent). You only REPORT the gap and name `templates/scripts/` as the scaffold source; the `audit-project` skill (Step 9) owns the interactive offer + the copy.
+    - **`.deploy` → `canonical_commands.deploy` migration candidacy.** Read `<root>/.claude/workflow.json`'s `.deploy` (the loom-0k0 wrap-up deploy hint) and `<root>/.claude/project-constitution.md`'s `canonical_commands.deploy` (the loom-oxs.3 schema field). When `.deploy` is a non-empty string AND `canonical_commands.deploy` is empty/unset, report a MIGRATE candidacy — the audit-project skill (Step 9) OFFERS to copy the `.deploy` value into `canonical_commands.deploy` so `script/deploy` (the executable home for the deploy step) and the constitution's declarative pointer agree. When both are set, or `.deploy` is empty, it is a NOOP (nothing to migrate). The migration is suggest-only; the skill never writes without per-item approval.
+    - **Verdict matrix (roll-up):**
+      - PASS = the `script/`-convention dir exists AND all 8 canonical scripts are PASS AND no `.deploy` migration is pending, OR a skip memo for `script-convention` exists in `.claude/loom-audit-state.json`.
+      - WARN = the dir exists but ≥1 canonical script is WARN/MISS, OR a `.deploy` migration is pending.
+      - INFO = no `script/` or `scripts/` dir at all (scaffold-the-whole-skeleton offer).
+    - **No AUTOFIX tag** — both fixes are interactive offers the skill drives (per-file scaffold y/N; per-candidate `.deploy` migration y/N/skip), not deterministic one-command remediations. The skill owns the prompt loop and the writes; the onboarder only reports the verdict. The `script-convention` skip memo (written by the skill on a `skip` answer) suppresses the row on future runs.
+    - Embed the recognized dir name (`script` or `scripts`) and the per-script PASS/WARN/MISS roll-up in the report so the user can see exactly which scripts need wiring.
+    - Lineage: loom-oxs.4 (2026-06-09), umbrella epic loom-oxs (the `script/` convention). Canonical skeleton: loom-oxs.1 (`templates/scripts/`). Resolver: loom-oxs.2 (`lib/loom-script-resolve.sh`, `loom_resolve_command`). `canonical_commands.deploy` schema field: loom-oxs.3. Design: the loom-adm `script/`-convention decision drawer.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -239,7 +257,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 22; item 20 only under --check=constitution ...)
+(... continue through item 23; item 20 only under --check=constitution ...)
 
 ## Summary
 

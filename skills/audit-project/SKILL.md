@@ -687,7 +687,10 @@ respect "user said no". Schema:
 Recognised check-names: `preflight-language-match`,
 `claude-md-solo-aware`, `upstream-loom-label-suggest`,
 `workflow-deploy-hint` (item 21 — skip memo when the user declines to
-set or opt out of `.deploy`), `dedup-hook-skip-worktree` (item 12 —
+set or opt out of `.deploy`), `script-convention` (item 23 — skip memo
+when the user declines the `script/`-skeleton scaffold offer and/or the
+`.deploy` → `canonical_commands.deploy` migration offer),
+`dedup-hook-skip-worktree` (item 12 —
 stores the recovery snippet applied by the default AUTOFIX, not a
 skip memo). The skill
 reads the file at the start of Step 2; for any check with a skip
@@ -1775,6 +1778,154 @@ auto-run (needs a TTY).
 Lineage: loom-qvs (surfaced 2026-05-24 by mforth; downstream fix
 mforth commit 216f482, which hand-wrote `tree-sitter.json` mirroring
 the existing `package.json` `[tree-sitter]` block).
+
+### Step 9 — `script/` convention check + scaffold + `.deploy` migration (folded into the onboarding scan)
+
+This check recognizes the loom **`script/` convention** (GitHub
+"scripts to rule them all" lineage, locked in the loom-adm
+`script/`-convention decision drawer; canonical skeleton shipped by
+loom-oxs.1 at `templates/scripts/`), surfaces missing/half-wired
+canonical scripts, OFFERS to scaffold the skeleton from
+`templates/scripts/`, and OFFERS the `workflow.json .deploy` →
+`canonical_commands.deploy` migration. It runs as part of the
+project-onboarder scan (item 23) on `--check=onboarding|all`, so a
+default audit surfaces it without a dedicated flag.
+
+The onboarder (item 23) owns the read-only detection; the skill (this
+file) owns the rendered report lines AND the interactive offers + the
+writes. There is **no AUTOFIX tag** — both fixes are interactive
+(per-file scaffold y/N; per-candidate `.deploy` migration y/N/skip),
+mirroring the items 13/14/21 conversational gates rather than the
+deterministic Step 3.5 AUTOFIX recipes.
+
+#### The 8 canonical scripts
+
+`bootstrap` `setup` `update` `server` `test` `lint` `cibuild` `deploy`.
+The convention pipeline: `bootstrap` → `setup` → (`update` on later
+pulls) → `server` / `test` / `lint` during development → `cibuild` in
+CI → `deploy` to ship. `templates/scripts/` is the source-of-truth
+skeleton; each script ships as an unedited `exit 2` "not implemented"
+stub that the adopter wires up (or marks N/A with `exit 0`).
+
+#### Directory recognizer — BOTH `script/` and `scripts/` accepted
+
+A project "has the `script/` convention" iff it carries a `script/`
+(singular — the canonical GitHub spelling and the loom default) OR a
+`scripts/` (plural — tolerated for projects that already use that
+name) directory. The recognizer probes `<root>/script/` first, then
+`<root>/scripts/`; the first present dir is the recognized convention
+dir. **EITHER name is recognized** — they are treated equivalently;
+new projects should prefer the singular `script/`. Neither present →
+the convention is not recognized (no canonical scripts to compare
+against, so the skill emits the whole-skeleton scaffold offer instead
+of per-script gaps).
+
+#### Per-script gap surfacing — PASS / WARN / MISS
+
+For each of the 8 canonical scripts under the recognized dir:
+
+- **PASS** = exists AND executable AND wired (NOT the unedited `exit 2`
+  "not implemented" stub).
+- **WARN** = exists but non-executable, OR still the unedited `exit 2`
+  stub (present-but-not-ready — a half-wired script must not look
+  healthy).
+- **MISS** = absent.
+
+Report line shape:
+
+```
+[SCRIPT] <dir>/ convention recognized (dir: script|scripts)
+  PASS:  setup test lint
+  WARN:  server (still the exit-2 stub), deploy (non-executable)
+  MISS:  bootstrap update cibuild
+  suggested: scaffold the 3 MISS scripts from templates/scripts/ (per-file y/N)
+```
+
+When NO `script/` or `scripts/` dir exists, emit a single line instead
+of 8 MISS lines:
+
+```
+[SCRIPT] no script/ convention dir — offer to scaffold the canonical
+  8-script skeleton (bootstrap setup update server test lint cibuild
+  deploy) from templates/scripts/ into <root>/script/
+```
+
+#### Scaffold offer (from `templates/scripts/`)
+
+When ≥1 canonical script is MISS (or the whole dir is absent), the
+skill OFFERS to scaffold from `templates/scripts/`. The offer is a
+per-file conversational gate (the same pause-and-wait contract as the
+Step 4 per-item gate — present, then STOP and wait for the user's
+typed reply; do NOT call any tool until the user replies). On `y` for a
+given script, copy `templates/scripts/<s>` into `<root>/<dir>/<s>` and
+`chmod +x` it; on `N`, leave it. The adopter then wires each scaffolded
+stub up (uncomment the per-type comment hint, replace the `exit 2`
+body) or marks it N/A (`exit 0`) per the `templates/scripts/README.md`
+adoption guide. On a literal `skip`, write a `script-convention` skip
+memo into `<root>/.claude/loom-audit-state.json` so the row renders as
+a silent PASS on future runs.
+
+The scaffold copies the templates **verbatim** as `exit 2` stubs — the
+audit never wires a script to a real command (that is the adopter's
+edit, and auto-wiring would re-import the design→build mismatch the
+stub-default exists to prevent). `LOOM_AUDIT_PROMPT_ANSWER` injects the
+answer non-interactively under tests (same mocking surface as items
+13/14/21).
+
+#### `.deploy` → `canonical_commands.deploy` migration offer
+
+`workflow.json`'s `.deploy` (loom-0k0) and the constitution's
+`canonical_commands.deploy` (loom-oxs.3) are two homes for the same
+fact: the project's deploy command. `.deploy` is the legacy wrap-up
+hint; `canonical_commands.deploy` is the constitution-schema field that
+`script/deploy` resolves through (`lib/loom-script-resolve.sh`'s
+`loom_resolve_command deploy`). When a project carries the legacy
+`.deploy` but has not set `canonical_commands.deploy`, the audit OFFERS
+to migrate the value forward.
+
+Detection (the onboarder reports candidacy; the skill drives the
+offer):
+
+- Read `<root>/.claude/workflow.json` `.deploy` via
+  `workflow_resolve_deploy` (`lib/workflow-config.sh`).
+- Read `<root>/.claude/project-constitution.md`'s
+  `canonical_commands.deploy`.
+- **MIGRATE candidate** = `.deploy` is a non-empty string AND
+  `canonical_commands.deploy` is empty/unset.
+- **NOOP** = both set (already migrated), or `.deploy` is empty
+  (nothing to migrate), or no constitution file exists.
+
+When a MIGRATE candidate is found, the skill OFFERS a y/N/skip gate:
+
+```
+[SCRIPT] .deploy migration available
+  workflow.json .deploy:            "<cmd>"
+  canonical_commands.deploy:        (empty)
+  suggested: migrate the .deploy value into canonical_commands.deploy
+             so script/deploy and the constitution agree. (y/N/skip)
+```
+
+On `y`, write `<cmd>` into the constitution's
+`canonical_commands.deploy` field (preserving the rest of the
+front-matter + the prose body untouched). On `N`, leave the row in the
+queue. On `skip`, write the `script-convention` skip memo. The offer is
+suggest-only — never write without explicit per-item approval, and
+never overwrite a non-empty `canonical_commands.deploy`.
+
+#### No AUTOFIX tag — interactive only
+
+Neither the scaffold nor the `.deploy` migration is AUTOFIX-tagged: the
+scaffold is a per-file user choice (which scripts to bring in), and the
+migration copies a user-authored command into a second home. Both stay
+in the per-item conversational gate. The `--apply-onboarding` flag does
+NOT auto-apply this check's offers — they require a typed reply.
+
+Lineage: loom-oxs.4 (2026-06-09), umbrella epic loom-oxs (the `script/`
+convention). Canonical skeleton: loom-oxs.1 (`templates/scripts/`).
+Resolver: loom-oxs.2 (`lib/loom-script-resolve.sh`,
+`loom_resolve_command`). `canonical_commands.deploy` schema field:
+loom-oxs.3. `.deploy` lineage: loom-0k0. Design: the loom-adm
+`script/`-convention decision drawer.
 
 ## Output format (drift items)
 
