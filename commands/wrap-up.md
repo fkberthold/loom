@@ -66,16 +66,28 @@ Then continue with the user-confirmation flow:
   counts. Block the wrap-up if any test fails.
 - `git status` to confirm working tree is clean.
 
-## 3. Draft decision drawer + KG triples (subagents in parallel)
+## 3. Draft decision drawer + KG triples (DEFAULT capture fan-out)
 
-For each bead being wrapped, dispatch IN PARALLEL:
+The two-agent capture fan-out is the **DEFAULT** capture path
+(loom-0ahj.5, grounding design-doc 14f08e6d D6 + the exploration
+capture-tax finding) — `/wrap-up` triggers it automatically. Central
+**does NOT hand-write** the drawer or the KG triples: it dispatches the
+drafting to two subagents in parallel, then **reviews + files** what
+they return. This mirrors the variable-middle posture — just as central
+writes no code in the middle, it writes no drawer/KG body at capture.
+
+For each bead being wrapped, dispatch IN PARALLEL (this is the default,
+not an opt-in):
 
 - `drawer-author` subagent with `bead-id` + commit SHAs. Returns a
   drafted decision drawer body in the project's house style.
 - `kg-relationship-extractor` subagent with `bead-id` + commit SHAs.
   Returns up to 5 proposed KG triples.
 
-Present each subagent's output to the user for review. After approval:
+Central is the **reviewer-and-filer, not the author**: present each
+subagent's output (the draft) to the user for review — central does not
+hand-write the capture, it edits the drafts at the margins. After
+approval:
 
 - `mempalace_check_duplicate` on the proposed drawer (similarity
   threshold 0.9). If a near-duplicate exists, ask the user whether to
