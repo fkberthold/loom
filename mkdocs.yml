@@ -142,6 +142,7 @@ nav:
       - MemPalace MCP: reference/mempalace-mcp.md
       - Loom env vars: reference/loom-env-vars.md
       - Claude Code hook layering: reference/claude-code-hook-layering.md
+      - Claude Code hook semantics: reference/claude-code-hook-semantics.md
       - Decision tables: reference/decision-tables.md
       - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
       - upstream-a-bead recipe: reference/upstream-a-bead.md
