@@ -285,6 +285,30 @@ slash commands.
   `has_open_thread`, `informs_design_of`. v1 is prompt/skill-only
   with no hook backstop (nudge-not-block, loom-yb5). Full reference:
   `docs/reference/explore.md`.
+- **Project constitution — loom dogfoods its own (loom-6f8).** The
+  per-project tooling profile lives at
+  `.claude/project-constitution.md`: YAML front-matter pinning the
+  shell envelope, package manager, language runtime, canonical
+  build/test/lint/gen/dev commands, plus `forbidden:` and
+  `bypass_patterns:` lists, over a human-authored prose body of
+  rationale. Loom ships its **own** dogfooded copy
+  (`.claude/project-constitution.md`): `package_manager: none`,
+  `language.runtime: bash`, empty `shell.*` (no wrapper),
+  `forbidden:` the package-manager installs (loom has no application
+  runtime), `test: bash lib/tests/*.test.sh`, `lint: shellcheck
+  hooks/*.sh lib/*.sh scripts/*`, and `bypass_patterns:` the
+  `python3 -c` / `python3 -m json.tool` diagnostics loom's own hooks
+  invoke. The `hooks/constitution-enforce.sh` PreToolUse hook reads
+  it to BLOCK forbidden Bash invocations (fail-open on every path it
+  can't prove a violation) and emits a one-time-per-session,
+  non-blocking staleness nudge when the file's mtime trails the
+  newest tooling manifest by > 7 days (loom-1lj). Author/evolve via
+  `/audit-project --check=constitution` (one-field-at-a-time
+  confirm, prose body left as a `[HUMAN AUTHOR]` stub, diff-not-
+  overwrite on re-run). See the how-to
+  `docs/how-to/author-project-constitution.md`, the field reference
+  `docs/reference/project-constitution.md`, and the hook reference
+  `docs/reference/constitution-enforce-hook.md`.
 
 ## Tools
 

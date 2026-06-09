@@ -203,6 +203,59 @@ EOF
   echo "$d"
 }
 
+# A project whose constitution is STALE relative to a touched tooling
+# manifest. Used by the age-skew check (loom-1lj): the constitution's
+# mtime is set 8 days OLDER than a present devbox.json, so the hook's
+# first-call-per-session age-skew warning should fire. devbox.json is
+# touched to "now"; the constitution is back-dated.
+mk_stale_constitution_project() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.claude"
+  # A well-formed constitution (reuse the devbox/pnpm shape so the parse
+  # path stays valid — the age-skew warning is orthogonal to enforcement).
+  cat >"$d/.claude/project-constitution.md" <<'EOF'
+---
+shell:
+  enter: "devbox shell"
+  run_prefix: "devbox run"
+
+package_manager: pnpm
+
+language:
+  runtime: python
+  version: "3.13"
+
+forbidden:
+  - "npm install"
+
+canonical_commands:
+  build: "devbox run build"
+  test: "devbox run test"
+  lint: ""
+  gen: ""
+  dev: ""
+
+bypass_patterns:
+  - "python --version"
+---
+
+# stale fixture constitution
+EOF
+  # A tooling manifest at "now".
+  printf '{}\n' >"$d/devbox.json"
+  touch "$d/devbox.json"
+  # Back-date the constitution 8 days. `touch -d` is GNU; fall back to a
+  # BSD-style -t stamp computed from `date -v` if -d is unavailable.
+  if touch -d '8 days ago' "$d/.claude/project-constitution.md" 2>/dev/null; then
+    :
+  else
+    # BSD touch: -t [[CC]YY]MMDDhhmm — compute 8 days ago.
+    stamp=$(date -v-8d '+%Y%m%d%H%M' 2>/dev/null) \
+      && touch -t "$stamp" "$d/.claude/project-constitution.md"
+  fi
+  echo "$d"
+}
+
 mk_malformed_project() {
   local d; d=$(mktemp -d)
   mkdir -p "$d/.claude"
@@ -452,6 +505,57 @@ if grep -q 'reference/constitution-enforce-hook\.md' "$LOOM_ROOT/mkdocs.yml"; th
 else
   fail "mkdocs.yml nav does NOT register reference/constitution-enforce-hook.md"
 fi
+
+# =====================================================================
+echo "==> age-skew: stale constitution warns ONCE per session (loom-1lj)"
+# The constitution's mtime is 8 days older than a touched devbox.json.
+# On the FIRST Bash call per shell session the hook should emit a
+# one-time stderr nudge suggesting /audit-project --check=constitution;
+# on the SECOND call in the SAME session (same $XDG_RUNTIME_DIR) it must
+# NOT re-emit (one-shot sentinel). The warning is INFO — it never blocks
+# (rc stays 0 for a benign command). We use a benign command (one that
+# the enforcement arm allows) so we isolate the age-skew warning from a
+# block.
+P=$(mk_stale_constitution_project)
+SESSION_DIR=$(mktemp -d)   # the "shell session" — sentinel lives here
+
+# First call: should warn AND not block.
+out=$(run_hook "$P" "pnpm install" XDG_RUNTIME_DIR="$SESSION_DIR"); rc=$?
+if [ "$rc" -eq 0 ] \
+   && echo "$out" | grep -qi 'stale\|out of date\|older' \
+   && echo "$out" | grep -q '/audit-project --check=constitution'; then
+  pass "stale constitution: first call warns (suggests /audit-project --check=constitution) and does NOT block"
+else
+  fail "stale constitution: first call did not warn-without-blocking. rc=$rc" "$out"
+fi
+
+# Second call, SAME session: must NOT re-emit the age-skew warning.
+out2=$(run_hook "$P" "pnpm install" XDG_RUNTIME_DIR="$SESSION_DIR"); rc2=$?
+if [ "$rc2" -eq 0 ] \
+   && ! echo "$out2" | grep -qi 'stale\|out of date\|older'; then
+  pass "stale constitution: second call same session does NOT re-warn (one-shot sentinel)"
+else
+  fail "stale constitution: second call re-warned (sentinel did not memoize). rc=$rc2" "$out2"
+fi
+rm -rf "$P" "$SESSION_DIR"
+
+# A FRESH constitution (newer than its tooling manifest) must NOT warn —
+# the age-skew check fires only when the file is genuinely stale.
+echo "==> age-skew: fresh constitution does NOT warn"
+P=$(mk_devbox_pnpm_project)
+# Give it a tooling manifest OLDER than the (just-written) constitution.
+printf '{}\n' >"$P/devbox.json"
+if touch -d '30 days ago' "$P/devbox.json" 2>/dev/null; then :; else
+  stamp=$(date -v-30d '+%Y%m%d%H%M' 2>/dev/null) && touch -t "$stamp" "$P/devbox.json"
+fi
+SESSION_DIR=$(mktemp -d)
+out=$(run_hook "$P" "pnpm install" XDG_RUNTIME_DIR="$SESSION_DIR"); rc=$?
+if [ "$rc" -eq 0 ] && ! echo "$out" | grep -qi 'stale\|out of date\|older'; then
+  pass "fresh constitution: no age-skew warning"
+else
+  fail "fresh constitution wrongly warned. rc=$rc" "$out"
+fi
+rm -rf "$P" "$SESSION_DIR"
 
 # =====================================================================
 [ -n "$STUB_BIN" ] && rm -rf "$STUB_BIN"
