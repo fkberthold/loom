@@ -141,6 +141,7 @@ nav:
       - Path-scoped rules: reference/path-scoped-rules.md
       - workflow.json schema: reference/workflow-json.md
       - Project constitution: reference/project-constitution.md
+      - script/ convention: reference/script-convention.md
       - bd CLI: reference/bd-cli.md
       - MemPalace MCP: reference/mempalace-mcp.md
       - Loom env vars: reference/loom-env-vars.md
