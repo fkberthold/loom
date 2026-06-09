@@ -568,6 +568,38 @@ full blocks, light warns, off silent. Bypass for emergencies via
 `LOOM_BD_PRECLOSE_STRICT_SKIP=1`. Companion to sibling loom-kbo
 (pre-push hook) — close-time + push-time + CI = defense-in-depth.
 
+### D1b. Docs SERVING check (full-Diataxis projects)
+
+`mkdocs build --strict` (D1, above) verifies the docs BUILD; it does
+NOT verify that the published site ACTUALLY SERVES. Those are
+different failures: on 2026-06-08 every Deploy-docs run was green AND
+gh-pages was a valid site, yet `https://fkberthold.github.io/loom/`
+404'd for an unknown period because GitHub Pages had been DISABLED —
+a *silent-green* outage that neither the strict build nor
+session-startup step 1c (which only flags RED Deploy-docs runs)
+caught. The serving check closes that gap.
+
+```bash
+scripts/loom-docs-serving-check          # derive site_url from mkdocs.yml
+scripts/loom-docs-serving-check <url>    # or pass an explicit site URL
+```
+
+The helper (loom-7q1g) gates on **full-Diataxis** (`docs/` +
+`mkdocs.yml` present AND no `docs/.no-diataxis` marker; otherwise it
+skips cleanly) and reports three layers: **Layer 1** `mkdocs build
+--strict` build integrity; **Layer 2** the latest Deploy-docs GitHub
+Actions run conclusion (via `gh run list`); **Layer 3 (the new part)**
+the site ACTUALLY SERVES — `curl -sIL <site_url>` → HTTP 200, falling
+back to the GitHub Pages API (`gh api repos/{owner}/{repo}/pages` →
+`status=built` / not 404) when curl is absent or inconclusive. It is
+**INFO/nudge — always `exit 0`, never hard-blocks** (nudge-not-block,
+loom-yb5): the findings print to stdout (`WARN —` prefix on a problem
+layer) and you decide. It degrades gracefully — any layer whose tool
+(mkdocs / gh / curl) or network is unavailable is skipped with a note
+rather than failing the wrap-up. Composes with session-startup step 1c
+(red-run detection) and the `bd-preflight-docs-strict` hook (D1):
+build-time + close-time-serving + CI = defense-in-depth.
+
 ### D2. Close + push
 
 ```bash
