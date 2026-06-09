@@ -317,6 +317,16 @@ work normally here. The hooks + statusline are loom-installed (this
 repo's own files) — meta-recursion is fine, the hooks operate on bd
 commands regardless of which project you're in.
 
+For Claude Code **harness** behavior — when each hook event fires
+(esp. the `Stop`-fires-per-turn-not-at-shutdown distinction and the
+caveat that `Stop`/`SessionEnd` do NOT reliably fire on sidechains),
+plus why the harness's "consider using TodoWrite"/TaskCreate
+system-reminder is NOT loom-originated and can be ignored silently
+(bd is the tracker) — see
+[`docs/reference/claude-code-hook-semantics.md`](docs/reference/claude-code-hook-semantics.md).
+Its sibling [`docs/reference/claude-code-hook-layering.md`](docs/reference/claude-code-hook-layering.md)
+covers how hook registrations from the four config layers merge.
+
 ## Don't
 
 - Don't commit `~/.claude/settings.json` — it's user-machine-specific
