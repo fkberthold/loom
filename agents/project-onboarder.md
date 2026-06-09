@@ -83,8 +83,8 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Shell out: `bash <loom-root>/scripts/find-hook-dups.sh <root>`. The script enumerates (event, matcher, command) tuples in `<root>/.claude/settings.json` AND `~/.claude/settings.json`, then compares each tuple against the hook blocks of every plugin manifest under `~/.claude/plugins/cache/*/*/*/{,.claude-plugin/}plugin.json`. Exact-tuple match → emits one `WARN ` (project layer) or `INFO ` (user layer) line per duplicate.
     - PASS = script stdout empty. WARN = ≥1 `WARN ` line (project-level dup; recommend dropping the entry from the project `.claude/settings.json` — the plugin's registration is canonical and fires regardless). INFO = ≥1 `INFO ` line only (user-level dup; advisory, machine-specific config — recommend dropping from `~/.claude/settings.json`).
     - Embed each output line verbatim in the report so the user can identify both registration sites.
-    - **No AUTOFIX tag** — JSON surgery is content-aware (multiple hook entries may share a stanza) and excluded by the Wave 2 contract (loom-a29) from deterministic apply.
-    - Lineage: surfaced by loom-nsb research (`drawer_loom_decisions_3eec30046461f0766ac92eec`, 2026-05-09); live example fixed via loom-sd5 (liza_base bd-prime SessionStart duplicate, 2026-05-15); preventive scan added by loom-ann (2026-05-15).
+    - **Tag each project-level WARN suggested-fix line with BOTH item-12 AUTOFIX recipes** (loom-jnn). The DEFAULT offer is `[AUTOFIX:dedup-hook-skip-worktree]` (per-user, reversible — `git update-index --skip-worktree` the tracked `.claude/settings.json`, strip the dup hook locally, log the recovery snippet). The opt-in alternative is `[AUTOFIX:dedup-hook-commit]` (removes the dup from the tracked file + commits — gated behind an explicit y/N confirmation the skill drives, because it changes shared content). Detection is unchanged: `find-hook-dups.sh` remains the canonical detector; loom-jnn only added the resolution paths. User-level INFO dups are NOT tagged (machine-specific `~/.claude/settings.json` edits are out of the audit's write scope). The raw content-aware JSON-stanza removal stays content-aware — the skill performs it inside each recipe, not via a blind deterministic substitution.
+    - Lineage: surfaced by loom-nsb research (`drawer_loom_decisions_3eec30046461f0766ac92eec`, 2026-05-09); live example fixed via loom-sd5 (liza_base bd-prime SessionStart duplicate, 2026-05-15); preventive scan added by loom-ann (2026-05-15); resolution AUTOFIX paths added by loom-jnn (empty-array overrides verified inert in e2e-api-tests 2026-05-27 — hook layering is additive across all four layers; see `docs/reference/claude-code-hook-layering.md`).
 
 13. **Language and preflight template match**
     - Probe the project's primary language via canonical markers (the helper is conceptually `detect_project_language()`, performed inline by reading the filesystem — no script call):
@@ -205,7 +205,7 @@ Top 3 gaps to fix first (most blocking → least): <ordered short list>
 
 ### AUTOFIX tags on suggested-fix lines
 
-For deterministic one-command remediations (items 3, 4, 11, 16) and interactive-handoff items (17, 18), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
+For deterministic one-command remediations (items 3, 4, 11, 16), interactive-handoff items (17, 18), and the item-12 duplicate-hook resolution paths (loom-jnn), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
 
 - `bd-hooks` — item 3 MISS, runs `bd hooks install` + the absorbing commit two-step (loom-cka).
 - `workflow-json` — item 4 MISS, writes `{"v":1,"mode":"full"}` to `<root>/.claude/workflow.json`.
@@ -213,6 +213,8 @@ For deterministic one-command remediations (items 3, 4, 11, 16) and interactive-
 - `loom-env-block` — item 16 WARN/MISS, deep-merges the canonical loom env block (`CLAUDE_CODE_ENABLE_TASKS=false`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`) into `<root>/.claude/settings.json`, overwriting only those two keys and preserving every other key. Writes `.claude/settings.json.pre-loom.bak` on first overwrite. Idempotent (loom-7ro).
 - `loom-upstream-gc-handoff` — item 17 INFO, handoff to `/loom-upstream-gc` for interactive orphan-clone prune. Recipe prints the handoff message rather than pruning directly — actual removal is per-clone y/N gated inside the slash command (loom-k2g).
 - `gh-auth-prompt` — item 18 WARN, handoff to interactive `gh auth login`. Recipe prints the login instruction rather than attempting the OAuth flow inside the audit (loom-k2g).
+- `dedup-hook-skip-worktree` — item 12 WARN, the DEFAULT duplicate-hook resolution. Per-user, reversible: `git update-index --skip-worktree` the tracked `.claude/settings.json`, strip the dup hook locally, log the recovery snippet to `.claude/loom-audit-state.json`. Never touches shared content (loom-jnn).
+- `dedup-hook-commit` — item 12 WARN, the opt-in duplicate-hook resolution. Removes the dup from the tracked `.claude/settings.json` and commits — gated behind an explicit y/N confirmation the skill drives (it changes shared content, so the binary apply shape doesn't fit). Never auto-applies without the typed `y` (loom-jnn).
 
 Example shape:
 
