@@ -65,18 +65,26 @@ OTHER="$3"
 PATHNAME="$4"
 
 BD_BIN="${BD_BIN:-bd}"
+export BD_BIN
+
+# Canonical-export wrapper (loom-0ahj.1): sorts the `_type:memory`
+# lines into a stable order so `bd export` is byte-stable on the
+# current bd (v1.0.2). Without this, the merge driver re-introduces
+# the loom-n1sk spurious memory-line churn on every merge.
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CANON_EXPORT="$SCRIPT_DIR/../lib/bd-canonical-export.sh"
 
 # Resolve repo toplevel so `bd export` runs in the right place. Git
 # invokes merge drivers from the worktree root, but be explicit so
 # this works correctly even when called from subdirs in tests.
 TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null) || TOPLEVEL="$(pwd)"
 
-# Capture bd export into a temp file. If it fails, leave %A untouched
-# so the caller sees a partial state rather than empty.
+# Capture the canonical bd export into a temp file. If it fails, leave
+# %A untouched so the caller sees a partial state rather than empty.
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
 
-if ! (cd "$TOPLEVEL" && "$BD_BIN" export > "$TMP" 2>/dev/null); then
+if ! (cd "$TOPLEVEL" && bash "$CANON_EXPORT" > "$TMP" 2>/dev/null); then
   echo "bd-merge-driver: bd export failed in $TOPLEVEL; leaving %A unchanged so the conflict surfaces" >&2
   exit 1
 fi
