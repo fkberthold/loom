@@ -371,6 +371,15 @@ fi
 # set. Set it here so loom's own .beads/issues.jsonl is protected
 # against the silent-auto-merge regression class.
 #
+# The configured driver (scripts/bd-merge-driver.sh) routes `bd
+# export` through lib/bd-canonical-export.sh (loom-0ahj.1), which
+# sorts the `_type:memory` lines into a stable order so the export
+# is byte-stable on the current bd (v1.0.2) — killing the loom-n1sk
+# spurious memory-line churn that would otherwise re-dirty
+# issues.jsonl on every merge. No config change is needed for the
+# canonicalizer: it lives inside the driver script, so the same
+# `merge.bd-export.driver` value benefits automatically.
+#
 # Downstream projects that adopt loom set the same `git config`
 # entry in their own .git/config — that wiring is handled by
 # /audit-project, not by this install.sh (loom's install only

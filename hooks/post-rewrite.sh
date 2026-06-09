@@ -60,7 +60,14 @@ cd "$TOPLEVEL" || exit 0
 
 # bd unavailable? No-op (don't break non-loom-managed projects).
 BD_BIN="${BD_BIN:-bd}"
+export BD_BIN
 command -v "$BD_BIN" >/dev/null 2>&1 || exit 0
+
+# Canonical-export wrapper (loom-0ahj.1): byte-stable `bd export` that
+# sorts the `_type:memory` lines into a stable order. Without it the
+# hook would rewrite .beads/issues.jsonl on every rebase whenever bd's
+# randomized map iteration flipped the memory-line order (loom-n1sk).
+CANON_EXPORT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/bd-canonical-export.sh"
 
 # Detached HEAD? Can't safely create a follow-up commit.
 git symbolic-ref -q HEAD >/dev/null 2>&1 || exit 0
@@ -70,11 +77,11 @@ if [ -n "$(git diff --cached --name-only 2>/dev/null)" ]; then
   exit 0
 fi
 
-# Re-export from dolt. On failure, no-op — surface in stderr for
-# debuggability but don't break the user's git operation.
+# Re-export from dolt (canonical). On failure, no-op — surface in
+# stderr for debuggability but don't break the user's git operation.
 TMP=$(mktemp) || exit 0
 trap 'rm -f "$TMP"' EXIT
-if ! "$BD_BIN" export > "$TMP" 2>/dev/null; then
+if ! bash "$CANON_EXPORT" > "$TMP" 2>/dev/null; then
   exit 0
 fi
 
