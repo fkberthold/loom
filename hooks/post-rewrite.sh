@@ -48,7 +48,7 @@ set -uo pipefail
 
 # shellcheck source=../lib/loom-hook-helpers.sh
 . "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
-  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
 
 loom_env_enabled LOOM_BD_POST_REWRITE_SKIP && exit 0
 
@@ -71,7 +71,7 @@ command -v "$BD_BIN" >/dev/null 2>&1 || exit 0
 # sorts the `_type:memory` lines into a stable order. Without it the
 # hook would rewrite .beads/issues.jsonl on every rebase whenever bd's
 # randomized map iteration flipped the memory-line order (loom-n1sk).
-CANON_EXPORT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/bd-canonical-export.sh"
+CANON_EXPORT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/../lib/bd-canonical-export.sh"
 
 # Detached HEAD? Can't safely create a follow-up commit.
 git symbolic-ref -q HEAD >/dev/null 2>&1 || exit 0

@@ -40,7 +40,7 @@ set -uo pipefail
 
 # shellcheck source=../lib/loom-hook-helpers.sh
 . "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
-  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
 
 if loom_env_enabled LOOM_PRE_PUSH_MKDOCS_SKIP; then
   exit 0

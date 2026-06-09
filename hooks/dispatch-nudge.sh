@@ -46,7 +46,7 @@ if [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
 elif [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
   . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
 else
-  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
 fi
 
 if loom_env_enabled LOOM_DISPATCH_NUDGE_SKIP; then

@@ -38,7 +38,7 @@ BD_BIN="${BD_BIN:-bd}"
 
 # shellcheck source=../lib/loom-hook-helpers.sh
 . "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
-  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
 TOOL=$(json_get_py '.tool_name' 'd.get("tool_name","")' "$INPUT")
 CMD=$(json_get_py '.tool_input.command' 'd.get("tool_input",{}).get("command","")' "$INPUT")
 
