@@ -18,6 +18,14 @@ common worktree-isolation failure modes at their cheapest detection
 point. Abort and ask for guidance if any check fails.
 
 ```bash
+# 0. Constitution — cat the project's tooling profile into context
+#    (information, not action; loom-ld4). The worker inherits the
+#    agreed shell/package-manager/runtime/canonical-commands instead
+#    of guessing. Absent file is fine — this is an info read, NOT a
+#    gate; never abort on its result.
+cat .claude/project-constitution.md 2>/dev/null \
+  || echo "(no .claude/project-constitution.md — proceeding without a pinned profile)"
+
 # 1. Path — pwd resolves to the worktree's git toplevel
 pwd_real=$(realpath "$(pwd)")
 top_real=$(realpath "$(git rev-parse --show-toplevel)")
@@ -43,8 +51,30 @@ fi
 
 Each section below documents the failure mode that motivates one
 smoke test, plus the mechanical-fix hook that backstops it. The
-four sections form a single pre-flight battery: pwd + import +
-bd state + base-freshness.
+sections form a single pre-flight battery: step 0 (constitution
+read) + pwd + import + bd state + base-freshness.
+
+## Step 0 — read the constitution (loom-ld4)
+
+**Information, not action.** Step 0 of the battery `cat`s
+`.claude/project-constitution.md` into the worker's context BEFORE
+any verification step. It is the one battery step that is purely
+informational — it pins NOTHING, gates NOTHING, and never aborts on
+its result. Its job is to load the project's agreed tooling profile
+(shell envelope, package manager, language runtime, the canonical
+build/test/lint/gen/dev commands, and the `forbidden:` /
+`bypass_patterns:` lists) so the worker runs the project's
+*canonical* test/lint command instead of guessing one — the same
+recurring guess (pip-on-uv, npm-on-pnpm, wrong test command) that the
+constitution epic (loom-6f8) exists to kill.
+
+An absent file is NOT a failure: a project may not have a
+constitution yet, and a dispatched worker is the wrong place to nudge
+`/audit-project` (that nudge lives at session-startup, step 1f). When
+the file is missing, the `cat` falls through to a one-line note and
+the battery proceeds. Step 0 runs first precisely because it is
+information for every step that follows: the worker reads the profile,
+THEN verifies pwd / import / bd-state / base-freshness.
 
 ## Pwd verification
 
