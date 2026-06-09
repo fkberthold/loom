@@ -148,7 +148,36 @@ assert_silent "chained commit-then-push with semicolons is silent" "$out"
 out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git push && git commit -m \"x\""}}')
 assert_warns "push-then-commit (commit AFTER push) still warns" "$out"
 
-# 16. Cleanup
+# Bug-class (loom-phb): the canonical session-close block is batched as a
+# MULTILINE Bash command (one command per line). The newline is the command
+# separator — not `;` or `&&`. The loom-0r6 suppression regex only recognized
+# `;`/`&&`, so the commit-then-push chain went undetected and the stale warning
+# fired on essentially every multiline close. A newline between commit and push
+# must suppress exactly as `;`/`&&` does.
+
+# 16. Newline-separated: add + commit + push (the loom-phb gap) → SILENT
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git add .beads/issues.jsonl\ngit commit -m \"x\"\ngit push"}}')
+assert_silent "newline-separated commit-then-push is silent" "$out"
+
+# 17. Canonical CLAUDE.md close: close + add + commit + dolt push + push, newlines → SILENT
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"bd close foo\ngit add .beads/issues.jsonl\ngit commit -m \"x\"\nbd dolt push\ngit push\ngit status"}}')
+assert_silent "canonical multiline session-close sequence is silent" "$out"
+
+# 18. Mixed separators: commit on its own line, push after && — newline before push → SILENT
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git add .beads/issues.jsonl && git commit -m \"x\"\ngit push"}}')
+assert_silent "mixed-separator commit-then-newline-push is silent" "$out"
+
+# 19. Newline-separated but NO commit before push (genuine dirty case) → WARN
+#     Pins the boundary: the suppression keys on an in-chain commit, not merely
+#     on the presence of newlines.
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git pull --rebase=merges\ngit push"}}')
+assert_warns "newline-separated push with no in-chain commit still warns" "$out"
+
+# 20. Newline-separated push BEFORE commit (commit after push) → WARN
+out=$(run_hook "$DIRTY" '{"tool_name":"Bash","tool_input":{"command":"git push\ngit commit -m \"x\""}}')
+assert_warns "newline push-then-commit (commit AFTER push) still warns" "$out"
+
+# 21. Cleanup
 rm -rf "$DIRTY" "$CLEAN" "$NOBEADS"
 
 echo "---"
