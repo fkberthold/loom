@@ -473,6 +473,67 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 10. Trigger-guard command-shape — close-phrase inside a --description of a
+#     DIFFERENT command must NOT fire the hook (loom-oq0s, sibling of loom-9ng)
+# ---------------------------------------------------------------------------
+#
+# Bug: the trigger guard matched the two-word close-phrase as a substring /
+# line-anchored pattern of the whole command string, so a `bd create`
+# whose --description (or -m / any quoted string arg) CONTAINED the phrase
+# fired the hook. The hook then found no parsable bead ID and ABORTED the
+# legitimate create with 'Could not parse bead ID'. HIT LIVE 2026-06-08
+# filing loom-n1sk. Fix: anchor detection to the command actually INVOKING
+# the close subcommand (argv: token `bd` adjacent to token `close`), not a
+# textual match anywhere in the string — including inside a quoted value.
+
+echo "==> 10. Trigger-guard command-shape (loom-oq0s)"
+
+# 10a. Single-line bd create whose --description contains the close-phrase
+#      mid-string. Must NOT be intercepted (exit 0, hook is a no-op).
+out=$(run_hook "$PROJ" 'bd create --type bug --description "Hook fires when bd close phrase appears in a description" -t title' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ] && ! echo "$out" | grep -q 'Could not parse bead ID'; then
+  pass "bd create with close-phrase in --description (single line) → not intercepted"
+else
+  fail "bd create with close-phrase in --description wrongly intercepted (exit=$rc)" "$out"
+fi
+
+# 10b. MULTI-LINE bd create whose --description has a line BEGINNING with
+#      the close-phrase (the live loom-n1sk failure shape — the `\n`-anchored
+#      alternative in the old regex matched the embedded line). Must NOT fire.
+ML_DESC=$'Hook false-positives.\nExample of the buggy invocation:\nbd close foo aborts the legitimate command.'
+out=$(run_hook "$PROJ" "$(printf 'bd create --type bug --description %q -t title' "$ML_DESC")" "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ] && ! echo "$out" | grep -q 'Could not parse bead ID'; then
+  pass "bd create with multi-line --description (line begins 'bd close') → not intercepted"
+else
+  fail "bd create with multi-line close-phrase description wrongly intercepted (exit=$rc)" "$out"
+fi
+
+# 10c. close-phrase inside -m message of a non-close command → not intercepted.
+out=$(run_hook "$PROJ" 'git commit -m "note: bd close was blocked earlier"' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ] && ! echo "$out" | grep -q 'Could not parse bead ID'; then
+  pass "git commit -m with close-phrase in message → not intercepted"
+else
+  fail "git commit -m with close-phrase wrongly intercepted (exit=$rc)" "$out"
+fi
+
+# 10d. REGRESSION: a genuine `bd close <id>` invocation MUST still be parsed
+#      (blocks here because PROJ is full-mode + null palace → no evidence).
+out=$(run_hook "$PROJ" 'bd close loom-8vb' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ] && echo "$out" | grep -q 'loom-8vb'; then
+  pass "genuine bd close <id> still parsed + verified (regression)"
+else
+  fail "genuine bd close no longer detected (exit=$rc)" "$out"
+fi
+
+# 10e. REGRESSION: a genuine close in a command CHAIN (after &&) still fires.
+out=$(run_hook "$PROJ" 'git add -A && bd close loom-8vb' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ] && echo "$out" | grep -q 'loom-8vb'; then
+  pass "chained 'git add && bd close <id>' still fires (regression)"
+else
+  fail "chained bd close no longer detected (exit=$rc)" "$out"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo

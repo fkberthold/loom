@@ -43,34 +43,47 @@ TOOL=$(json_get_py '.tool_name' 'd.get("tool_name","")' "$INPUT")
 CMD=$(json_get_py '.tool_input.command' 'd.get("tool_input",{}).get("command","")' "$INPUT")
 
 [ "$TOOL" = "Bash" ] || exit 0
-echo "$CMD" | grep -qE '(^|[;&|]|^&&|\n)[[:space:]]*bd[[:space:]]+close([[:space:]]|$)' || exit 0
 
-# --- Mode resolution -------------------------------------------------------
-
-# shellcheck source=../lib/workflow-state.sh
-. "$HOME/.claude/lib/workflow-state.sh"
-MODE=$(workflow_resolve_mode "$PWD")
-
-# --- Bead-ID extraction (Bug A fix) ---------------------------------------
+# --- Trigger gate + bead-ID extraction (command-shape, not substring) -----
 #
-# Parse only the positional arguments between `close` and the first
-# `--flag`. shlex.split correctly groups quoted --reason content into a
-# single token, so the body of --reason "..." can never leak into the
+# Detection anchors to the command actually INVOKING the close subcommand:
+# argv parsed with shlex, looking for the adjacent token pair `bd` `close`.
+# A textual / line-anchored regex over the raw command string (the prior
+# approach) false-positived when the two-word close-phrase appeared INSIDE a
+# quoted value of a DIFFERENT command — e.g. a multi-line
+# `bd create --description "...\nbd close foo..."` — firing the hook, finding
+# no parsable bead ID, and aborting the legitimate command with
+# 'Could not parse bead ID' (loom-oq0s, sibling of loom-9ng; hit live
+# 2026-06-08 filing loom-n1sk). shlex keeps a quoted --description / -m value
+# as a SINGLE token, so the phrase inside it never yields adjacent
+# `bd`/`close` argv tokens and the gate stays closed.
+#
+# The parser prints one of:
+#   __NO_BD_CLOSE__   no `bd`→`close` invocation in argv → hook is a no-op
+#   "<id> <id> ..."   close invocation present; space-joined positional IDs
+#                     (possibly empty → bare-`bd close` parse-error path below)
+#
+# Positional IDs are only those between `close` and the first `--flag`.
+# shlex grouping means the body of --reason "..." can never leak into the
 # bead-ID list. Allows underscore in prefixes (liza_base-dab) and dotted
-# sub-suffixes (loom-8vb.4).
+# sub-suffixes (loom-8vb.4). On unbalanced quotes (shlex ValueError) we
+# cannot prove a close invocation, so fail OPEN (treat as no-op) rather than
+# abort a command we can't parse.
 
-BEAD_IDS=$(printf '%s' "$CMD" | python3 -c '
+PARSE_OUT=$(printf '%s' "$CMD" | python3 -c '
 import re, shlex, sys
 cmd = sys.stdin.read()
 try:
     toks = shlex.split(cmd, posix=True)
 except ValueError:
-    sys.exit(0)
+    print("__NO_BD_CLOSE__"); sys.exit(0)
 ids = []
 i = 0
 n = len(toks)
+found = False
 while i < n:
     if toks[i] == "bd" and i + 1 < n and toks[i+1] == "close":
+        found = True
         j = i + 2
         while j < n:
             t = toks[j]
@@ -81,8 +94,21 @@ while i < n:
             j += 1
         break
     i += 1
-print(" ".join(ids))
+if not found:
+    print("__NO_BD_CLOSE__")
+else:
+    print(" ".join(ids))
 ')
+
+# Gate: no real `bd close` invocation → hook is a silent no-op.
+[ "$PARSE_OUT" = "__NO_BD_CLOSE__" ] && exit 0
+BEAD_IDS="$PARSE_OUT"
+
+# --- Mode resolution -------------------------------------------------------
+
+# shellcheck source=../lib/workflow-state.sh
+. "$HOME/.claude/lib/workflow-state.sh"
+MODE=$(workflow_resolve_mode "$PWD")
 
 # --- Bypass paths ---------------------------------------------------------
 
