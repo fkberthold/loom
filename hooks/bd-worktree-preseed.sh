@@ -31,20 +31,19 @@
 
 set -uo pipefail
 
-if [ "${LOOM_BD_WORKTREE_PRESEED_SKIP:-0}" = "1" ]; then
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+
+if loom_env_enabled LOOM_BD_WORKTREE_PRESEED_SKIP; then
   exit 0
 fi
 
 INPUT=$(cat)
 
 # Parse tool name + command (jq if available, else grep).
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
-else
-  TOOL=$(echo "$INPUT" | grep -oP '"tool_name"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-  CMD=$(echo "$INPUT" | grep -oP '"command"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-fi
+TOOL=$(json_get '.tool_name' 'tool_name' "$INPUT")
+CMD=$(json_get '.tool_input.command' 'command' "$INPUT")
 
 # Bash-only.
 [ "$TOOL" = "Bash" ] || exit 0

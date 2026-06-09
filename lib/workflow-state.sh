@@ -281,3 +281,34 @@ workflow_state_set() {
     mv "$path.tmp.$$" "$path"
   fi
 }
+
+# mode_dispatch <mode> <full_cmd> <light_cmd> <off_cmd>  (loom-0ahj.2)
+#
+# Run exactly one of three commands selected by workflow mode, returning
+# that command's exit code. This collapses the full/light/off branching
+# that PreToolUse hooks repeated inline after resolving the mode via
+# workflow_resolve_mode. An UNKNOWN mode is treated as `full` — matching
+# workflow_resolve_mode's own default, so a malformed/absent state file
+# still falls through to the strict path rather than silently disabling
+# the hook.
+#
+# Each *_cmd arg is a command string evaluated with `eval` (so callers can
+# pass `'exit 0'`, `'do_block_path'`, a function name + args, etc.). Pass
+# an empty string (or `:`) for a mode that should be a no-op.
+#
+# Usage:
+#   . "$HOME/.claude/lib/workflow-state.sh"
+#   MODE=$(workflow_resolve_mode "$PWD")
+#   mode_dispatch "$MODE" 'run_strict' 'run_warn' 'exit 0'
+mode_dispatch() {
+  local mode="$1"
+  local full_cmd="${2:-}"
+  local light_cmd="${3:-}"
+  local off_cmd="${4:-}"
+
+  case "$mode" in
+    light) eval "$light_cmd" ;;
+    off)   eval "$off_cmd" ;;
+    *)     eval "$full_cmd" ;;  # full + any unknown mode -> strict default
+  esac
+}

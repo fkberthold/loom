@@ -18,13 +18,11 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
-else
-  TOOL=$(echo "$INPUT" | grep -oP '"tool_name"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-  CMD=$(echo "$INPUT" | grep -oP '"command"\s*:\s*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"/\1/')
-fi
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+TOOL=$(json_get '.tool_name' 'tool_name' "$INPUT")
+CMD=$(json_get '.tool_input.command' 'command' "$INPUT")
 
 # Only fire on Bash + bd update --claim pattern.
 [ "$TOOL" = "Bash" ] || exit 0

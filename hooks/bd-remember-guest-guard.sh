@@ -47,13 +47,11 @@ INPUT=$(cat)
 
 # --- Tool dispatch ---------------------------------------------------------
 
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
-else
-  TOOL=$(printf '%s' "$INPUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_name",""))')
-  CMD=$(printf '%s' "$INPUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_input",{}).get("command",""))')
-fi
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+TOOL=$(json_get_py '.tool_name' 'd.get("tool_name","")' "$INPUT")
+CMD=$(json_get_py '.tool_input.command' 'd.get("tool_input",{}).get("command","")' "$INPUT")
 
 [ "$TOOL" = "Bash" ] || exit 0
 

@@ -42,19 +42,18 @@
 
 set -uo pipefail
 
-if [ "${LOOM_BD_PRECLOSE_STRICT_SKIP:-0}" = "1" ]; then
+# shellcheck source=../lib/loom-hook-helpers.sh
+. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/loom-hook-helpers.sh"
+
+if loom_env_enabled LOOM_BD_PRECLOSE_STRICT_SKIP; then
   exit 0
 fi
 
 INPUT=$(cat)
 
-if command -v jq >/dev/null 2>&1; then
-  TOOL=$(echo "$INPUT" | jq -r '.tool_name // ""')
-  CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
-else
-  TOOL=$(printf '%s' "$INPUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_name",""))')
-  CMD=$(printf '%s' "$INPUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_input",{}).get("command",""))')
-fi
+TOOL=$(json_get_py '.tool_name' 'd.get("tool_name","")' "$INPUT")
+CMD=$(json_get_py '.tool_input.command' 'd.get("tool_input",{}).get("command","")' "$INPUT")
 
 [ "$TOOL" = "Bash" ] || exit 0
 
@@ -88,7 +87,7 @@ fi
 
 # --- File-relevance gate --------------------------------------------------
 
-if [ "${LOOM_BD_PRECLOSE_STRICT_FORCE_RELEVANT:-0}" != "1" ]; then
+if ! loom_env_enabled LOOM_BD_PRECLOSE_STRICT_FORCE_RELEVANT; then
   # No git or no main → cannot determine relevance; skip silently.
   command -v git >/dev/null 2>&1 || exit 0
   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
