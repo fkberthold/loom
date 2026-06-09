@@ -178,6 +178,23 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Degrade-safe: if `scripts/loom-mine-history` is absent or the dry-run errors (e.g. not a git repo), emit INFO `(decision-history probe skipped)` and continue — never fail the checklist on this line.
     - Lineage: loom-bn7.5 (2026-06-03); engine loom-bn7.1, entry loom-bn7.4. Mirrors item 8's informational, opt-in-fix shape.
 
+20. **Project-constitution tooling fingerprint (only under `--check=constitution`)**
+    - Runs ONLY when the audit was invoked with `--check=constitution` (the loom-6f8 Constitution-epic capture half, loom-1iz). Skip this item entirely on `--check=onboarding|docs|all` runs.
+    - **Read-only — you report the detected fingerprint; the `audit-project` skill (Step 7) owns the per-field confirmation, the UNSTAGED write to `<root>/.claude/project-constitution.md`, the MemPalace mirror, and the KG-triple emission.** Do not write the file, do not author prose, do not call any `mempalace_*` write.
+    - Detect each front-matter field from filesystem markers under `<root>`, in this resolution order (these are the loom-1iz heuristics — emit empty when undetected, never guess):
+      - **`shell`** — `<root>/devbox.json` → `shell.enter: "devbox shell"`, `run_prefix: "devbox run"`. Else `<root>/flake.nix` → `shell.enter: "nix-shell"`, `run_prefix: "nix-shell --run"`. Else both empty. `devbox.json` wins over `flake.nix` when both exist.
+      - **`package_manager`** — first decisive lockfile/manifest wins: `pnpm-lock.yaml` → `pnpm`; `yarn.lock` → `yarn`; `package-lock.json` → `npm`; `uv.lock` → `uv`; `poetry.lock` → `poetry`; `Cargo.toml` → `cargo`; `go.mod` → `go`; none → `none`.
+      - **`language.runtime`** — `Cargo.toml` → `rust`; `go.mod` → `go`; `pyproject.toml`/`setup.py`/`setup.cfg`/`requirements*.txt` → `python`; `package.json` (with non-`none` pkg) → `node`; `scripts/` dir with `*.sh` and no other marker → `bash`; else `unknown` (never guess on polyglot). `language.version` stays empty (a human pin, not a filesystem signal).
+      - **`canonical_commands`** — `Makefile` `build:`/`test:`/`lint:` targets → `make build`/`make test`/`make lint`; an executable `scripts/<verb>` fills any verb the Makefile does not cover (`scripts/build`→build, `scripts/test`→test, `scripts/lint`→lint, `scripts/gen`→gen, `scripts/server`→dev). Makefile target wins over the script for the same verb. Uncovered verbs stay empty.
+      - **`forbidden`** / **`bypass_patterns`** — NOT auto-detected (a human lock-in judgment); reported as empty lists for the human to fill.
+    - **Verdict matrix:**
+      - PASS = `<root>/.claude/project-constitution.md` already exists AND the freshly-detected fingerprint matches its captured front-matter (no drift).
+      - INFO = no constitution file yet → report the detected draft fingerprint so the skill can run the Step 7c per-field capture.
+      - INFO (drift) = file exists but ≥1 front-matter field differs from the detected value → report each drifted field (captured-vs-detected) so the skill's Step 7f drift loop can confirm/skip per field WITHOUT overwriting the prose body.
+    - **No AUTOFIX tag** — the capture is a per-field interactive confirmation the skill drives (loom-xcw, one field at a time), and the prose body is a human-authored `[HUMAN AUTHOR]` MISS, never an agent draft (loom-d50). You report the fingerprint; the skill writes.
+    - Embed the detected `field=value` fingerprint lines in the report so the user can sanity-check the detection against the actual tree before confirming.
+    - Lineage: loom-1iz (capture flow), parent epic loom-6f8; schema/sample/reference shipped by loom-vin. Design drawer: `drawer_loom_decisions_76ec9140c47ff768735358c0`.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
