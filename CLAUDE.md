@@ -337,6 +337,21 @@ slash commands.
   `docs/how-to/author-project-constitution.md`, the field reference
   `docs/reference/project-constitution.md`, and the hook reference
   `docs/reference/constitution-enforce-hook.md`.
+- **Gate, don't advise (loom-wj26.1).** Every loom drift-detector or
+  correctness check MUST be wired to a real enforcement gate — a suite
+  test (`script/test`), a pre-push hook, or CI — never left as an
+  advisory grep a human must remember to run. An advisory-only
+  correctness check is a latent rot surface: loom-9z1.9 shipped a
+  docs-drift detector (`/audit-project --check=docs` Check 4) that ran
+  only on manual invocation, and the drift it was meant to catch
+  silently returned (surfacing as the loom-wjuo / loom-itph "ball of
+  mud") until a human happened to eyeball the rendered site. This is
+  DISTINCT from intentional nudge-not-block UX (loom-yb5): a nudge is a
+  deliberate choice for an ATTENDED decision a human should make, while
+  gate-don't-advise governs CORRECTNESS INVARIANTS that must never
+  depend on human memory. The dividing question — *is a human supposed
+  to weigh in?* If yes → nudge; if the check just needs to be *true* →
+  gate. Full reference: `docs/explanation/gate-dont-advise.md`.
 
 ## Tools
 
