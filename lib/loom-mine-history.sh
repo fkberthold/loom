@@ -222,8 +222,94 @@ _lmh_cluster_key() {
 _LMH_FAIL_THRESHOLD_PCT=25
 _LMH_FAIL_MIN_PROCESSED=4
 # Per-unit retry budget for a FAILED claude call (transient throttles),
-# with small exponential backoff between attempts.
-_LMH_LLM_RETRIES=3
+# with small exponential backoff between attempts. `:=` so a test can
+# pin it to 1 (one call per unit) to exercise the ACROSS-unit aggregate
+# gate cleanly without the within-unit retry absorbing a short burst
+# (loom-wzcn).
+: "${_LMH_LLM_RETRIES:=3}"
+
+# ---------------------------------------------------------------------
+# TRANSIENT-BURST RESILIENCE for the aggregate gate (loom-wzcn). The
+# aggregate gate above is correct for a SUSTAINED throttle but brittle
+# AT THE START: a transient API burst in the first few units trips the
+# 4-unit floor and discards an entire harvest (the rnxp 4/4 abort — the
+# same units passed minutes later). Grounded in the loom-417 529-playbook
+# (.claude/rules/dispatched-agents.md Parts A-D): when the threshold is
+# hit we no longer abort outright. We PAUSE, run a HEALTH-PROBE (one
+# cheap `claude -p` call), and if it fails we BACK OFF exponentially
+# through _LMH_BACKOFF_SCHEDULE, re-probing each cycle. On a CLEAN probe
+# we RESUME the SAME loop (re-attempting the unit the burst killed, so
+# accumulated drafts are kept). Only when the schedule is EXHAUSTED do we
+# fall back to the loud non-zero abort — a genuinely sustained outage
+# must still abort; only TRANSIENT bursts are ridden out.
+#
+# This LAYERS ON TOP of the per-unit retry (_LMH_LLM_RETRIES) above —
+# that rides out a hiccup WITHIN a unit; this rides out a burst ACROSS
+# units once the aggregate gate would otherwise have fired.
+#
+# OPERATIONAL RULE: run the mine with ZERO concurrent main-session load.
+# The Claude Code harness routes every `claude -p` subprocess through the
+# SAME Anthropic backend (loom-417); a backgrounded mine under concurrent
+# load competes with the foreground session for that backend and is far
+# likelier to hit a burst (the failed rnxp run was backgrounded under
+# concurrent load). Run it alone.
+#
+# _LMH_BACKOFF_SCHEDULE: space-separated seconds, one entry per backoff
+# cycle (so its LENGTH is the cap on cycles). A 0 entry means "no real
+# wait" — used by tests to run in milliseconds. `:=` so a test/operator
+# can override via env (the loom-ug4p tunables above are plain `=` and
+# not env-overridable; these new knobs intentionally are).
+: "${_LMH_BACKOFF_SCHEDULE:=30 60 120 240}"
+# _LMH_WARMUP_UNITS: the aggregate abort gate is DISABLED until this many
+# units have been processed, so an OPENING burst can't trip it before
+# successes accumulate. Env-overridable (tests set 0 to make the floor
+# active from unit 1).
+: "${_LMH_WARMUP_UNITS:=8}"
+
+# ---------------------------------------------------------------------
+# HEALTH-PROBE (loom-wzcn). One cheap `claude -p` call through the SAME
+# stubbable invocation the salience pass uses. Returns 0 if it gets ANY
+# non-empty reply (the backend is answering again), non-zero otherwise
+# (still throttled). Stdout/stderr are swallowed — the probe is a yes/no
+# canary, not a content call.
+#   args: model
+# ---------------------------------------------------------------------
+_lmh_health_probe() {
+  local model="$1" reply
+  reply=$(printf '%s' "ping" | claude -p --model "$model" --output-format text 2>/dev/null)
+  [ -n "$reply" ]
+}
+
+# ---------------------------------------------------------------------
+# RIDE OUT a transient burst (loom-wzcn). PAUSE → probe → exponential
+# backoff → re-probe, walking _LMH_BACKOFF_SCHEDULE. Returns 0 the moment
+# a probe comes back CLEAN (caller RESUMES the loop); returns non-zero
+# once the schedule is EXHAUSTED with no clean probe (caller falls back
+# to the loud abort). A 0-second schedule entry is honored as "no real
+# wait" so tests run in milliseconds.
+#   args: model
+# ---------------------------------------------------------------------
+_lmh_ride_out_burst() {
+  local model="$1" secs
+  echo "loom_mine_history: aggregate failure threshold hit — PAUSING to ride out a possible transient burst (loom-wzcn). Probing claude health..." >&2
+  # Probe once up front (the burst may already have cleared).
+  if _lmh_health_probe "$model"; then
+    echo "loom_mine_history: claude health probe CLEAN — RESUMING the salience loop." >&2
+    return 0
+  fi
+  for secs in $_LMH_BACKOFF_SCHEDULE; do
+    if [ "$secs" -gt 0 ] 2>/dev/null; then
+      echo "loom_mine_history: probe FAILED — backing off ${secs}s before re-probing..." >&2
+      sleep "$secs" 2>/dev/null || true
+    fi
+    if _lmh_health_probe "$model"; then
+      echo "loom_mine_history: claude health probe CLEAN — RESUMING the salience loop." >&2
+      return 0
+    fi
+  done
+  echo "loom_mine_history: backoff schedule EXHAUSTED — claude still failing. Falling back to abort." >&2
+  return 1
+}
 
 # ---------------------------------------------------------------------
 # One claude salience call for a unit, WITH retry + backoff. Captures
@@ -617,22 +703,57 @@ Files touched: $files"
     # with backoff, and DISTINGUISHES a genuine failure (empty / rc!=0 /
     # unparseable) from a valid {"salient":false}. (loom-ug4p, loom-bzl)
     n_processed=$((n_processed + 1))
-    local reply rc
-    reply=$(_lmh_claude_salience "$source_text" "$model"); rc=$?
+    local reply rc unit_failed=0
+    # Per-unit attempt loop. _lmh_claude_salience already rides out a
+    # WITHIN-unit hiccup (per-unit retry). This OUTER guard rides out an
+    # ACROSS-unit burst: when the aggregate gate would trip, we PAUSE +
+    # probe + back off (loom-wzcn) and, on a CLEAN probe, re-attempt THIS
+    # SAME unit (the burst's victim) so a transient burst keeps the
+    # accumulated drafts instead of discarding the whole harvest.
+    while :; do
+      reply=$(_lmh_claude_salience "$source_text" "$model"); rc=$?
+      [ "$rc" -eq 0 ] && break
 
-    if [ "$rc" -ne 0 ]; then
-      # FAILURE (throttle / crash / unparseable) — NOT a {"salient":false}
-      # verdict. Count it, emit no draft, and do NOT checkpoint it as
-      # processed (so --resume re-tries it on a later, healthier run).
-      n_failed=$((n_failed + 1))
-      # Early-out: once the failure fraction is provably over threshold
-      # for the rest of the run, stop spending — but DON'T silently
-      # succeed; the post-loop gate turns this into a non-zero abort.
-      if [ "$n_processed" -ge "$_LMH_FAIL_MIN_PROCESSED" ] \
-         && [ $(( n_failed * 100 )) -gt $(( n_processed * _LMH_FAIL_THRESHOLD_PCT )) ]; then
+      # FAILURE (throttle / crash / unparseable) — NOT a {"salient":false}.
+      # The aggregate abort gate is DISABLED during warm-up (loom-wzcn):
+      # an OPENING burst can't trip it before successes accumulate.
+      if [ "$n_processed" -gt "$_LMH_WARMUP_UNITS" ] \
+         && [ "$n_processed" -ge "$_LMH_FAIL_MIN_PROCESSED" ] \
+         && [ $(( (n_failed + 1) * 100 )) -gt $(( n_processed * _LMH_FAIL_THRESHOLD_PCT )) ]; then
+        # Threshold would be crossed. Instead of aborting (loom-ug4p),
+        # ride out a possible transient burst.
+        if _lmh_ride_out_burst "$model"; then
+          # Clean probe → RESUME. The probe PROVES the failure run that
+          # led here was the transient burst, now cleared — so FORGIVE the
+          # accumulated burst-window failures (reset n_failed) and
+          # re-attempt THIS same unit. Earlier units the burst already
+          # skipped emit no draft THIS run but were not checkpointed, so a
+          # `--resume` pass re-tries them on a healthier run. This keeps
+          # the post-burst drafts instead of discarding the whole harvest,
+          # and keeps the post-loop fraction honest about post-burst
+          # behaviour only. (loom-wzcn)
+          n_failed=0
+          continue
+        fi
+        # Backoff exhausted → genuine sustained outage. Count the failure
+        # and break out to the loud post-loop abort (the loom-ug4p
+        # fallback is preserved).
+        n_failed=$((n_failed + 1))
+        unit_failed=1
         llm_abort=1
         break
       fi
+
+      # Below threshold (or still in warm-up): tolerate this failure as
+      # before — count it, emit no draft, do NOT checkpoint (so --resume
+      # re-tries it on a later, healthier run).
+      n_failed=$((n_failed + 1))
+      unit_failed=1
+      break
+    done
+
+    if [ "$unit_failed" -eq 1 ]; then
+      [ "$llm_abort" -eq 1 ] && break
       continue
     fi
 
@@ -697,7 +818,7 @@ Files touched: $files"
     printf '%s\t%s\t%s\t%s\n' "$id" "$files" "$decision" "$anchor" >> "$synth_units"
   done < "$survivors"
 
-  # ---- LLM-FAILURE GATE (loom-ug4p) ----------------------------------
+  # ---- LLM-FAILURE GATE (loom-ug4p + loom-wzcn) ----------------------
   # A throttled / rate-limited / crashed claude returns FAILUREs (empty /
   # rc!=0 / unparseable) for most units. Treating those as
   # {"salient":false} would write a clean near-0-draft "success" manifest
@@ -705,6 +826,22 @@ Files touched: $files"
   # original 0/787. If the failure fraction over the processed set
   # exceeds the threshold, ABORT NON-ZERO with a diagnostic naming the
   # fraction, rather than emitting a manifest that looks successful.
+  #
+  # loom-wzcn: a TRANSIENT burst that was ridden out (pause+probe+backoff
+  # → clean probe → unit re-attempted) FORGIVES the burst-window failures
+  # (n_failed reset to 0), so the fraction clause below does not re-fire
+  # on it. A SUSTAINED outage sets llm_abort=1 (backoff exhausted) and
+  # still aborts via the first clause.
+  #
+  # The warm-up grace (loom-wzcn) deliberately does NOT gate THIS
+  # post-loop clause. Warm-up suppresses only the MID-LOOP early-out — so
+  # an opening burst can't trip before successes accumulate — but once the
+  # ENTIRE survivor set is processed, a failure fraction over threshold is
+  # definitive (it is not an "opening" transient any more). Gating the
+  # post-loop clause on warm-up would re-introduce the loom-ug4p
+  # false-green for SMALL survivor sets (< warm-up units): a total outage
+  # over 6 units would silently exit 0. So the post-loop gate stays
+  # warm-up-independent — the loom-ug4p contract is preserved.
   if [ "$llm_abort" -eq 1 ] \
      || { [ "$n_processed" -ge "$_LMH_FAIL_MIN_PROCESSED" ] \
           && [ $(( n_failed * 100 )) -gt $(( n_processed * _LMH_FAIL_THRESHOLD_PCT )) ]; }; then
