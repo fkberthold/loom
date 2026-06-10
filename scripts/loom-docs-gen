@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+# loom-docs-gen — generate per-item Reference nav pages + the nav block (loom-itph).
+#
+# THE GOAL. Uniform per-item browsable left-nav across all four primitive
+# categories (skills/commands/subagents/hooks). loom-wjuo completed the
+# index inventory TABLES + gated their drift, but the left-nav sidebar
+# only listed per-item pages for the 6 skill/command + 9 hook primitives
+# that happen to have a hand-authored page; the other 10 skills, all 18
+# commands, and all 4 subagents collapsed to "index + All ___ dump".
+#
+# WHY A BASH GENERATOR (not mkdocs-gen-files + literate-nav). loom's
+# project-constitution FORBIDS pip-install and pins runtime=bash; adding
+# Python mkdocs plugins fights that. So this mirrors the
+# loom-fanout-detect / loom-docs-catalogue pattern: deterministic bash +
+# a --check drift gate, committed pages a reviewer can diff.
+#
+# WHAT IT DOES.
+#   default → for each shipped primitive, ensure a nav page exists. If a
+#     CURATED rich page is registered (15 today: 6 skill/command + 9 hook
+#     pages), use it verbatim and NEVER overwrite it; else GENERATE a thin
+#     include-wrapper page at docs/reference/<navdir>/<name>.md. Orphan
+#     generated wrappers (primitive removed or newly curated) are pruned.
+#     Then rewrite the LOOM-DOCS-GEN sentinel nav block in mkdocs.yml,
+#     listing every primitive per category + the "All ___ (verbatim)"
+#     dump last. Idempotent.
+#   --check → recompute the expected wrappers + nav block, DIFF against
+#     what is committed, and exit 1 naming any staleness (missing / stale /
+#     orphan wrapper, or a stale nav block). Exit 0 when in sync. This is
+#     the drift gate (wired WARN-only into pre-push-mkdocs-strict.sh +
+#     pinned by lib/tests/loom-docs-gen.test.sh).
+#
+# The curated registry is EXPLICIT (loom-9z1.7 lesson: a hard-coded map is
+# honest about where truth lives; fuzzy matching introduces silent bugs).
+# It absorbs the two naming irregularities: constitution-enforce maps to
+# constitution-enforce-hook.md, and two hook pages live in the hooks/
+# subdir rather than at the reference/ top level.
+#
+# Root resolves from this script's location; LOOM_DOCS_ROOT overrides it
+# (the fixture-override shape script/test uses with LOOM_TEST_DIR).
+#
+# Usage:  loom-docs-gen [--check]
+
+set -uo pipefail
+
+ROOT="${LOOM_DOCS_ROOT:-}"
+[ -z "$ROOT" ] && ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REFDIR="$ROOT/docs/reference"
+
+MODE="generate"
+case "${1:-}" in
+  --check) MODE="check" ;;
+  -h|--help) grep '^# ' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  "") ;;
+  *) echo "loom-docs-gen: unknown argument '$1' (expected --check or none)" >&2; exit 2 ;;
+esac
+
+# --- category metadata ------------------------------------------------
+navdir_of()  { case "$1" in skills) echo skills;; commands) echo slash-commands;; subagents) echo subagents;; hooks) echo hooks;; esac; }
+label_of()   { case "$1" in skills) echo Skills;; commands) echo "Slash commands";; subagents) echo Subagents;; hooks) echo Hooks;; esac; }
+dumpfile_of(){ case "$1" in commands) echo all-commands;; *) echo "all-$1";; esac; }
+
+# shipped_names <category> — one primitive name per line, sorted.
+shipped_names() {
+  case "$1" in
+    skills)    for p in "$ROOT"/skills/*/SKILL.md; do [ -e "$p" ] && basename "$(dirname "$p")"; done ;;
+    commands)  for p in "$ROOT"/commands/*.md;     do [ -e "$p" ] && basename "$p" .md; done ;;
+    subagents) for p in "$ROOT"/agents/*.md;       do [ -e "$p" ] && basename "$p" .md; done ;;
+    hooks)     for p in "$ROOT"/hooks/*.sh;        do [ -e "$p" ] && basename "$p" .sh; done ;;
+  esac | sort
+}
+
+# src_rel <category> <name> — source path RELATIVE TO docs/reference/<navdir>/.
+src_rel() {
+  case "$1" in
+    skills)    echo "../../../skills/$2/SKILL.md" ;;
+    commands)  echo "../../../commands/$2.md" ;;
+    subagents) echo "../../../agents/$2.md" ;;
+    hooks)     echo "../../../hooks/$2.sh" ;;
+  esac
+}
+
+# nav_label <category> <name> — display label for a nav entry.
+nav_label() { case "$1" in commands) echo "/$2";; *) echo "$2";; esac; }
+
+# curated_page <category> <name> — reference-relative curated page path, or empty.
+curated_page() {
+  case "$1:$2" in
+    skills:explore|commands:explore)                     echo "explore.md" ;;
+    skills:dispatch-middle|commands:dispatch-middle)     echo "dispatch-middle.md" ;;
+    skills:design-a-cycle|commands:design-a-cycle)       echo "design-a-cycle.md" ;;
+    skills:loom-adopt|commands:loom-adopt)               echo "loom-adopt.md" ;;
+    skills:loom-mine-history|commands:loom-mine-history) echo "loom-mine-history.md" ;;
+    skills:upstream-a-bead|commands:upstream-a-bead)     echo "upstream-a-bead.md" ;;
+    hooks:constitution-enforce)     echo "constitution-enforce-hook.md" ;;
+    hooks:cwd-drift-guard)          echo "cwd-drift-guard.md" ;;
+    hooks:edit-write-pwd-guard)     echo "edit-write-pwd-guard.md" ;;
+    hooks:bd-worktree-preseed)      echo "bd-worktree-preseed.md" ;;
+    hooks:bd-prime-wrapper)         echo "bd-prime-wrapper.md" ;;
+    hooks:bd-remember-guest-guard)  echo "bd-remember-guest-guard.md" ;;
+    hooks:pytest-tempdir-prune)     echo "pytest-tempdir-prune.md" ;;
+    hooks:edit-after-failure-guard) echo "hooks/edit-after-failure-guard.md" ;;
+    hooks:bd-preflight-docs-strict) echo "hooks/bd-preflight-docs-strict.md" ;;
+    *) echo "" ;;
+  esac
+}
+
+# expected_wrapper <category> <name> — exact generated wrapper page content.
+# Quoted heredoc keeps backticks + `%` literal; sed fills the placeholders.
+expected_wrapper() {
+  local cat="$1" name="$2" rel; rel="$(src_rel "$cat" "$name")"
+  if [ "$cat" = hooks ]; then
+    cat <<'TPL' | sed -e "s|@NAME@|$name|g" -e "s|@REL@|$rel|g"
+# @NAME@.sh
+
+<!-- GENERATED by scripts/loom-docs-gen — DO NOT EDIT. Edit the source primitive (hooks/@NAME@.sh), then rerun the generator. -->
+
+```bash
+{%
+  include "@REL@"
+%}
+```
+TPL
+  else
+    cat <<'TPL' | sed -e "s|@NAME@|$name|g" -e "s|@REL@|$rel|g"
+# @NAME@
+
+<!-- GENERATED by scripts/loom-docs-gen — DO NOT EDIT. Edit the source primitive, then rerun the generator. -->
+
+{%
+  include-markdown "@REL@"
+  heading-offset=1
+%}
+TPL
+  fi
+}
+
+GEN_MARKER='GENERATED by scripts/loom-docs-gen'
+
+# is_generated_orphan <category> <md-file> — true when the file carries the
+# generated marker but is NOT a current non-curated primitive of the
+# category (the primitive was removed, or is now curated).
+is_generated_orphan() {
+  local cat="$1" f="$2" base; base="$(basename "$f" .md)"
+  case "$base" in index|all-*) return 1 ;; esac
+  grep -q "$GEN_MARKER" "$f" 2>/dev/null || return 1
+  if shipped_names "$cat" | grep -qx "$base" && [ -z "$(curated_page "$cat" "$base")" ]; then
+    return 1   # legitimately a current generated wrapper
+  fi
+  return 0
+}
+
+# expected_navblock — the full sentinel block (START..END inclusive).
+expected_navblock() {
+  echo "      # LOOM-DOCS-GEN:START — regenerated by scripts/loom-docs-gen; do not hand-edit between the sentinels."
+  local cat navdir name cur page
+  for cat in skills commands subagents hooks; do
+    navdir="$(navdir_of "$cat")"
+    echo "      - $(label_of "$cat"):"
+    echo "          - reference/$navdir/index.md"
+    while IFS= read -r name; do
+      [ -z "$name" ] && continue
+      cur="$(curated_page "$cat" "$name")"
+      if [ -n "$cur" ]; then page="reference/$cur"; else page="reference/$navdir/$name.md"; fi
+      echo "          - $(nav_label "$cat" "$name"): $page"
+    done < <(shipped_names "$cat")
+    echo "          - All $cat (verbatim): reference/$navdir/$(dumpfile_of "$cat").md"
+  done
+  echo "      # LOOM-DOCS-GEN:END"
+}
+
+# splice_navblock — replace the sentinel block in mkdocs.yml in place.
+splice_navblock() {
+  local mkf="$ROOT/mkdocs.yml" blockf tmp
+  blockf="$(mktemp)"; tmp="$(mktemp)"
+  expected_navblock >"$blockf"
+  awk -v bf="$blockf" '
+    /# LOOM-DOCS-GEN:START/ { while ((getline line < bf) > 0) print line; close(bf); skip=1; next }
+    skip && /# LOOM-DOCS-GEN:END/ { skip=0; next }
+    !skip { print }
+  ' "$mkf" >"$tmp" && mv "$tmp" "$mkf"
+  rm -f "$blockf"
+}
+
+do_generate() {
+  local cat navdir name cur f
+  for cat in skills commands subagents hooks; do
+    navdir="$(navdir_of "$cat")"
+    mkdir -p "$REFDIR/$navdir"
+    while IFS= read -r name; do
+      [ -z "$name" ] && continue
+      cur="$(curated_page "$cat" "$name")"
+      [ -n "$cur" ] && continue
+      expected_wrapper "$cat" "$name" >"$REFDIR/$navdir/$name.md"
+    done < <(shipped_names "$cat")
+    for f in "$REFDIR/$navdir"/*.md; do
+      [ -e "$f" ] || continue
+      is_generated_orphan "$cat" "$f" && rm -f "$f"
+    done
+  done
+  splice_navblock
+}
+
+do_check() {
+  local drift=0 cat navdir name cur page exp f
+  for cat in skills commands subagents hooks; do
+    navdir="$(navdir_of "$cat")"
+    while IFS= read -r name; do
+      [ -z "$name" ] && continue
+      cur="$(curated_page "$cat" "$name")"
+      if [ -n "$cur" ]; then
+        [ -f "$REFDIR/$cur" ] || { echo "MISSING-CURATED  $cat  $name -> docs/reference/$cur"; drift=1; }
+      else
+        page="$REFDIR/$navdir/$name.md"
+        exp="$(expected_wrapper "$cat" "$name")"
+        if [ ! -f "$page" ]; then
+          echo "MISSING-WRAPPER  $cat  $name -> docs/reference/$navdir/$name.md"; drift=1
+        elif [ "$(cat "$page")" != "$exp" ]; then
+          echo "STALE-WRAPPER    $cat  $name -> docs/reference/$navdir/$name.md"; drift=1
+        fi
+      fi
+    done < <(shipped_names "$cat")
+    for f in "$REFDIR/$navdir"/*.md; do
+      [ -e "$f" ] || continue
+      if is_generated_orphan "$cat" "$f"; then
+        echo "ORPHAN-WRAPPER   $cat  $(basename "$f" .md) -> docs/reference/$navdir/$(basename "$f") (primitive gone/curated)"; drift=1
+      fi
+    done
+  done
+  if [ "$(expected_navblock)" != "$(awk '/# LOOM-DOCS-GEN:START/{f=1} f{print} /# LOOM-DOCS-GEN:END/{f=0}' "$ROOT/mkdocs.yml")" ]; then
+    echo "STALE-NAVBLOCK   mkdocs.yml LOOM-DOCS-GEN block out of sync with shipped primitives"; drift=1
+  fi
+  if [ "$drift" = 0 ]; then
+    echo "loom-docs-gen: OK — every primitive has a current nav page + the nav block is in sync"
+    return 0
+  fi
+  echo "loom-docs-gen: DRIFT — run 'scripts/loom-docs-gen' to regenerate, then commit"
+  return 1
+}
+
+case "$MODE" in
+  generate) do_generate ;;
+  check)    do_check ;;
+esac
