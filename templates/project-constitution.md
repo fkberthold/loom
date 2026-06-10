@@ -59,6 +59,26 @@ canonical_commands:
 # for legitimate edge cases). Use sparingly.
 bypass_patterns:
   - "<e.g. python3 -c (one-off diagnostics on a uv project)>"
+
+# Project-specific ARCHITECTURAL invariants. Unlike the tooling rules
+# above (forbidden/package_manager/run_prefix, which are Bash-only and
+# argv-shaped), invariants are enforced across Bash AND the write-class
+# tools (Edit/Write/MultiEdit) via a regex. Each entry:
+#   {id, applies_to:[Bash|Edit|Write|MultiEdit], deny_pattern, message}
+# deny_pattern is a regex (re.search) matched against the tool's relevant
+# input (Bash → .command; write-class → .file_path + body). A match makes
+# the constitution-enforce hook exit 2 with the message; non-matches and
+# any uncertainty fail open. Leave commented out when the project has no
+# architectural invariant to enforce. Example (uncomment + adapt):
+#
+# invariants:
+#   - id: <e.g. no-direct-file-io>
+#     applies_to:
+#       - Write
+#       - Edit
+#       - MultiEdit
+#     deny_pattern: "<e.g. \\bopen\\( >"
+#     message: "<e.g. Touch the world only through MCP — direct file I/O is forbidden.>"
 ---
 
 # <Project name> — project constitution

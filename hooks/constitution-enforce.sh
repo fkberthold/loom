@@ -78,10 +78,55 @@ INPUT=$(cat)
 TOOL=$(json_get_py '.tool_name' 'd.get("tool_name","")' "$INPUT")
 CMD=$(json_get_py '.tool_input.command' 'd.get("tool_input",{}).get("command","")' "$INPUT")
 
-# Only guard Bash.
-[ "$TOOL" = "Bash" ] || exit 0
-# Empty command → nothing to enforce.
-[ -n "$CMD" ] || exit 0
+# This hook fires on Bash AND the write-class tools (Edit/Write/MultiEdit).
+#   - Bash             → the tooling rules (forbidden / package_manager /
+#                        run_prefix) AND any Bash-scoped invariant.
+#   - Edit/Write/      → ONLY the invariants: section (loom-z3m.14). The
+#     MultiEdit          tooling rules are argv-shaped and meaningless for a
+#                        file write; invariants are regex-shaped and apply
+#                        to the write's file_path + body.
+# Any other tool → nothing to enforce.
+case "$TOOL" in
+  Bash|Edit|Write|MultiEdit) : ;;
+  *) exit 0 ;;
+esac
+
+# INVARIANT_TEXT is the newline-joined blob of tool input that invariant
+# deny_patterns are matched against. For Bash it is the command; for the
+# write-class tools it is the file_path plus the written/edited body.
+# Built in python so MultiEdit's edits[] array is flattened correctly and
+# absent keys degrade to empty rather than erroring.
+INVARIANT_TEXT=$(
+  INPUT="$INPUT" python3 - <<'PY'
+import json, os, sys
+try:
+    d = json.loads(os.environ.get("INPUT", ""))
+except Exception:
+    print("")
+    sys.exit(0)
+ti = d.get("tool_input", {}) or {}
+parts = []
+tool = d.get("tool_name", "")
+if tool == "Bash":
+    parts.append(ti.get("command", "") or "")
+else:
+    parts.append(ti.get("file_path", "") or "")
+    # Write: .content ; Edit: .new_string ; MultiEdit: .edits[].new_string
+    parts.append(ti.get("content", "") or "")
+    parts.append(ti.get("new_string", "") or "")
+    for e in (ti.get("edits", []) or []):
+        if isinstance(e, dict):
+            parts.append(e.get("new_string", "") or "")
+print("\n".join(p for p in parts if p != ""))
+PY
+)
+
+# For Bash with an empty command there is nothing to enforce on the
+# tooling-rules path. The invariants path below still runs (an empty
+# INVARIANT_TEXT simply matches no deny_pattern).
+if [ "$TOOL" = "Bash" ] && [ -z "$CMD" ] && [ -z "$INVARIANT_TEXT" ]; then
+  exit 0
+fi
 
 # 2. Walk up from $PWD for .claude/project-constitution.md.
 CONST=""
@@ -159,6 +204,12 @@ if ! command -v yq >/dev/null 2>&1; then
 fi
 
 # --- mtime-keyed cache --------------------------------------------------
+# Computed UP FRONT so BOTH the invariants check (below) and the
+# tooling-rules check (further below) read from the same mtime-keyed cache.
+# The cache record carries SIX fields now:
+#   run_prefix : package_manager : runtime : forbidden : bypass : invariants
+# where `invariants` is a base64 of the JSON array yq extracts. On a cache
+# HIT yq is not invoked at all (the cache test depends on this).
 CACHE_BASE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 # sha256 of the absolute path → stable cache filename.
 if command -v sha256sum >/dev/null 2>&1; then
@@ -226,6 +277,31 @@ else
   [ "$FORBIDDEN" = "null" ] && FORBIDDEN=""
   [ "$BYPASS" = "null" ] && BYPASS=""
 
+  # --- invariants extraction (loom-z3m.14) -----------------------------
+  # Extract the invariants: sequence-of-maps via per-index yq queries
+  # (the same scalar/array verbs the rest of the hook uses, so it works
+  # with both real yq and the stubs the tests install — no `-o=json`
+  # dependency). Each invariant is encoded as a single line:
+  #   <applies_to comma-joined> \t <id> \t <deny b64> \t <message b64>
+  # The whole block is then base64'd as the cache record's 6th field.
+  # A constitution with no invariants: section yields an empty INV_COUNT
+  # → zero lines → empty field (the common case; one extra yq call only).
+  INV_COUNT=$(yq_get '.invariants | length')
+  case "$INV_COUNT" in (''|null|*[!0-9]*) INV_COUNT=0 ;; esac
+  INV_RECORDS=""
+  iv=0
+  while [ "$iv" -lt "$INV_COUNT" ]; do
+    iv_applies=$(yq_get ".invariants[$iv].applies_to[]" | paste -sd, -)
+    iv_id=$(yq_get ".invariants[$iv].id");        [ "$iv_id" = "null" ] && iv_id=""
+    iv_deny=$(yq_get ".invariants[$iv].deny_pattern"); [ "$iv_deny" = "null" ] && iv_deny=""
+    iv_msg=$(yq_get ".invariants[$iv].message");   [ "$iv_msg" = "null" ] && iv_msg=""
+    # tab-delimited; deny/message base64'd so embedded tabs/newlines are
+    # flattened. applies_to + id are simple tokens kept plain.
+    INV_RECORDS="${INV_RECORDS}${iv_applies}	${iv_id}	$(printf '%s' "$iv_deny" | base64 | tr -d '\n')	$(printf '%s' "$iv_msg" | base64 | tr -d '\n')
+"
+    iv=$((iv + 1))
+  done
+
   # Assemble the profile record. EVERY field is base64-encoded and the
   # fields are joined with a single `:` (base64 alphabet never contains
   # `:`). This survives the two pitfalls that a tab-delimited record hit:
@@ -236,9 +312,9 @@ else
   #   - embedded newlines in the forbidden/bypass lists: base64 flattens
   #     them so the record stays single-line.
   enc() { printf '%s' "$1" | base64 | tr -d '\n'; }
-  PROFILE=$(printf '%s:%s:%s:%s:%s' \
+  PROFILE=$(printf '%s:%s:%s:%s:%s:%s' \
     "$(enc "$RUN_PREFIX")" "$(enc "$PKG")" "$(enc "$RUNTIME")" \
-    "$(enc "$FORBIDDEN")" "$(enc "$BYPASS")")
+    "$(enc "$FORBIDDEN")" "$(enc "$BYPASS")" "$(enc "$INV_RECORDS")")
 
   # Best-effort cache write (mtime header + profile body). Never fatal.
   { printf '%s\n%s\n' "$MTIME" "$PROFILE" >"$CACHE_FILE"; } 2>/dev/null || true
@@ -251,6 +327,61 @@ PKG=$(dec "$(printf '%s' "$PROFILE" | cut -d: -f2)")
 RUNTIME=$(dec "$(printf '%s' "$PROFILE" | cut -d: -f3)")
 FORBIDDEN=$(dec "$(printf '%s' "$PROFILE" | cut -d: -f4)")
 BYPASS=$(dec "$(printf '%s' "$PROFILE" | cut -d: -f5)")
+INV_RECORDS=$(dec "$(printf '%s' "$PROFILE" | cut -d: -f6)")
+
+# --- INVARIANTS check (loom-z3m.14) ------------------------------------
+# Architectural-invariant enforcement runs for Bash AND the write-class
+# tools (Edit/Write/MultiEdit). For each invariant line whose applies_to
+# includes the CURRENT tool, the regex deny_pattern is matched
+# (python re.search) against INVARIANT_TEXT. A match → exit 2 with the
+# invariant's message. Fail-open: an uncompilable deny_pattern degrades
+# to "no match". INV_RECORDS comes from the mtime cache, so a cache hit
+# triggers NO yq re-parse here.
+if [ -n "$INV_RECORDS" ]; then
+  while IFS=$'\t' read -r iv_applies iv_id iv_deny_b64 iv_msg_b64; do
+    [ -n "$iv_applies" ] || [ -n "$iv_id" ] || [ -n "$iv_deny_b64" ] || continue
+    # applies_to is comma-joined; does it include the current tool?
+    case ",$iv_applies," in
+      *",$TOOL,"*) : ;;
+      *) continue ;;
+    esac
+    iv_deny=$(printf '%s' "$iv_deny_b64" | base64 -d 2>/dev/null)
+    [ -n "$iv_deny" ] || continue
+    if DENY="$iv_deny" TEXT="$INVARIANT_TEXT" python3 - <<'PY'
+import os, re, sys
+deny = os.environ.get("DENY", "")
+text = os.environ.get("TEXT", "")
+try:
+    rx = re.compile(deny)
+except re.error:
+    sys.exit(0)   # uncompilable pattern → fail open (no match)
+sys.exit(2 if rx.search(text) else 0)
+PY
+    then
+      : # no match → next invariant
+    else
+      [ "$?" -eq 2 ] || continue   # python error → fail open
+      iv_msg=$(printf '%s' "$iv_msg_b64" | base64 -d 2>/dev/null)
+      cat >&2 <<EOF
+[constitution-enforce] BLOCKED: this $TOOL call violates a project architectural invariant${iv_id:+ ($iv_id)}.
+
+  $iv_msg
+
+Source: $CONST
+Bypass (use sparingly): LOOM_CONSTITUTION_SKIP=1 <command>
+EOF
+      exit 2
+    fi
+  done <<EOF
+$INV_RECORDS
+EOF
+fi
+
+# Write-class tools have no argv-shaped tooling-rules path — invariants
+# are their only enforcement arm. Having cleared the invariant gate, allow.
+case "$TOOL" in
+  Edit|Write|MultiEdit) exit 0 ;;
+esac
 
 # --- Decide: allow / block --------------------------------------------
 # All argv-shape matching is delegated to python (shlex), so the rule

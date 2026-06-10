@@ -41,6 +41,29 @@ canonical_commands:
 bypass_patterns:
   - "python3 -c"
   - "python3 -m json.tool"
+
+# Project-specific ARCHITECTURAL invariants (loom-z3m.14). Enforced by
+# hooks/constitution-enforce.sh across Bash AND the write-class tools
+# (Edit/Write/MultiEdit) — distinct from the Bash-only tooling rules
+# above. Each entry: {id, applies_to:[Bash|Edit|Write|MultiEdit],
+# deny_pattern (regex), message}. The deny_pattern is matched (re.search)
+# against the tool's relevant input (Bash → .command; write-class →
+# .file_path + body). A match → the hook exits 2 with the message.
+#
+# Loom has NO live architectural invariant of its own — it is a
+# markdown+bash+JSON package with no application runtime to constrain —
+# so the section is left commented as a SHAPE EXAMPLE. Uncomment + adapt
+# the entry below in a downstream project to enforce a real invariant
+# (e.g. "only touch the world through MCP, never direct file I/O").
+#
+# invariants:
+#   - id: no-direct-file-io
+#     applies_to:
+#       - Write
+#       - Edit
+#       - MultiEdit
+#     deny_pattern: "\\bopen\\("
+#     message: "Touch the world only through MCP — direct file I/O (open(...)) is forbidden by this project's architectural invariant. Use the mcp_fs client instead."
 ---
 
 # loom — project constitution
