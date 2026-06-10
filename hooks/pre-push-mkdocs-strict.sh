@@ -48,8 +48,14 @@ fi
 
 ZERO_SHA="0000000000000000000000000000000000000000"
 RELEVANT_RE='^(docs/|mkdocs\.yml$|skills/)'
+# A push that adds/removes a primitive OR edits a reference index table can
+# drift the docs/reference/<category>/index.md inventory tables out of sync
+# with the shipped primitives — the loom-wjuo catalogue-drift class. Catch
+# it here (WARN-only) via scripts/loom-docs-catalogue, loom's own check.
+CATALOGUE_RE='^(skills/|commands/|agents/|hooks/|docs/reference/)'
 
 is_relevant=0
+is_catalogue_relevant=0
 
 while read -r _local_ref local_sha _remote_ref remote_sha; do
   # Empty line (eof / extra whitespace) → skip.
@@ -84,7 +90,29 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
   if echo "$changed" | grep -qE "$RELEVANT_RE"; then
     is_relevant=1
   fi
+  if echo "$changed" | grep -qE "$CATALOGUE_RE"; then
+    is_catalogue_relevant=1
+  fi
 done
+
+# --- Catalogue drift check (loom-wjuo) ------------------------------------
+# Runs only for loom's own repo (the check + the reference tables it audits
+# are loom-specific) and only when a primitive or reference page changed.
+# WARN-only, like the mkdocs check below — the suite test under `script/test`
+# is the hard gate; this is the push-time nudge.
+if [ "$is_catalogue_relevant" = "1" ] && [ -x scripts/loom-docs-catalogue ]; then
+  if ! cat_output=$(scripts/loom-docs-catalogue --check 2>&1); then
+    {
+      echo ""
+      echo "WARN: docs reference index tables drifted from shipped primitives; push proceeding"
+      echo "$cat_output" | grep -E '^(MISSING|DUPLICATE|NOINDEX|loom-docs-catalogue:)' | sed 's/^/  /'
+      echo ""
+      echo "  Fix docs/reference/<category>/index.md before CI, or bypass once with:"
+      echo "    LOOM_PRE_PUSH_MKDOCS_SKIP=1 git push"
+      echo ""
+    } >&2
+  fi
+fi
 
 if [ "$is_relevant" = "0" ]; then
   exit 0

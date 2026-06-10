@@ -42,6 +42,33 @@ Companion to `install.sh`'s refuse-from-worktree guard (loom-cuk M4):
 the guard prevents NEW dangling symlinks; the doctor surfaces ones that
 pre-existed the guard or slipped through its bypass.
 
+## `loom-docs-catalogue` — reference-table drift check
+
+Detects drift between the shipped primitives and the
+`docs/reference/<category>/index.md` inventory tables (loom-wjuo). The
+verbatim `all-<category>.md` dump pages are mkdocs include-globs and stay
+complete by construction, but the hand-authored inventory TABLES (which
+carry the semantic columns a glob can't derive) drift — a primitive lands
+on disk and its row is never added, or a row is pasted twice. This is the
+mechanized, gateable engine for the loom-9z1.9 `/audit-project
+--check=docs` Check 4 ("inclusion-glob symmetric coverage"); it is wired
+into `pre-push-mkdocs-strict.sh` (WARN-only) and pinned by the suite test
+`lib/tests/loom-docs-catalogue.test.sh`.
+
+For each of the four categories (skills/commands/subagents/hooks) it
+compares the shipped-name set (`skills/*/SKILL.md`, `commands/*.md`,
+`agents/*.md`, `hooks/*.sh`) against the first-cell names in the
+category's index table, matching boundary-delimited so a name that is a
+prefix of another (`loom-upstream-gc` vs `check-loom-upstream`) is never
+mis-credited.
+
+| Aspect | Value |
+|---|---|
+| Usage | `loom-docs-catalogue --check` (`--check` is the default + only mode) |
+| Override | `LOOM_DOCS_ROOT=<dir>` points it at a fixture tree (fixture-test shape, mirrors `LOOM_TEST_DIR`) |
+| Exit 0 | every shipped primitive listed exactly once across all four index tables |
+| Exit 1 | one or more `MISSING` / `DUPLICATE` / `NOINDEX` findings (named per line) |
+
 ## `loom-fanout-detect` — parallel-wave proposer (across-bead)
 
 Re-derives bead independence at SELECTION time and proposes a parallel

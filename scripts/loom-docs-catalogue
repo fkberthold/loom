@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# loom-docs-catalogue — detect drift between shipped primitives and the
+# docs/reference/<category>/index.md inventory tables (loom-wjuo).
+#
+# THE PROBLEM. loom's docs reference catalogue has two surfaces per
+# primitive category: a verbatim `all-<category>.md` DUMP (an mkdocs
+# include-glob, so it auto-propagates and never drifts) and a
+# hand-authored `index.md` INVENTORY TABLE carrying the semantic columns
+# (trigger, routing, block strategy) a glob can't derive. The tables
+# drift: primitives land on disk but their row is never added, or a row
+# gets pasted twice. At filing, 9 shipped primitives were missing from
+# their table and 2 hook rows were duplicated.
+#
+# This is the SAME bug class loom-9z1.9 `/audit-project --check=docs`
+# Check 4 ("inclusion-glob symmetric coverage") was built to catch — but
+# that check is naive-grep, user-initiated only, and not a gate, so the
+# drift recurred after loom-q7li added new primitives. This script is the
+# mechanized, gateable ENGINE for that check: deterministic name-set
+# arithmetic in a fixture-testable bash script (mirrors
+# scripts/loom-fanout-detect), wired into the docs pre-push gate so drift
+# can't ship, and available for `/audit-project --check=docs` Check 4 to
+# delegate to instead of re-deriving the comparison in prose.
+#
+# THE CONTRACT (the RED: line on loom-wjuo):
+#   `--check` exits non-zero when a shipped primitive is ABSENT FROM — or
+#   DUPLICATED IN — its docs/reference/<category>/index.md inventory
+#   table; exits zero when every shipped primitive appears exactly once
+#   across all four categories.
+#
+# Categories (shipped glob -> index table):
+#   skills     skills/*/SKILL.md  -> docs/reference/skills/index.md
+#   commands   commands/*.md      -> docs/reference/slash-commands/index.md
+#   subagents  agents/*.md        -> docs/reference/subagents/index.md
+#   hooks      hooks/*.sh         -> docs/reference/hooks/index.md
+#
+# Only the FIRST cell of each markdown table row is treated as a "listed"
+# name; matching is boundary-delimited (name chars = [a-z0-9-]) so a name
+# that is a prefix of another (loom-upstream-gc vs check-loom-upstream)
+# is never mis-credited. The verbatim all-*.md dumps are NOT inspected.
+#
+# Root resolves from this script's location; LOOM_DOCS_ROOT overrides it
+# (the same fixture-override shape script/test uses with LOOM_TEST_DIR).
+#
+# Usage:  loom-docs-catalogue [--check]   (--check is the default + only mode)
+
+set -uo pipefail
+
+ROOT="${LOOM_DOCS_ROOT:-}"
+if [ -z "$ROOT" ]; then
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+case "${1:-}" in
+  -h|--help)
+    grep '^# ' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+    ;;
+esac
+
+# shipped_names <category> — one primitive name per line, from disk.
+shipped_names() {
+  local p
+  case "$1" in
+    skills)
+      for p in "$ROOT"/skills/*/SKILL.md; do
+        [ -e "$p" ] && basename "$(dirname "$p")"
+      done ;;
+    commands)
+      for p in "$ROOT"/commands/*.md; do
+        [ -e "$p" ] && basename "$p" .md
+      done ;;
+    subagents)
+      for p in "$ROOT"/agents/*.md; do
+        [ -e "$p" ] && basename "$p" .md
+      done ;;
+    hooks)
+      for p in "$ROOT"/hooks/*.sh; do
+        [ -e "$p" ] && basename "$p" .sh
+      done ;;
+  esac
+}
+
+# index_file <category> — path to the category's inventory-table page.
+index_file() {
+  case "$1" in
+    skills)    echo "$ROOT/docs/reference/skills/index.md" ;;
+    commands)  echo "$ROOT/docs/reference/slash-commands/index.md" ;;
+    subagents) echo "$ROOT/docs/reference/subagents/index.md" ;;
+    hooks)     echo "$ROOT/docs/reference/hooks/index.md" ;;
+  esac
+}
+
+# first_cells <index-file> — first cell of every markdown table row
+# (lines beginning, after optional whitespace, with '|'), one per line.
+first_cells() {
+  local f="$1"
+  [ -f "$f" ] || return 0
+  grep -E '^[[:space:]]*\|' "$f" | awk -F'|' '{print $2}'
+}
+
+# count_rows <name> <index-file> — number of table rows whose first cell
+# carries <name> as a boundary-delimited token.
+count_rows() {
+  local name="$1" f="$2"
+  first_cells "$f" | grep -cE "(^|[^a-z0-9-])${name}([^a-z0-9-]|\$)"
+}
+
+drift=0
+total=0
+missing=0
+dup=0
+
+for cat in skills commands subagents hooks; do
+  f="$(index_file "$cat")"
+  if [ ! -f "$f" ]; then
+    echo "NOINDEX    $cat    (no inventory page: ${f#"$ROOT"/})"
+    drift=1
+    continue
+  fi
+  while IFS= read -r name; do
+    [ -z "$name" ] && continue
+    total=$((total + 1))
+    c="$(count_rows "$name" "$f")"
+    if [ "$c" -eq 0 ]; then
+      echo "MISSING    $cat    $name"
+      missing=$((missing + 1))
+      drift=1
+    elif [ "$c" -gt 1 ]; then
+      echo "DUPLICATE  $cat    $name  (listed in $c rows)"
+      dup=$((dup + 1))
+      drift=1
+    fi
+  done < <(shipped_names "$cat")
+done
+
+if [ "$drift" -eq 0 ]; then
+  echo "loom-docs-catalogue: OK — all $total shipped primitives listed exactly once across 4 categories"
+  exit 0
+fi
+
+echo "loom-docs-catalogue: DRIFT — $missing missing, $dup duplicated. Fix docs/reference/<category>/index.md inventory tables (or run /audit-project --check=docs)."
+exit 1
