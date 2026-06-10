@@ -53,7 +53,8 @@
         "hooks": [
           {"type": "command", "command": "bash $HOME/.claude/hooks/edit-write-pwd-guard.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/edit-after-failure-guard.sh"},
-          {"type": "command", "command": "bash $HOME/.claude/hooks/dispatch-nudge.sh"}
+          {"type": "command", "command": "bash $HOME/.claude/hooks/dispatch-nudge.sh"},
+          {"type": "command", "command": "bash $HOME/.claude/hooks/constitution-enforce.sh"}
         ]
       },
       {

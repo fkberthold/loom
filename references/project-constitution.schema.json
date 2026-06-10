@@ -92,6 +92,39 @@
       "description": "Bash command patterns that should bypass constitution enforcement. Escape hatches for legitimate edge cases (e.g. running an ad-hoc 'python3 -c ...' on a uv project for diagnostics). Use sparingly — every bypass widens the agent's blast radius.",
       "items": { "type": "string" },
       "default": []
+    },
+    "invariants": {
+      "type": "array",
+      "description": "Project-specific ARCHITECTURAL invariants enforced by the constitution-enforce hook across Bash AND the write-class tools (Edit/Write/MultiEdit) — distinct from the argv-shaped tooling rules (forbidden/package_manager/run_prefix), which are Bash-only. Each entry declares which tools it applies to, a regex deny_pattern matched against the tool's relevant input (Bash → .command; write-class → .file_path + .content/.new_string), and a message shown on a block. Example: forbid direct file I/O on a 'touch the world only through MCP' project. Optional — older constitutions predating loom-z3m.14 may omit this key. A match → the hook exits 2 with the message; non-matches and any parse/compile uncertainty fail open (exit 0).",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "applies_to", "deny_pattern", "message"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Short stable identifier for the invariant (e.g. 'no-direct-file-io'). Shown in the block message so the operator can find the rule."
+          },
+          "applies_to": {
+            "type": "array",
+            "description": "Which tool calls this invariant is checked against. An invariant only fires for a tool listed here.",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": ["Bash", "Edit", "Write", "MultiEdit"]
+            }
+          },
+          "deny_pattern": {
+            "type": "string",
+            "description": "A Python-flavored regex (re.search). Matched against the tool's relevant input: Bash → the .command string; Edit/Write/MultiEdit → the .file_path joined with the written body (.content for Write, .new_string for Edit, every edit's .new_string for MultiEdit). A search hit blocks the call. An uncompilable pattern fails open (never blocks)."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable explanation shown when the invariant blocks a call. State the rule and the sanctioned alternative (e.g. 'Touch the world only through MCP — direct file I/O is forbidden')."
+          }
+        }
+      }
     }
   }
 }
