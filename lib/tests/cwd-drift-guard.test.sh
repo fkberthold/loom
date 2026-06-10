@@ -395,6 +395,81 @@ fi
 rm -rf "$(dirname "$MAIN")"
 
 # -------------------------------------------------------------------
+# 16. SUBSTRING OVER-MATCH guard (loom-s9ko). The central-op allowlist
+# anchors each refused verb on `(\s|$)`, so a `-`-suffixed LONGER word
+# that merely STARTS with the verb must NOT trip the guard. This pins
+# the substring-over-match bug class (siblings loom-2y6x AUTOFAN-EXCLUDE
+# self-exclude + loom-skxj `pytest`-in-`pytest-of-*`) for this detector.
+#
+# The lead case is `git merge-base` — run in EVERY dispatched-worker
+# smoke battery (.claude/rules/dispatched-agents.md step 4) and by
+# central. If the guard fired on it from a worktree cwd, it would BLOCK
+# a legitimate read-only op (live false-positive). The guard was AUDITED
+# already-safe (the `merge(\s|$)` anchor rejects the `-` in `merge-base`);
+# these tests are the regression pin that keeps it that way.
+# -------------------------------------------------------------------
+
+echo "==> 16. Substring over-match — verb-prefixed LONGER words must NOT block (loom-s9ko)"
+
+FX=$(mk_main_plus_worktree)
+MAIN=$(echo "$FX" | cut -f1)
+WT=$(echo "$FX" | cut -f2)
+
+# 16a. git merge-base — the smoke-battery read-only op — must NOT block.
+out=$(run_hook "$WT" Bash "git merge-base HEAD main"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "git merge-base from worktree: allowed (does NOT over-match 'git merge')"
+else
+  fail "git merge-base incorrectly blocked — substring over-match on 'merge'. rc=$rc" "$out"
+fi
+
+# 16b. git merge-base inside a command-substitution (the literal smoke
+# battery form: mb=\$(git merge-base HEAD main)) — must NOT block.
+out=$(run_hook "$WT" Bash "mb=\$(git merge-base HEAD main); echo \$mb"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "mb=\$(git merge-base ...) from worktree: allowed (smoke-battery form)"
+else
+  fail "smoke-battery 'git merge-base' subshell incorrectly blocked. rc=$rc" "$out"
+fi
+
+# 16c. git push-cache (hypothetical `-`-suffixed push subcommand) must NOT
+# over-match the `push` arm.
+out=$(run_hook "$WT" Bash "git push-cache foo"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "git push-cache from worktree: allowed (does NOT over-match 'git push')"
+else
+  fail "git push-cache incorrectly blocked — substring over-match on 'push'. rc=$rc" "$out"
+fi
+
+# 16d. bd update-config (a `-`-suffixed longer subcommand) must NOT
+# over-match the `bd update` arm.
+out=$(run_hook "$WT" Bash "bd update-config foo"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "bd update-config from worktree: allowed (does NOT over-match 'bd update')"
+else
+  fail "bd update-config incorrectly blocked — substring over-match on 'update'. rc=$rc" "$out"
+fi
+
+# 16e. bd close-all (hypothetical `-`-suffixed close subcommand) must NOT
+# over-match the `bd close` arm.
+out=$(run_hook "$WT" Bash "bd close-all"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "bd close-all from worktree: allowed (does NOT over-match 'bd close')"
+else
+  fail "bd close-all incorrectly blocked — substring over-match on 'close'. rc=$rc" "$out"
+fi
+
+# 16f. bd dolt push-mirror (a `-`-suffixed longer push subcommand) must
+# NOT over-match the `bd dolt push` arm.
+out=$(run_hook "$WT" Bash "bd dolt push-mirror"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "bd dolt push-mirror from worktree: allowed (does NOT over-match 'bd dolt push')"
+else
+  fail "bd dolt push-mirror incorrectly blocked — substring over-match. rc=$rc" "$out"
+fi
+rm -rf "$(dirname "$MAIN")"
+
+# -------------------------------------------------------------------
 echo ""
 echo "Tests: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1
