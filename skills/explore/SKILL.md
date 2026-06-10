@@ -96,8 +96,15 @@ The loop is **HYBRID** — it splits the four tiers by weight:
   — invoked WHEN the conversation surfaces a question that needs one,
   not every turn. The `deep-research` harness fans out web searches +
   literature lookups internally; central synthesizes the returns back
-  into the dialogue. Tier 2 may also use an `Explore` subagent for a
-  larger dig.
+  into the dialogue. **The dispatch brief MUST instruct
+  `deep-research` to include peer-reviewed literature by default**
+  (tier-4) — `deep-research` is built-in and not loom-editable, so the
+  invocation brief is the only lever, and an exploration that omits
+  the instruction collapses tier-4 into ordinary web search. This is
+  the per-`/explore` instance of loom's standing convention that
+  *every* `deep-research` invocation includes peer-reviewed literature
+  by default (loom-tz5g). Tier 2 may also use an `Explore` subagent
+  for a larger dig.
 
 **Central writes nothing but the capture.** This honors dispatch-v2
 **lean-central** (loom-5m94): the heavy fan-out happens in the
