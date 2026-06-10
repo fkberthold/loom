@@ -14,6 +14,12 @@
 
 set -euo pipefail
 
+# Fail open when bd is not on PATH (loom-svcj). This hook only nudges
+# the agent to keep the git remote and the Dolt remote aligned; without
+# bd there is no Dolt remote to sync, so the advisory is meaningless —
+# no-op silently rather than warn.
+command -v bd >/dev/null 2>&1 || exit 0
+
 INPUT=$(cat)
 
 # shellcheck source=../lib/loom-hook-helpers.sh

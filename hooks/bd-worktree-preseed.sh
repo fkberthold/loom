@@ -39,6 +39,11 @@ if loom_env_enabled LOOM_BD_WORKTREE_PRESEED_SKIP; then
   exit 0
 fi
 
+# Fail open when bd is not on PATH (loom-svcj). This hook does nothing
+# but seed bd state in a worktree; with no bd installed there is no bd
+# command to fire on and nothing to seed, so no-op silently.
+command -v "${BD_BIN:-bd}" >/dev/null 2>&1 || exit 0
+
 INPUT=$(cat)
 
 # Parse tool name + command (jq if available, else grep).
