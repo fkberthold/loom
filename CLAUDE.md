@@ -296,6 +296,15 @@ slash commands.
   `has_open_thread`, `informs_design_of`. v1 is prompt/skill-only
   with no hook backstop (nudge-not-block, loom-yb5). Full reference:
   `docs/reference/explore.md`.
+- **Peer-reviewed literature is included BY DEFAULT in every
+  `deep-research` invocation (loom-tz5g).** Whenever loom invokes the
+  built-in `deep-research` skill — in ANY skill or recipe, not just
+  `/explore` — the invoking brief MUST instruct inclusion of
+  **peer-reviewed literature by default** (tier-4). `deep-research`
+  is built-in and NOT loom-editable, so the invocation brief is the
+  only lever loom has to set this preference; this generalizes the
+  tier-4 ownership `/explore` already carries in its own brief into a
+  standing convention for every loom-side `deep-research` round.
 - **Project constitution — loom dogfoods its own (loom-6f8).** The
   per-project tooling profile lives at
   `.claude/project-constitution.md`: YAML front-matter pinning the
