@@ -56,6 +56,29 @@ loom layers onto these:
   `context7-plugin`
 - `jq` on PATH (used by hooks for JSON parsing)
 
+### Developing loom (dev-only)
+
+Contributing to loom additionally needs **shellcheck** on PATH — it's
+the linter behind the `shellcheck --severity=warning hooks/*.sh
+lib/*.sh scripts/*` lint gate (declared in
+`.claude/project-constitution.md`). It is a dev prerequisite only, not
+a runtime dependency: the installed primitives don't need it, but the
+lint gate fails loud (non-zero) if it's absent, so install it before
+running the lint. No sudo / package manager required — grab the static
+binary into `~/.local/bin/`:
+
+```bash
+ver=v0.10.0
+curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${ver}/shellcheck-${ver}.linux.x86_64.tar.xz" \
+  | tar -xJ
+install -m755 "shellcheck-${ver}/shellcheck" ~/.local/bin/shellcheck
+shellcheck --version   # confirm ~/.local/bin is on PATH
+```
+
+The repo-root `.shellcheckrc` disables only `SC1091` (loom's dynamic
+helper sourcing, which shellcheck can't follow statically). Run the
+gate with `shellcheck --severity=warning hooks/*.sh lib/*.sh scripts/*`.
+
 ## Install
 
 ```bash

@@ -51,7 +51,7 @@ RELEVANT_RE='^(docs/|mkdocs\.yml$|skills/)'
 
 is_relevant=0
 
-while read -r local_ref local_sha remote_ref remote_sha; do
+while read -r _local_ref local_sha _remote_ref remote_sha; do
   # Empty line (eof / extra whitespace) → skip.
   [ -z "${local_sha:-}" ] && continue
 
