@@ -29,7 +29,7 @@ forbidden:
 
 canonical_commands:
   build: ""
-  test: "bash lib/tests/*.test.sh"
+  test: "script/test"
   lint: "shellcheck hooks/*.sh lib/*.sh scripts/*"
   gen: ""
   dev: ""

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# script/test — run loom's full bash-fixture suite (loom-yuy6).
+#
+# loom adopts its OWN GitHub-style script/ convention (the convention
+# epic loom-oxs shipped). This is resolver rung-1: `loom_resolve_command
+# test` finds + runs this file, and its exit code is authoritative.
+#
+# WHY THIS EXISTS (the bug it fixes): the previous canonical_commands.test
+# value `bash lib/tests/*.test.sh` false-greened — the glob expanded to
+# `bash f1 f2 … fN`, so bash ran ONLY f1 (the rest became positional
+# args) and exited 0 while every other file went unrun. This script
+# LOOPS, running each test file in its own `bash` invocation, and exits
+# non-zero if ANY file fails — so a single failure can never hide behind
+# a green first file.
+#
+# LOOM_TEST_DIR overrides the test directory (default: lib/tests),
+# letting the guard test (lib/tests/script-test-runs-full-suite.test.sh)
+# point this at a tiny fixture instead of recursing on the whole suite.
+
+set -u
+
+dir="${LOOM_TEST_DIR:-lib/tests}"
+
+# Resolve the default relative to the repo root so the script works from
+# any cwd (script/ lives at the repo root; the suite lives under
+# lib/tests). An explicit LOOM_TEST_DIR override is used verbatim.
+if [ "$dir" = "lib/tests" ]; then
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  dir="$root/lib/tests"
+fi
+
+fail=0
+ran=0
+for f in "$dir"/*.test.sh; do
+  [ -e "$f" ] || continue          # no matches → glob stays literal; skip
+  ran=$((ran + 1))
+  if ! bash "$f"; then
+    fail=1
+    echo "FAILED: $f" >&2
+  fi
+done
+
+if [ "$ran" -eq 0 ]; then
+  echo "script/test: no *.test.sh files found in $dir" >&2
+  exit 1                            # no tests run is a failure, never green
+fi
+
+echo "script/test: ran $ran test file(s); $([ "$fail" -eq 0 ] && echo ALL GREEN || echo FAILURES PRESENT)"
+exit "$fail"
