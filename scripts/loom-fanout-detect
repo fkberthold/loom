@@ -82,6 +82,7 @@ ids="$(printf '%s' "$ready_json" | jq -r '
 declare -A DEPS
 declare -A FILES
 declare -A HASFILES
+declare -A EXCLUDED   # 1 if the bead carries a leading AUTOFAN-EXCLUDE: line
 
 # Normalize a single Files: path: trim whitespace, strip a trailing
 # parenthetical annotation (e.g. "commands/working-a-bead.md (router)"),
@@ -154,6 +155,22 @@ for id in $ids; do
   files_line="$(printf '%s\n' "$descr" \
     | grep -iE '^[[:space:]]*Files:' | head -1)"
 
+  # AUTOFAN-EXCLUDE marker (loom-2y6x). A bead whose description carries
+  # a LEADING `AUTOFAN-EXCLUDE: <reason>` directive line is opted OUT of
+  # every wave — for attended/upstream/needs-decision/design work that
+  # must NOT be auto-dispatched into a parallel worker wave (central had
+  # to hand-filter each wave without this). Match the ANCHORED line form
+  # (`^[[:space:]]*AUTOFAN-EXCLUDE:`, case-insensitive), exactly parallel
+  # to the Files: matcher above — NOT a bare `grep -q AUTOFAN-EXCLUDE`
+  # substring. CRUX: a bare substring would self-exclude beads that
+  # merely DISCUSS the marker in prose — including loom-2y6x itself,
+  # whose description mentions the string several times without being a
+  # bead that wants exclusion. The anchored form excludes only the real
+  # leading directive lines.
+  if printf '%s\n' "$descr" | grep -iqE '^[[:space:]]*AUTOFAN-EXCLUDE:'; then
+    EXCLUDED["$id"]=1
+  fi
+
   if [ -z "$files_line" ]; then
     HASFILES["$id"]=0
     FILES["$id"]=""
@@ -187,6 +204,10 @@ done
 # --- 3. Eligible set: only beads that DECLARED a Files: line ----------
 eligible=()
 for id in "${candidates[@]}"; do
+  # AUTOFAN-EXCLUDE opt-out (loom-2y6x) takes precedence over the
+  # Files:-declared check below — an excluded bead is dropped from every
+  # wave regardless of whether it carried a Files: line.
+  [ "${EXCLUDED[$id]:-0}" = "1" ] && continue
   [ "${HASFILES[$id]:-0}" = "1" ] || continue
   eligible+=("$id")
 done

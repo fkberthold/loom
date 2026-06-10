@@ -252,6 +252,14 @@ slash commands.
   on every bead would re-import the design→build mismatch loom-l0f
   diagnosed, so the line is optional by construction. Format:
   single line beginning `RED:`.
+- **`AUTOFAN-EXCLUDE:` marker (loom-2y6x).** A bead whose description
+  carries a leading `AUTOFAN-EXCLUDE: <reason>` line is excluded from
+  every wave `scripts/loom-fanout-detect` proposes — for attended/
+  upstream/needs-decision/design work that must NOT be auto-dispatched
+  into a parallel wave. The detector matches the anchored line form
+  (`^\s*AUTOFAN-EXCLUDE:`), parallel to `Files:`/`RED:`; a bead that
+  only mentions the string mid-prose is not excluded. `<reason>` is
+  free text (e.g. `needs-decision`, `upstream+attended`, `design`).
 - **A design cycle is an above-bead orchestrator, NOT a bead/epic
   (loom-tdua).** Do not file a design cycle as a bead or epic. Its
   state lives in the layered substrate — the L2 design-doc drawer's

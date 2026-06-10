@@ -410,6 +410,108 @@ else
 fi
 rm -rf "$FDIR"
 
+# =====================================================================
+# (j) leading AUTOFAN-EXCLUDE: directive line → EXCLUDED from any wave.
+#     (loom-2y6x) A ready bead whose description carries a LEADING
+#     `AUTOFAN-EXCLUDE:` directive line (attended/upstream/needs-
+#     decision/design work) must NEVER be auto-dispatched into a
+#     parallel wave, even when it is otherwise dependency-disjoint AND
+#     Files:-disjoint from a sibling. The marker is matched as an
+#     ANCHORED line form (`^\s*AUTOFAN-EXCLUDE:`), parallel to the
+#     Files:/RED: line matchers — not a bare substring.
+#
+#     Fixture: loom-keep + loom-excl are real, Files:-disjoint, dep-free.
+#     loom-excl additionally carries a leading `AUTOFAN-EXCLUDE:` line.
+#     With only loom-keep eligible, NO wave of size >=2 can form → empty
+#     stdout, and loom-excl must never appear.
+# =====================================================================
+echo "==> (j) leading AUTOFAN-EXCLUDE: directive line → excluded from any wave"
+FDIR=$(mk_fixture <<'F'
+loom-keep||scripts/keep.sh, lib/tests/keep.test.sh
+loom-excl||scripts/excl.sh, lib/tests/excl.test.sh
+F
+)
+# Rewrite loom-excl with a LEADING AUTOFAN-EXCLUDE: directive line ahead
+# of its (real, disjoint) Files: line — the on-disk shape of an attended
+# bead central must hand-filter.
+cat > "$FDIR/show-loom-excl.json" <<'JSON'
+[{"id":"loom-excl","description":"AUTOFAN-EXCLUDE: needs-decision — file-DELETING machine-global hook; do NOT auto-dispatch.\nGoal: do thing loom-excl.\nFiles: scripts/excl.sh, lib/tests/excl.test.sh\nSteps: 1. do it.","dependencies":[]}]
+JSON
+out=$(run_detect "$STUB" "$FDIR")
+# loom-excl carries a leading AUTOFAN-EXCLUDE: line → must never appear.
+if printf '%s\n' "$out" | grep -qE '(^| )loom-excl( |$)'; then
+  fail "AUTOFAN-EXCLUDE bead loom-excl was proposed (leading directive must exclude it)" "out=$out"
+else
+  pass "loom-excl (leading AUTOFAN-EXCLUDE:) excluded from every wave"
+fi
+# loom-keep is now the only eligible bead → no wave of size >=2 possible.
+nlines=$(printf '%s\n' "$out" | grep -c 'loom-' || true)
+if [ "$nlines" -eq 0 ]; then
+  pass "no wave proposed (loom-keep alone, loom-excl excluded → size <2)"
+else
+  fail "expected no wave (AUTOFAN-EXCLUDE leaves a lone bead), got $nlines line(s)" "out=$out"
+fi
+rm -rf "$FDIR"
+
+# =====================================================================
+# (k) DOGFOOD negative case — a bead that only MENTIONS AUTOFAN-EXCLUDE
+#     mid-prose (modeled on loom-2y6x's OWN description) is NOT excluded.
+#     (loom-2y6x) The crux of the anchored-not-substring design: a bare
+#     `grep AUTOFAN-EXCLUDE` would self-exclude loom-2y6x itself, whose
+#     description discusses the marker several times without being a bead
+#     that wants exclusion. The anchored `^\s*AUTOFAN-EXCLUDE:` form
+#     matches only the real leading directive lines, so a mid-prose
+#     mention leaves the bead fully eligible.
+#
+#     Fixture: loom-2y6x carries a real Files: line AND prose that
+#     mentions AUTOFAN-EXCLUDE mid-sentence; loom-sib is a disjoint,
+#     dep-free sibling. They MUST form a wave together.
+# =====================================================================
+echo "==> (k) mid-prose AUTOFAN-EXCLUDE mention (loom-2y6x dogfood) → NOT excluded"
+FDIR=$(mk_fixture <<'F'
+loom-2y6x||scripts/loom-fanout-detect, lib/tests/loom-fanout-detect.test.sh
+loom-sib||CLAUDE.md, docs/reference/explore.md
+F
+)
+# Rewrite loom-2y6x to mention AUTOFAN-EXCLUDE only MID-PROSE (never as a
+# leading directive line) — modeled on this very bead's own text.
+cat > "$FDIR/show-loom-2y6x.json" <<'JSON'
+[{"id":"loom-2y6x","description":"Goal: loom-fanout-detect currently does NOT parse the AUTOFAN-EXCLUDE marker some beads carry, so it keeps proposing beads that should never be auto-dispatched. Fix: exclude any candidate whose description carries the marker.\nFiles: scripts/loom-fanout-detect, lib/tests/loom-fanout-detect.test.sh\nSteps: 1. match the anchored AUTOFAN-EXCLUDE: line, not a bare substring.","dependencies":[]}]
+JSON
+out=$(run_detect "$STUB" "$FDIR")
+# loom-2y6x only MENTIONS the string mid-prose → it MUST remain eligible
+# and form a wave with its disjoint sibling.
+if printf '%s\n' "$out" | grep -qE 'loom-2y6x.*loom-sib|loom-sib.*loom-2y6x'; then
+  pass "loom-2y6x (mid-prose mention) NOT excluded — proposed with disjoint sibling"
+else
+  fail "loom-2y6x was wrongly excluded by a bare-substring match (must match anchored line only)" "out=$out"
+fi
+rm -rf "$FDIR"
+
+# =====================================================================
+# (l) case-insensitivity + leading whitespace on the AUTOFAN-EXCLUDE
+#     directive line. (loom-2y6x) The matcher mirrors the existing
+#     `grep -iE '^[[:space:]]*Files:'` Files: matcher: case-insensitive,
+#     leading whitespace tolerated, colon required. A lower/mixed-case
+#     marker with indentation must still exclude.
+# =====================================================================
+echo "==> (l) case-insensitive + leading-whitespace AUTOFAN-EXCLUDE: still excludes"
+FDIR=$(mk_fixture <<'F'
+loom-ci1||scripts/ci1.sh, lib/tests/ci1.test.sh
+loom-ci2||scripts/ci2.sh, lib/tests/ci2.test.sh
+F
+)
+cat > "$FDIR/show-loom-ci2.json" <<'JSON'
+[{"id":"loom-ci2","description":"Goal: do thing loom-ci2.\n   autofan-exclude: upstream — watch bead; waits on external PR.\nFiles: scripts/ci2.sh, lib/tests/ci2.test.sh\nSteps: 1. do it.","dependencies":[]}]
+JSON
+out=$(run_detect "$STUB" "$FDIR")
+if printf '%s\n' "$out" | grep -qE '(^| )loom-ci2( |$)'; then
+  fail "lower-case/indented autofan-exclude bead loom-ci2 was proposed (must be excluded)" "out=$out"
+else
+  pass "loom-ci2 (lower-case + indented autofan-exclude:) excluded"
+fi
+rm -rf "$FDIR"
+
 rm -rf "$STUB"
 
 # =====================================================================
