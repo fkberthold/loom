@@ -982,6 +982,37 @@ the case where docs claim a primitive that doesn't exist (doc →
 source miss; the loom-qj3 / installed-files-claims-audit-project
 class).
 
+**Delegate to the mechanized engines when the project ships them
+(loom-wj26.3).** The grep-derived comparison above is the *generic
+fallback*. When the project being audited carries
+`scripts/loom-docs-catalogue` and/or `scripts/loom-docs-gen` — loom's
+own repo, or any project that has adopted those engines — do NOT
+re-derive the symmetric coverage by grep. Instead **delegate** to the
+mechanized gates and surface their findings verbatim:
+
+- **`scripts/loom-docs-catalogue --check`** (loom-wjuo) is the
+  deterministic name-set drift gate for the `docs/reference/<category>/`
+  **index tables**. It exits non-zero when a shipped primitive is
+  absent from — or a ghost is present in — the inventory tables, which
+  is exactly the source→doc / doc→source symmetric coverage Check 4
+  re-derives by hand. Run it and report its drift lines.
+- **`scripts/loom-docs-gen --check`** (loom-itph) is the companion gate
+  for the **per-item nav pages + the nav block**. It recomputes the
+  expected per-primitive wrapper pages and the nav and diffs them
+  against what's committed, catching the page-level half of inclusion
+  drift the catalogue index check does not.
+
+So: in a repo that ships the engines, Check 4 runs
+`scripts/loom-docs-catalogue --check` (index tables) +
+`scripts/loom-docs-gen --check` (per-item nav pages + nav block) and
+surfaces their non-zero findings as the `[DOC FIX]` lines, **instead
+of** the re-derived grep. The engines are deterministic and gateable,
+so their result supersedes the naive grep wherever both could run.
+For projects **without** those scripts (no `scripts/loom-docs-catalogue`
+and no `scripts/loom-docs-gen` — most non-loom-managed projects until
+the deferred generic engine lands), keep the existing generic grep
+fallback described above.
+
 For projects that use `mkdocs-include-markdown` to auto-glob the
 catalog, the auto-generated `all-<thing>.md` page should be
 trusted as the authoritative inclusion result. Compare the

@@ -64,6 +64,18 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
    - Else, `<root>/docs/` exists but lacks quadrants → INFO ("not Diataxis-shaped — `/docs-scaffold` if desired").
    - Else (no `<root>/docs/`) → INFO ("no docs/ — `/docs-scaffold` to start").
    - INFO/PASS only — never WARN/MISS. Diataxis is recommendation, not requirement.
+   - Report whether `<root>/scripts/loom-docs-catalogue` and/or
+     `<root>/scripts/loom-docs-gen` are present (read-only detection
+     for loom-wj26.3). When they are, the skill's docs-drift Check 4
+     (inclusion-glob symmetric coverage) **delegates** to
+     `scripts/loom-docs-catalogue --check` (index tables) +
+     `scripts/loom-docs-gen --check` (per-item nav pages + nav block)
+     instead of re-deriving the coverage by grep — so surface their
+     presence here as the signal that the mechanized path applies.
+     Engine lineage: loom-wjuo (catalogue), loom-itph (gen). Absent →
+     INFO ("no loom-docs engines — Check 4 uses the generic grep
+     fallback"). This is detection only; the delegation itself runs in
+     the skill, not this read-only subagent.
 
 9. **`.claude/agents/` and `.claude/commands/` (informational)**
    - Report present/absent. No verdict — informational only.
