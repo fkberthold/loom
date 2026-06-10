@@ -371,6 +371,30 @@ returned a **false `63/2` suite result**. One suite loop per repo; after
 a `TaskStop`, confirm no orphan `bd-post-rewrite` processes survived
 before trusting any suite number.
 
+**MANDATORY — file the decision drawer FIRST as the crash-recovery
+surface (loom-417).** When the variable middle is dispatched (the
+default), the decision drawer is **recipe-mandatory BEFORE the
+dispatch, not deferred to D3** — and its body must be detailed enough
+to **rebuild the implementation from the drawer alone**: the locked
+contract, the `RED:` spec, the chosen approach, and the file plan. The
+worktree filesystem and bd state are both volatile under an API 529
+overload burst — a mid-flight agent can die with its work stranded in
+an unmerged worktree, and a resume agent can die in ~4s with 0 tool
+uses before it writes anything. The drawer is **the only
+crash-resilient artifact**: it lives in MemPalace, outside the
+worktree and outside bd, so it survives every crash mode. Write it
+first, in prose rich enough that a fresh resume agent (or you, next
+session) can reconstruct the intended change without forensic
+archaeology on a half-finished worktree. This promotes the old
+"file the drawer first" convention to a recipe requirement; the
+drawer at D3 then becomes an *update* (verification-at-close,
+landing SHAs) of a drawer that already exists, not a from-scratch
+write. See the **`## API 529 / overload resilience`** section of
+`.claude/rules/dispatched-agents.md` for the full DETECT /
+health-probe-before-resume / resume-from-WIP /
+drawer-as-recovery-surface playbook, and the operator how-to
+`docs/how-to/recover-from-dispatch-crash.md`.
+
 #### Brief templates — delegated to `/dispatch-middle`
 
 The middle's brief templates live in `dispatch-middle`, not here:
