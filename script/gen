@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# script/gen — regenerate loom's committed generated artifacts (loom-wj26.4).
+#
+# loom adopts its OWN GitHub-style script/ convention (the convention epic
+# loom-oxs shipped). This is resolver rung-1: `loom_resolve_command gen`
+# finds + runs this file, and its exit code is authoritative.
+#
+# WHAT IT REGENERATES. Today, the per-item Reference nav pages + the
+# LOOM-DOCS-GEN nav block in mkdocs.yml, via scripts/loom-docs-gen
+# (loom-itph). The companion gate is the gofmt -l shape: on an already-
+# generated tree this script is a NO-OP — it leaves docs/reference +
+# mkdocs.yml byte-identical, so `git status` stays clean after a run. On a
+# stale tree it regenerates the drift away; a reviewer (or CI) then sees an
+# uncommitted diff and knows the committed generated output was stale.
+#
+# EXTENSIBILITY. Future generators are appended to the GENERATORS list below
+# — each is a command run from the repo root. Add a line, and the whole set
+# runs in order; the no-op invariant continues to hold per generator.
+#
+# Resolve the repo root relative to this script's location (script/ lives at
+# the repo root) so the script works from any cwd, matching script/test.
+#
+# Usage:  script/gen
+
+set -u
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Generators, in run order. Each entry is a command (relative to the repo
+# root) that regenerates one committed artifact set idempotently. Append
+# future generators here.
+GENERATORS=(
+  "scripts/loom-docs-gen"
+)
+
+cd "$ROOT" || { echo "script/gen: cannot cd to repo root $ROOT" >&2; exit 1; }
+
+rc=0
+for gen in "${GENERATORS[@]}"; do
+  echo "script/gen: running $gen"
+  # shellcheck disable=SC2086  # GENERATORS entries are trusted, word-split intentionally
+  if ! $gen; then
+    echo "script/gen: FAILED: $gen" >&2
+    rc=1
+  fi
+done
+
+exit "$rc"
