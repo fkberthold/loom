@@ -99,6 +99,16 @@ EOF
   echo "CALL"                # one line per invocation — count this
   printf 'ARGV %s\n' "$*"    # detail line for --model/--output-format greps
 } >> "${CLAUDE_CALLS_FILE:-/dev/null}"
+# The SALIENCE prompt now arrives on STDIN (loom-oekt: prompt fed via a
+# temp file, `claude -p <"$promptfile"`, to dodge ARG_MAX — it is no
+# longer an argv argument). Capture received stdin to CLAUDE_STDIN_FILE
+# when a test sets it, so prompt-CONTENT assertions can grep the prompt
+# wherever it now rides. Gated on the var (and a non-tty stdin) so the
+# stdin-agnostic tests keep their original no-stdin-read behavior; the
+# captured lines never match the `^CALL$` call-counter.
+if [ -n "${CLAUDE_STDIN_FILE:-}" ] && [ ! -t 0 ]; then
+  cat >> "$CLAUDE_STDIN_FILE"
+fi
 # tier-2 synthesis prompts carry the marker "narrative arc"; route them
 # to CLAUDE_ARC_REPLY_FILE when set so a single canned reply can serve
 # tier-1 salience AND tier-2 arc narration in the same run. (bn7.2)
@@ -1376,6 +1386,8 @@ CALLS=$(mktemp); rm -f "$CALLS"
 export GH_AUTH_OK=0
 export CLAUDE_REPLY_FILE="$REPLY"
 export CLAUDE_CALLS_FILE="$CALLS"
+STDINCAP=$(mktemp); rm -f "$STDINCAP"   # salience prompt now rides stdin (loom-oekt)
+export CLAUDE_STDIN_FILE="$STDINCAP"
 
 out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
 draft=$(head -1 "$OUT/drafts.jsonl" 2>/dev/null)
@@ -1407,14 +1419,14 @@ fi
 
 # The prompt sent to claude must carry a salience INSTRUCTION + the
 # output schema — not just the raw source text.
-if grep -qiE 'salient|respond .*json|json.*salient' "$CALLS" 2>/dev/null; then
+if grep -qiE 'salient|respond .*json|json.*salient' "$CALLS" "$STDINCAP" 2>/dev/null; then
   pass "prompt instructs the model (salience criteria + JSON schema)"
 else
-  fail "prompt has no instruction — model gets only raw source text" "$(grep '^ARGV' "$CALLS" | head -1)"
+  fail "prompt has no instruction — model gets only raw source text" "$(head -c 200 "$STDINCAP" 2>/dev/null; grep '^ARGV' "$CALLS" | head -1)"
 fi
 
-unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
-rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY"
+unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE CLAUDE_STDIN_FILE
+rm -rf "$STUBS" "$(dirname "$REPO")" "$OUT" "$REPLY" "$STDINCAP"
 
 # =====================================================================
 # 23. MULTI-LINE COMMIT BODY survives harvest into the LLM prompt
@@ -1464,6 +1476,8 @@ CALLS=$(mktemp); rm -f "$CALLS"
 export GH_AUTH_OK=0
 export CLAUDE_REPLY_FILE="$REPLY"
 export CLAUDE_CALLS_FILE="$CALLS"
+STDINCAP=$(mktemp); rm -f "$STDINCAP"   # salience prompt now rides stdin (loom-oekt)
+export CLAUDE_STDIN_FILE="$STDINCAP"
 
 out=$(run_mine "$REPO" --out "$OUT" --yes --model fake); rc=$?
 
@@ -1472,24 +1486,24 @@ if [ "$rc" -eq 0 ]; then pass "multi-line-body run exits 0"; else fail "rc=$rc" 
 # The decisive assertion: the line-3 rationale text MUST appear in the
 # prompt sent to claude. The bug truncates the body to line 1, so this
 # telltale (on body line 3) never reaches the model.
-if grep -q "TELLTALE_RATIONALE_LINE3" "$CALLS" 2>/dev/null; then
+if grep -q "TELLTALE_RATIONALE_LINE3" "$CALLS" "$STDINCAP" 2>/dev/null; then
   pass "line-3 body rationale reached the LLM prompt (no truncation)"
 else
   fail "body truncated to first line — line-3 rationale lost before LLM (0/787 bug)" \
-    "$(grep '^ARGV' "$CALLS" 2>/dev/null | head -1)"
+    "$(head -c 200 "$STDINCAP" 2>/dev/null; grep '^ARGV' "$CALLS" 2>/dev/null | head -1)"
 fi
 
 # Also the intervening line-2 context must survive (full body, not just
 # the rationale keyword line).
-if grep -q "Second body line adds context" "$CALLS" 2>/dev/null; then
+if grep -q "Second body line adds context" "$CALLS" "$STDINCAP" 2>/dev/null; then
   pass "line-2 body context reached the LLM prompt"
 else
   fail "line-2 body context lost — only first body line survived" \
-    "$(grep '^ARGV' "$CALLS" 2>/dev/null | head -1)"
+    "$(head -c 200 "$STDINCAP" 2>/dev/null; grep '^ARGV' "$CALLS" 2>/dev/null | head -1)"
 fi
 
-unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE
-rm -rf "$STUBS" "$WORK" "$OUT" "$REPLY" "$CALLS"
+unset CLAUDE_REPLY_FILE CLAUDE_CALLS_FILE CLAUDE_STDIN_FILE
+rm -rf "$STUBS" "$WORK" "$OUT" "$REPLY" "$CALLS" "$STDINCAP"
 
 # =====================================================================
 # Summary
