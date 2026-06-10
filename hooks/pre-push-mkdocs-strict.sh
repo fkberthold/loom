@@ -114,6 +114,24 @@ if [ "$is_catalogue_relevant" = "1" ] && [ -x scripts/loom-docs-catalogue ]; the
   fi
 fi
 
+# --- Generated per-item nav drift check (loom-itph) -----------------------
+# Same relevance + loom-only guard. WARN-only; the suite test under
+# `script/test` is the hard gate. Catches a primitive added/removed without
+# rerunning scripts/loom-docs-gen (stale wrapper pages or nav block).
+if [ "$is_catalogue_relevant" = "1" ] && [ -x scripts/loom-docs-gen ]; then
+  if ! gen_output=$(scripts/loom-docs-gen --check 2>&1); then
+    {
+      echo ""
+      echo "WARN: generated per-item nav pages/block drifted from shipped primitives; push proceeding"
+      echo "$gen_output" | grep -E '^(MISSING|STALE|ORPHAN|loom-docs-gen:)' | sed 's/^/  /'
+      echo ""
+      echo "  Run 'scripts/loom-docs-gen' to regenerate + commit, or bypass once with:"
+      echo "    LOOM_PRE_PUSH_MKDOCS_SKIP=1 git push"
+      echo ""
+    } >&2
+  fi
+fi
+
 if [ "$is_relevant" = "0" ]; then
   exit 0
 fi
