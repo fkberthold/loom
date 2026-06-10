@@ -90,6 +90,7 @@ nav:
       - Author a project constitution: how-to/author-project-constitution.md
       - Adopt a brownfield project: how-to/adopt-a-brownfield-project.md
       - Contribute a fix upstream: how-to/contribute-upstream.md
+      - Recover from a dispatch crash: how-to/recover-from-dispatch-crash.md
       - Common scenarios:
           - how-to/common-scenarios/index.md
           - New bug: how-to/common-scenarios/new-bug.md
@@ -141,6 +142,7 @@ nav:
       - Path-scoped rules: reference/path-scoped-rules.md
       - workflow.json schema: reference/workflow-json.md
       - Project constitution: reference/project-constitution.md
+      - Project invariants: reference/project-invariants.md
       - script/ convention: reference/script-convention.md
       - bd CLI: reference/bd-cli.md
       - MemPalace MCP: reference/mempalace-mcp.md

@@ -1,7 +1,8 @@
 # constitution-enforce hook
 
-> PreToolUse hook (Bash matcher) that HARD-BLOCKS a shell command when
-> it violates the project's pinned tooling profile in
+> PreToolUse hook (Bash + Edit/Write/MultiEdit matcher) that HARD-BLOCKS
+> a tool call when it violates the project's pinned tooling profile or a
+> declared architectural `invariants:` entry in
 > `.claude/project-constitution.md` — with a helpful suggestion. Fails
 > open on every condition where it cannot prove a violation.
 
@@ -124,10 +125,13 @@ blast radius for that one call.
 
 ## Tools matched
 
-- `Bash` only.
+- `Bash` — tooling-profile rules (`forbidden` / `package_manager` /
+  `run_prefix`) plus any Bash-scoped `invariants:` entry.
+- `Edit` / `Write` / `MultiEdit` — `invariants:` entries whose
+  `applies_to` includes the write-class tool (loom-z3m.14). Composes
+  with `edit-write-pwd-guard`.
 
-Not matched: `Edit` / `Write` / `MultiEdit` (covered by
-`edit-write-pwd-guard`), `Read`, `Glob`, `Grep`, `Skill`, etc.
+Not matched: `Read`, `Glob`, `Grep`, `Skill`, etc.
 
 ## Example block
 
