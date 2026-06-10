@@ -104,9 +104,9 @@ _lmh_score_commit() {
   # (loom-mec) showed dependency-bump + lint commits scoring >=2 via a
   # config-file touch and surviving to the paid LLM pass.
   case "$lc" in
-    wip*|*"wip:"*|fixup*|"fixup!"*|squash!*|typo*|*" typo"*|bump*|"merge main"*|"merge branch"*|revert*|*"revert \""*)
+    wip*|*"wip:"*|fixup*|squash!*|typo*|*" typo"*|bump*|"merge main"*|"merge branch"*|revert*|*"revert \""*)
       echo 0; return 0 ;;
-    upgrade*|*"upgrade "*|chore*|"chore:"*|lint*|*" lint "*|*"lint errors"*|*"lint fix"*|*"de-flake"*|*"deflake"*)
+    upgrade*|*"upgrade "*|chore*|lint*|*" lint "*|*"lint errors"*|*"lint fix"*|*"de-flake"*|*"deflake"*)
       echo 0; return 0 ;;
   esac
   # Routine dependency churn (update deps / update * packages / pkgs).
@@ -891,7 +891,7 @@ Files touched: $files"
       # Build the constituent list + the LLM prompt. The prompt MUST
       # contain "narrative arc" (the tier-2 trust/route marker).
       local constituents_json="" constituents_block="" prompt_units=""
-      while IFS=$'\t' read -r c_key c_id c_dec c_anchor; do
+      while IFS=$'\t' read -r _c_key c_id c_dec c_anchor; do
         [ -z "$c_id" ] && continue
         if [ -n "$constituents_json" ]; then constituents_json="${constituents_json},"; fi
         constituents_json="${constituents_json}\"$(printf '%s' "$c_id" | _lmh_json_escape)\""

@@ -183,8 +183,8 @@ file_spend() {
   first=$(printf '%s\n' "$rows" | head -1)
   last=$(printf '%s\n' "$rows" | tail -1)
 
-  local f_cr f_cc f_out l_cr l_cc l_out
-  IFS=$'\t' read -r f_cr f_cc f_out <<<"$first"
+  local f_out l_cr l_cc l_out
+  IFS=$'\t' read -r _f_cr _f_cc f_out <<<"$first"
   IFS=$'\t' read -r l_cr l_cc l_out <<<"$last"
 
   # output summed across first + last (collapse to one when single record)

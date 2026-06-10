@@ -49,7 +49,7 @@ if [ "$TOPLEVEL" = "$MAIN_DIR" ]; then
   exit 2
 fi
 
-cd "$TOPLEVEL"
+cd "$TOPLEVEL" || { echo "loom-rebase-worktree: failed to cd into $TOPLEVEL" >&2; exit 1; }
 
 # --- Snapshot untracked WIP (excluding .beads/embeddeddolt/) --------------
 

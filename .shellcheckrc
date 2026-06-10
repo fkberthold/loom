@@ -1,0 +1,26 @@
+# shellcheck configuration for loom (loom-n6uv)
+#
+# The gated lint runs at --severity=warning (see
+# .claude/project-constitution.md canonical_commands.lint): style/info
+# NOTES do not gate; real WARNINGS and above do. This file disables the
+# one INFO-level code that is pervasive AND expected-by-design, so a
+# plain `shellcheck` run (and editor integrations that default to the
+# info floor) is also clean of known-benign noise — without masking any
+# warning-or-above finding.
+#
+# Keep this list MINIMAL. Do NOT blanket-disable. Each entry below is a
+# code that is (a) expected by loom's architecture and (b) pervasive
+# (dozens of hits across the tree), so suppressing it repo-wide is
+# correct rather than a band-aid. Per-site genuine findings get a real
+# fix or an inline `# shellcheck disable=` with a justifying comment,
+# never a repo-wide disable here.
+
+# SC1091 — "Not following: ../lib/<file> was not specified as input."
+# loom's hooks and scripts source their shared helpers dynamically via
+# repo-relative paths resolved at runtime (e.g.
+# `. "$(dirname "$0")/../lib/loom-hook-helpers.sh"`). shellcheck cannot
+# follow these statically without `-x` plus a source-path, and the
+# sourced files genuinely exist — the "not followed" note is a
+# static-analysis limitation, not a defect. 65 occurrences across the
+# tree. Expected and pervasive → disabled repo-wide.
+disable=SC1091

@@ -119,7 +119,7 @@ workflow_state_set() {
   local kv0
   for kv0 in "${pairs[@]}"; do
     if [ "${kv0%%=*}" = "mode" ]; then
-      override_mode=set
+      override_mode="1"
       break
     fi
   done

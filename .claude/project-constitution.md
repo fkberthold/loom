@@ -30,7 +30,7 @@ forbidden:
 canonical_commands:
   build: ""
   test: "script/test"
-  lint: "shellcheck hooks/*.sh lib/*.sh scripts/*"
+  lint: "shellcheck --severity=warning hooks/*.sh lib/*.sh scripts/*"
   gen: ""
   dev: ""
   # No deploy step — loom installs via ./install.sh (symlinks), which
@@ -89,6 +89,33 @@ Example structure:
 - **Canonical commands**: TODO — point at `lib/tests/*.test.sh` for
   the fixture suite, `shellcheck` for the lint pass, and explain why
   `build`, `gen`, `dev` are empty.
+
+## Dev prerequisite — shellcheck (loom-n6uv)
+
+The `lint` command above runs **shellcheck** over loom's executable
+surface. shellcheck is a DEV PREREQUISITE — it is not a runtime
+dependency and is not auto-installed. If it is absent, the lint gate
+fails loud (returns non-zero) rather than silently passing; that
+no-false-green property is pinned by `lib/tests/lint-fail-loud.test.sh`.
+
+The gate runs at **`--severity=warning`**: style/info NOTES do not gate
+(they are advisory), while real WARNINGS and above do. The repo-root
+`.shellcheckrc` disables only `SC1091` (sourced-file-not-followed —
+loom sources its shared helpers via repo-relative paths shellcheck
+cannot follow statically; pervasive and expected-by-design, never a
+defect). Keep that file minimal: per-site genuine findings get a real
+fix or an inline `# shellcheck disable=<code>` with a justifying
+comment, never a repo-wide disable.
+
+No-sudo install (static binary, no package manager):
+
+```bash
+ver=v0.10.0
+curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${ver}/shellcheck-${ver}.linux.x86_64.tar.xz" \
+  | tar -xJ
+install -m755 "shellcheck-${ver}/shellcheck" ~/.local/bin/shellcheck
+shellcheck --version   # confirm ~/.local/bin is on PATH
+```
 
 ## Forbidden patterns
 
