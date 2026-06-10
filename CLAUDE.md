@@ -67,6 +67,17 @@ wing). Cross-project tunnels:
 - `loom/decisions ↔ <other_project>/decisions` when loom work was
   driven by experience in another project
 
+**Precipitation has a full-rewrite cost (loom-u9es; upstream fix
+loom-n2b9).** `mempalace_update_drawer` has no append/patch — it
+replaces the whole drawer body, so every incremental precipitation
+(a new finding, a STATE HEADER flip, a locked decision) resends the
+full drawer through the agent's context. Until the upstream `append`
+capability lands (loom-n2b9), **batch tightly-clustered touches into
+one `update_drawer` call** rather than one rewrite each — but never
+defer a whole session's capture, which a mid-session crash would lose.
+Applies anywhere loom precipitates: `/explore`, `/design-a-cycle`, and
+the phase-D3 capture fan-out.
+
 ### Testing changes
 
 Most loom changes affect Claude Code's behavior live (hooks +
