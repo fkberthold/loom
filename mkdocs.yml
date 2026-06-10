@@ -105,55 +105,55 @@ nav:
       - Installed files: reference/installed-files.md
       - Skills:
           - reference/skills/index.md
-          - All skills: reference/skills/all-skills.md
-      - Slash commands:
-          - reference/slash-commands/index.md
-          - All commands: reference/slash-commands/all-commands.md
-      - Subagents:
-          - reference/subagents/index.md
-          - All subagents: reference/subagents/all-subagents.md
-      - Hooks:
-          - reference/hooks/index.md
-          - All hooks: reference/hooks/all-hooks.md
-          - edit-after-failure-guard: reference/hooks/edit-after-failure-guard.md
-          - bd-preflight-docs-strict: reference/hooks/bd-preflight-docs-strict.md
-          - constitution-enforce: reference/constitution-enforce-hook.md
-          - pytest-tempdir-prune: reference/pytest-tempdir-prune.md
-      - Dispatch & design cycle:
           - explore: reference/explore.md
           - dispatch-middle: reference/dispatch-middle.md
           - design-a-cycle: reference/design-a-cycle.md
-          - Design-doc template: reference/design-doc-template.md
-      - Brownfield adoption:
+          - upstream-a-bead: reference/upstream-a-bead.md
           - loom-adopt: reference/loom-adopt.md
           - loom-mine-history: reference/loom-mine-history.md
-      - Worktree-isolation guards:
-          - cwd-drift-guard: reference/cwd-drift-guard.md
-          - edit-write-pwd-guard: reference/edit-write-pwd-guard.md
+          - All skills (verbatim): reference/skills/all-skills.md
+      - Slash commands:
+          - reference/slash-commands/index.md
+          - All commands (verbatim): reference/slash-commands/all-commands.md
+      - Subagents:
+          - reference/subagents/index.md
+          - All subagents (verbatim): reference/subagents/all-subagents.md
+      - Hooks:
+          - reference/hooks/index.md
+          - bd-preflight-docs-strict: reference/hooks/bd-preflight-docs-strict.md
+          - bd-prime-wrapper: reference/bd-prime-wrapper.md
+          - bd-remember-guest-guard: reference/bd-remember-guest-guard.md
           - bd-worktree-preseed: reference/bd-worktree-preseed.md
-          - loom-rebase-worktree: reference/loom-rebase-worktree.md
-          - loom-worktree-python: reference/loom-worktree-python.md
-      - Helper scripts & internals:
-          - Helper scripts: reference/helper-scripts.md
-          - bd-state integrity: reference/bd-state-integrity.md
-          - bd prime wrapper: reference/bd-prime-wrapper.md
-          - bd remember guest guard: reference/bd-remember-guest-guard.md
+          - constitution-enforce: reference/constitution-enforce-hook.md
+          - cwd-drift-guard: reference/cwd-drift-guard.md
+          - edit-after-failure-guard: reference/hooks/edit-after-failure-guard.md
+          - edit-write-pwd-guard: reference/edit-write-pwd-guard.md
+          - pytest-tempdir-prune: reference/pytest-tempdir-prune.md
+          - All hooks (verbatim): reference/hooks/all-hooks.md
+      - Helper scripts:
+          - reference/helper-scripts.md
           - loom-print-deploy-hint: reference/loom-print-deploy-hint.md
+          - loom-rebase-worktree: reference/loom-rebase-worktree.md
           - loom-subagent-lean: reference/loom-subagent-lean.md
-      - Path-scoped rules: reference/path-scoped-rules.md
-      - workflow.json schema: reference/workflow-json.md
-      - Project constitution: reference/project-constitution.md
-      - Project invariants: reference/project-invariants.md
-      - script/ convention: reference/script-convention.md
-      - bd CLI: reference/bd-cli.md
-      - MemPalace MCP: reference/mempalace-mcp.md
-      - Loom env vars: reference/loom-env-vars.md
-      - Claude Code hook layering: reference/claude-code-hook-layering.md
-      - Claude Code hook semantics: reference/claude-code-hook-semantics.md
-      - Decision tables: reference/decision-tables.md
-      - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
-      - upstream-a-bead recipe: reference/upstream-a-bead.md
-      - upstream:loom label: reference/upstream-loom-label.md
+          - loom-worktree-python: reference/loom-worktree-python.md
+      - Templates & conventions:
+          - Design-doc template: reference/design-doc-template.md
+          - Project constitution: reference/project-constitution.md
+          - script/ convention: reference/script-convention.md
+          - Path-scoped rules: reference/path-scoped-rules.md
+          - upstream:loom label: reference/upstream-loom-label.md
+          - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
+      - Schemas & internals:
+          - workflow.json schema: reference/workflow-json.md
+          - Project invariants: reference/project-invariants.md
+          - bd-state integrity: reference/bd-state-integrity.md
+          - Loom env vars: reference/loom-env-vars.md
+          - Decision tables: reference/decision-tables.md
+      - External tools & Claude Code harness:
+          - bd CLI: reference/bd-cli.md
+          - MemPalace MCP: reference/mempalace-mcp.md
+          - Claude Code hook layering: reference/claude-code-hook-layering.md
+          - Claude Code hook semantics: reference/claude-code-hook-semantics.md
       - Glossary: reference/glossary.md
   - Explanation:
       - explanation/index.md
