@@ -186,6 +186,15 @@ particular exploration is free to deviate.
   finding into `## Findings`, revise `current-understanding` +
   `open-threads` in place, add `tiers-touched`. Add KG triples for the
   firm findings only.
+- **Batch clustered touches.** `mempalace_update_drawer` replaces the
+  full drawer body (no append/patch — `loom-n2b9` tracks the upstream
+  fix), so each precipitation resends the whole drawer. When touches
+  cluster — several rounds return close together, or one round yields
+  several firm findings at once — fold them into **one** `update_drawer`
+  call rather than one rewrite each. Tradeoff: batching trades
+  crash-safety for fewer rewrites, so batch only *tightly-clustered*
+  touches — never defer a whole exploration's capture to the end, which
+  a mid-session crash would lose.
 - **At exit** — flip `status` (below).
 
 ## Discovery

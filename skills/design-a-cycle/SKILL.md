@@ -177,6 +177,14 @@ When a decision locks, PRECIPITATE it into all three layers:
   its RED test. A decision with no testable altitude carries Tier-0
   only — expected and fine.
 
+**Batch clustered precipitations.** `mempalace_update_drawer` replaces
+the full drawer body (no append/patch — `loom-n2b9` tracks the upstream
+fix), so each precipitation resends the whole design doc. When several
+decisions lock close together, precipitate them in **one** `update_drawer`
+call (one combined Decisions-locked write + STATE HEADER edit) rather than
+one rewrite per decision. Batch only tightly-clustered locks — never defer
+a whole cycle's capture, which a mid-session crash would lose.
+
 #### Soundness — the two-tier gate (loop until green)
 
 Run the soundness check after each Architect pass; loop the cadence
