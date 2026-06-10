@@ -7,8 +7,18 @@
 # subsequent runs the symlinks are reset but backups aren't re-created.
 #
 # Usage:
-#   ./install.sh           # install (default)
-#   ./install.sh --check   # report what WOULD be done; no changes
+#   ./install.sh                    # install (default)
+#   ./install.sh --check            # report what WOULD be done; no changes
+#   ./install.sh --check-invocable  # verify shipped primitives are symlinked
+#
+# `--check-invocable` is a POST-INSTALL verification pass (no mutation):
+# it asserts every shipped primitive (skills/*/SKILL.md, commands/*.md,
+# agents/*.md, hooks/*.sh) has a LIVE ~/.claude/ symlink resolving back
+# to the repo file, and exits NON-ZERO naming any un-invocable primitive
+# (loom-7f3). It catches the "shipped but not invocable" gap — a
+# primitive merged into the repo but never symlinked because install.sh
+# was not re-run (observed for upstream-a-bead, loom-k2g.7). Distinct
+# from `--check`, which is a dry-run PREVIEW of the install itself.
 #
 # Run from the loom repo root.
 
@@ -17,10 +27,12 @@ set -euo pipefail
 LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 DRY_RUN=0
+CHECK_INVOCABLE=0
 
-if [ "${1:-}" = "--check" ]; then
-  DRY_RUN=1
-fi
+case "${1:-}" in
+  --check) DRY_RUN=1 ;;
+  --check-invocable) CHECK_INVOCABLE=1 ;;
+esac
 
 log() { echo "[loom-install] $*"; }
 do_or_print() {
@@ -90,6 +102,104 @@ for required in skills/bugfix-a-bead/SKILL.md hooks/bd-claim-research.sh setting
     exit 1
   fi
 done
+
+# --check-invocable: post-install verification, NO mutation (loom-7f3).
+#
+# Assert that every shipped primitive has a LIVE ~/.claude/ symlink
+# resolving back to the repo file it ships from. Catches the
+# "shipped but not invocable" gap (loom-k2g.7): a skill/command/agent/
+# hook can be merged into the repo yet never become invocable because
+# install.sh was not re-run, leaving no symlink under $CLAUDE_HOME.
+#
+# Verifies the same four primitive categories install.sh symlinks as
+# directly-invocable Claude Code primitives: skills/*/SKILL.md,
+# commands/*.md, agents/*.md, hooks/*.sh. (lib/, lib/tests/, scripts/
+# are support files, not user-invocable primitives, so they're out of
+# scope for the invocability assertion.)
+#
+# A primitive is INVOCABLE iff $CLAUDE_HOME/<rel> exists, is a symlink,
+# AND resolves (the link target exists) back to $LOOM_ROOT/<rel>. A
+# missing link, a non-symlink shadowing the path, a dangling link, or a
+# link pointing elsewhere all count as un-invocable. Each failure is
+# named on stderr; the pass exits non-zero if any primitive failed,
+# else 0. No files are created, removed, or modified.
+if [ "$CHECK_INVOCABLE" = "1" ]; then
+  log "Invocability check (--check-invocable): verifying ~/.claude symlinks"
+  log "  loom root:    $LOOM_ROOT"
+  log "  check under:  $CLAUDE_HOME"
+  echo ""
+
+  inv_fail=0
+  inv_checked=0
+
+  # assert_invocable <relpath-in-loom> <relpath-in-claude-home> <label>
+  assert_invocable() {
+    local src_rel="$1" dst_rel="$2" label="$3"
+    local src="$LOOM_ROOT/$src_rel"
+    local dst="$CLAUDE_HOME/$dst_rel"
+    inv_checked=$((inv_checked + 1))
+
+    if [ ! -L "$dst" ]; then
+      if [ -e "$dst" ]; then
+        echo "[loom-install] UN-INVOCABLE: $label '$src_rel' — $dst_rel exists but is NOT a symlink" >&2
+      else
+        echo "[loom-install] UN-INVOCABLE: $label '$src_rel' — no symlink at $dst_rel (shipped but not invocable)" >&2
+      fi
+      inv_fail=1
+      return
+    fi
+
+    # Symlink exists. Must resolve (target present) AND point at our src.
+    if [ ! -e "$dst" ]; then
+      echo "[loom-install] UN-INVOCABLE: $label '$src_rel' — symlink at $dst_rel is BROKEN (target missing: $(readlink "$dst"))" >&2
+      inv_fail=1
+      return
+    fi
+
+    local target target_real src_real
+    target="$(readlink "$dst")"
+    target_real="$(realpath "$dst" 2>/dev/null || echo "$target")"
+    src_real="$(realpath "$src" 2>/dev/null || echo "$src")"
+    if [ "$target_real" != "$src_real" ]; then
+      echo "[loom-install] UN-INVOCABLE: $label '$src_rel' — symlink at $dst_rel resolves to '$target_real', not '$src_real'" >&2
+      inv_fail=1
+    fi
+  }
+
+  for f in "$LOOM_ROOT"/skills/*/SKILL.md; do
+    [ -e "$f" ] || continue
+    rel="${f#"$LOOM_ROOT"/}"
+    assert_invocable "$rel" "$rel" "skill"
+  done
+
+  for f in "$LOOM_ROOT"/commands/*.md; do
+    [ -e "$f" ] || continue
+    name=$(basename "$f")
+    assert_invocable "commands/$name" "commands/$name" "command"
+  done
+
+  for f in "$LOOM_ROOT"/agents/*.md; do
+    [ -e "$f" ] || continue
+    name=$(basename "$f")
+    assert_invocable "agents/$name" "agents/$name" "agent"
+  done
+
+  for f in "$LOOM_ROOT"/hooks/*.sh; do
+    [ -e "$f" ] || continue
+    name=$(basename "$f")
+    assert_invocable "hooks/$name" "hooks/$name" "hook"
+  done
+
+  echo ""
+  if [ "$inv_fail" = "0" ]; then
+    log "Invocability check PASSED: all $inv_checked shipped primitives are symlinked + live."
+    exit 0
+  else
+    log "Invocability check FAILED: one or more shipped primitives are NOT invocable (see above)."
+    log "  Re-run ./install.sh to (re)create the missing symlinks."
+    exit 1
+  fi
+fi
 
 log "loom root:    $LOOM_ROOT"
 log "install into: $CLAUDE_HOME"
