@@ -367,3 +367,130 @@ on git/bd state and yielded a **false `63/2` suite result**.
 `pgrep -fa bd-post-rewrite` should be empty — before trusting any
 suite number. Treat a suite result obtained while a second loop or a
 just-`TaskStop`'d task was live as untrustworthy until re-run clean.
+
+## API 529 / overload resilience
+
+**Risk (loom-417, surfaced 2026-05-06 during liza_base FRH Wave C).**
+The Claude Code harness routes EVERY agent call — including a
+subprocess `claude` CLI spawned from inside an agent — through the
+**same** Anthropic API backend. There is no "go-around" path. When
+that backend is overloaded and returns 529, the entire
+parallel-dispatch flow is wedged at once, and it fails at three
+distinct stages:
+
+1. **Mid-flight crash.** An agent that has done substantial work hits a
+   529 on a model call and dies. Its worktree filesystem state is
+   preserved on disk, but uncommitted/unmerged; bd state may be
+   in transit.
+2. **Resume crash.** Central dispatches a resume agent into a still-sick
+   API; it dies in **~4 seconds with 0 tool uses** — it never starts.
+   Resume cannot begin until API health recovers.
+3. **Sustained outage.** Several agents in one wave crash within
+   seconds of each other (in liza_base, all three Wave C agents —
+   wx7, 982, 9uo — went down on one 529 burst). Re-dispatching into
+   the burst just burns context on agents that immediately die.
+
+This section is the operator/central playbook for surviving the burst.
+It is **doc-only** — there is no detect/pause script yet (building one
+needs a live 529 to repro against). The four parts compose:
+**DETECT** the burst → **don't resume into a sick API** → **resume from
+the crashed agent's WIP** → and the whole time, the **drawer is the
+only artifact that survives the crash**.
+
+### Part A — DETECT: the API-health-pause heuristic
+
+**The signal.** When **≥2 agents in one wave crash with a 529 in a
+short window**, treat it as an API-overload burst, not as N independent
+agent bugs. The diagnostic tell of a resume-too-early death is sharp:
+the agent **dies in ~4s with 0 tool uses** — no smoke-battery output,
+no Edit, nothing. A normal agent failure looks different (it gets
+somewhere first); a 529 resume-death is near-instant and empty.
+
+**The response — surface an "API health pause."** On the second
+near-instant 529 death, central STOPS dispatching. Do not keep
+throwing agents at the burst: each one dies in ~4s having accomplished
+nothing but context spend, and the rapid-fire retries can deepen the
+overload. Announce the pause to the user, note which beads are parked
+mid-flight, and move to Part B (probe-before-resume) rather than
+immediately re-dispatching. wx7 in the liza_base case **did** come back
+on a later independent retry — the burst is transient, so the pause is
+a wait, not an abort.
+
+### Part B — HEALTH-PROBE-BEFORE-RESUME + exponential backoff
+
+**Never resume straight into a sick API.** A blind re-dispatch during
+the pause just reproduces the ~4s/0-tool-use death. Instead:
+
+1. **Probe health first.** Send a single cheap call (a one-line
+   throwaway agent, or any minimal model request) and watch whether it
+   completes or 529s. The probe is the canary; the expensive
+   resume-from-WIP agent only goes out once the canary returns clean.
+2. **Back off exponentially between probes.** Start small (~30s) and
+   double each failed probe (30s → 1m → 2m → 4m → …), capped at a
+   few minutes. This avoids both extremes the sibling-concern names:
+   **resume too early** → the agent dies again; **resume too late** →
+   the crashed agent's untracked WIP keeps drifting stale relative to
+   `main` (every intervening merge widens the gap the resume agent must
+   rebase across). Exponential backoff threads between them — quick
+   while the outage is short, patient when it sustains.
+3. **Resume only after a clean probe.** Once a probe completes
+   normally, dispatch the real resume-from-WIP agent (Part C). If it
+   529s anyway, the burst is still live — fall back to the next backoff
+   interval and re-probe.
+
+### Part C — RESUME-FROM-WIP recipe shape
+
+When a mid-flight agent died with work stranded in its worktree, the
+resume agent does NOT start from scratch. Its brief is the shape
+**"check what the previous agent left in the worktree, verify it,
+finish what's left"**:
+
+1. **Inventory the WIP.** In the crashed agent's worktree, run
+   `git status` + `git diff` + `git log --oneline main..HEAD` to see
+   what was committed, and `git status --porcelain` to see what is only
+   on disk (untracked / unstaged). The crash froze the worktree at an
+   arbitrary point — committed work, staged work, and bare-on-disk WIP
+   can all coexist.
+2. **Preserve untracked WIP across any rebase.** The crashed worktree's
+   base may now trail `main`. Do NOT plain `git rebase main` — on a
+   branch with bare untracked files that can lose them, and the smoke
+   battery's step 4 rebase only handles the no-WIP case. Use
+   **`scripts/loom-rebase-worktree main`** (loom-azt): it snapshots
+   untracked files, pre-detects collisions, rebases, and restores the
+   files afterward. This is the same WIP-preservation the smoke battery
+   references for crash recovery — see the **Base-freshness check**
+   section above and
+   [`docs/reference/loom-rebase-worktree.md`](../../docs/reference/loom-rebase-worktree.md).
+3. **Verify before extending.** Re-run the bead's RED test / the suite
+   against the recovered state to learn exactly how far the dead agent
+   got — what is already GREEN, what is still RED. Trust the test, not
+   the dead agent's last (possibly truncated) report.
+4. **Finish only the remainder.** Implement the still-RED slice, commit
+   on the same `frank/<bead-id>` branch, and hand back for integration
+   as normal. The resume agent re-runs the worker-side pre-flight smoke
+   battery at the top of its session like any dispatched worker.
+
+### Part D — DRAWER-AS-RECOVERY-SURFACE
+
+**File the decision drawer FIRST — it is the only crash-resilient
+artifact.** The worktree filesystem can be stranded unmerged, and bd
+state may be mid-flight; both are volatile under a 529 burst. The
+**MemPalace decision drawer lives outside the worktree and outside bd**,
+so it survives every crash mode in Part A. Therefore the drawer is
+written **before** the dispatch, not deferred to the phase-D3 capture
+fan-out, and its body must be **detailed enough to rebuild the
+implementation from the drawer alone**: the locked contract, the `RED:`
+spec, the chosen approach, the file plan, and any non-obvious
+constraints. A resume agent (or the next session) that finds a
+half-finished worktree reads the drawer to reconstruct *intent*, then
+uses Part C to reconcile that intent against whatever the dead agent
+actually left on disk.
+
+This promotes the old "file the drawer first" convention to a
+**recipe requirement** — see the corresponding MANDATORY note in the
+Dispatch-discipline section of
+[`skills/bead-lifecycle-shell/SKILL.md`](../../skills/bead-lifecycle-shell/SKILL.md).
+The D3 capture then *updates* the already-existing drawer with
+verification-at-close + landing SHAs rather than authoring it from
+scratch. Operator-facing walkthrough:
+[`docs/how-to/recover-from-dispatch-crash.md`](../../docs/how-to/recover-from-dispatch-crash.md).
