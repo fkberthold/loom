@@ -31,7 +31,7 @@ canonical_commands:
   build: ""
   test: "script/test"
   lint: "shellcheck --severity=warning hooks/*.sh lib/*.sh scripts/*"
-  gen: ""
+  gen: "script/gen"
   dev: ""
   # No deploy step — loom installs via ./install.sh (symlinks), which
   # is surfaced as the workflow.json deploy HINT, not an automated
