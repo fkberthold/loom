@@ -97,7 +97,13 @@ fail() { echo "  FAIL: $1"; failed=$((failed + 1)); [ -n "${2:-}" ] && echo "$2"
 # excludes package-manager *install* verbs (npm install / pip install /
 # yarn add): those are dependency installs the constitution-enforce hint
 # map legitimately names, not test/lint/build invocations.
-RUNNER_RE='(pytest|go test|golangci-lint|cargo (test|build)|make (test|lint|build|all)|npm (run|test)|yarn (test|run)|pnpm (test|run)|\beslint\b|\bruff\b|\bflake8\b|\bjest\b|\btox\b|\bnox\b|\bmvn\b|\bgradle\b)'
+#
+# `pytest` is matched as `pytest([^-]|$)` — a command invocation (`pytest `,
+# `pytest tests/`, `python -m pytest`) but NOT `pytest-of-*` / `pytest-tempdir`,
+# which are pytest's TEMP-DIR name globs (path references, never a test run).
+# Without this, hooks/pytest-tempdir-prune.sh's `find ./tmp -name 'pytest-of-*'`
+# false-positives as a hardcoded test invocation (loom-skxj).
+RUNNER_RE='(pytest([^-]|$)|go test|golangci-lint|cargo (test|build)|make (test|lint|build|all)|npm (run|test)|yarn (test|run)|pnpm (test|run)|\beslint\b|\bruff\b|\bflake8\b|\bjest\b|\btox\b|\bnox\b|\bmvn\b|\bgradle\b)'
 
 # scan_executable_invocations <file>
 #   Echo every line of <file> that (a) is NOT a comment line (first
