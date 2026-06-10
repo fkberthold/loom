@@ -209,6 +209,64 @@ _lmh_cluster_key() {
 }
 
 # ---------------------------------------------------------------------
+# LLM-failure threshold for the salience pass (loom-ug4p). A reply is a
+# FAILURE (distinct from a valid {"salient":false}) when it is empty OR
+# the call exited non-zero OR the reply is unparseable as the salience
+# schema. A throttled / rate-limited / crashed claude returns FAILURES
+# for most/all units; if the engine treated those as {"salient":false}
+# it would write a clean near-0-draft "success" manifest (the loom-rnxp
+# 0/353 + original 0/787 false-greens). Instead the pass ABORTS non-zero
+# once the running failure fraction exceeds _LMH_FAIL_THRESHOLD_PCT over
+# at least _LMH_FAIL_MIN_PROCESSED processed units (so a 1-of-1 hiccup
+# on a tiny set doesn't trip the gate).
+_LMH_FAIL_THRESHOLD_PCT=25
+_LMH_FAIL_MIN_PROCESSED=4
+# Per-unit retry budget for a FAILED claude call (transient throttles),
+# with small exponential backoff between attempts.
+_LMH_LLM_RETRIES=3
+
+# ---------------------------------------------------------------------
+# One claude salience call for a unit, WITH retry + backoff. Captures
+# claude's stderr (NOT swallowed) so a real failure surfaces a
+# diagnostic. Classifies the result:
+#   - prints the cleaned reply on stdout AND returns 0 when the call
+#     succeeded (rc 0, non-empty, parseable as a {"salient":...} object);
+#   - returns 1 (FAILURE) when every attempt was empty / rc!=0 /
+#     unparseable. On FAILURE the last attempt's stderr is echoed to the
+#     engine's stderr so the operator sees WHY (rate-limit text, etc.).
+# A valid {"salient":false} is a SUCCESS (rc 0) — it is a real model
+# verdict, not a failure.
+#   args: prompt, model
+# ---------------------------------------------------------------------
+_lmh_claude_salience() {
+  local prompt="$1" model="$2"
+  local attempt=1 reply rc errfile last_err="" backoff=1
+  errfile=$(mktemp)
+  while [ "$attempt" -le "$_LMH_LLM_RETRIES" ]; do
+    reply=$(claude -p "$prompt" --model "$model" --output-format text 2>"$errfile")
+    rc=$?
+    last_err=$(cat "$errfile" 2>/dev/null)
+    # Strip a ```json ... ``` markdown fence the model adds even when
+    # asked for raw JSON, so the per-field sed sees clean JSON. (loom-bzl)
+    reply=$(printf '%s' "$reply" | sed -e 's/^```[a-zA-Z]*[[:space:]]*$//' -e 's/^```[[:space:]]*$//')
+    # SUCCESS iff rc 0 AND non-empty AND carries a parseable salient verdict.
+    if [ "$rc" -eq 0 ] && [ -n "$reply" ] \
+       && printf '%s' "$reply" | grep -qE '"salient":[[:space:]]*(true|false)'; then
+      printf '%s' "$reply"
+      rm -f "$errfile"
+      return 0
+    fi
+    # FAILURE this attempt — back off and retry (unless out of budget).
+    attempt=$((attempt + 1))
+    [ "$attempt" -le "$_LMH_LLM_RETRIES" ] && { sleep "$backoff" 2>/dev/null || true; backoff=$((backoff * 2)); }
+  done
+  # Exhausted retries — surface the last stderr for the operator.
+  [ -n "$last_err" ] && printf 'claude FAILED: %s\n' "$last_err" >&2
+  rm -f "$errfile"
+  return 1
+}
+
+# ---------------------------------------------------------------------
 # HARVEST: git commits + tags. Emits one TSV record per commit on
 # stdout: TYPE \t ID \t AUTHOR \t DATE \t SUBJECT \t BODY \t FILES \t ANCHOR
 # Body/subject/files have embedded newlines escaped to \n already, so
@@ -505,6 +563,14 @@ loom_mine_history() {
   local synth_units
   synth_units=$(mktemp)
 
+  # LLM-failure accounting (loom-ug4p). A genuine throttle/crash returns
+  # FAILURES for most units; a valid {"salient":false} is NOT a failure.
+  # `read < file` runs the loop in THIS shell (no subshell), so these
+  # counters survive each iteration — the abort check after the loop is
+  # honest. Aborting MID-loop would risk a partial manifest looking
+  # successful, so we run the whole gated set, then gate on the fraction.
+  local n_processed=0 n_failed=0 llm_abort=0
+
   while IFS=$'\t' read -r typ id author date title body files url labels; do
     [ -z "$typ" ] && continue
 
@@ -527,14 +593,31 @@ Title: $title
 Body: $body
 Files touched: $files"
 
-    # Shell out to claude with --output-format TEXT (not json): the json
-    # envelope's .result is an ESCAPED string (\"salient\") the sed parse
-    # below cannot match through; text returns the raw model reply. Then
-    # strip a ```json ... ``` markdown fence the model adds even when
-    # asked for raw JSON, so the per-field sed sees clean JSON. (loom-bzl)
-    local reply
-    reply=$(claude -p "$source_text" --model "$model" --output-format text 2>/dev/null)
-    reply=$(printf '%s' "$reply" | sed -e 's/^```[a-zA-Z]*[[:space:]]*$//' -e 's/^```[[:space:]]*$//')
+    # Shell out to claude (TEXT output, not json: the json envelope's
+    # .result is an ESCAPED string the sed parse can't match through;
+    # text returns the raw reply). The call goes through the retry helper
+    # which captures stderr (NOT swallowed), retries transient FAILUREs
+    # with backoff, and DISTINGUISHES a genuine failure (empty / rc!=0 /
+    # unparseable) from a valid {"salient":false}. (loom-ug4p, loom-bzl)
+    n_processed=$((n_processed + 1))
+    local reply rc
+    reply=$(_lmh_claude_salience "$source_text" "$model"); rc=$?
+
+    if [ "$rc" -ne 0 ]; then
+      # FAILURE (throttle / crash / unparseable) — NOT a {"salient":false}
+      # verdict. Count it, emit no draft, and do NOT checkpoint it as
+      # processed (so --resume re-tries it on a later, healthier run).
+      n_failed=$((n_failed + 1))
+      # Early-out: once the failure fraction is provably over threshold
+      # for the rest of the run, stop spending — but DON'T silently
+      # succeed; the post-loop gate turns this into a non-zero abort.
+      if [ "$n_processed" -ge "$_LMH_FAIL_MIN_PROCESSED" ] \
+         && [ $(( n_failed * 100 )) -gt $(( n_processed * _LMH_FAIL_THRESHOLD_PCT )) ]; then
+        llm_abort=1
+        break
+      fi
+      continue
+    fi
 
     # Checkpoint this unit as processed BEFORE the trust gate, so a
     # salient=false unit (which emits no draft) is not re-spent on resume.
@@ -547,7 +630,7 @@ Files touched: $files"
     salient=$(printf '%s' "$reply" | sed -n 's/.*"salient":[[:space:]]*\(true\|false\).*/\1/p' | head -1)
 
     if [ "$salient" != "true" ]; then
-      # Trust gate: not salient (or unparseable) → emit NO draft.
+      # Trust gate: a genuine {"salient":false} verdict → emit NO draft.
       continue
     fi
 
@@ -596,6 +679,28 @@ Files touched: $files"
     # harvest, so one record == one line.
     printf '%s\t%s\t%s\t%s\n' "$id" "$files" "$decision" "$anchor" >> "$synth_units"
   done < "$survivors"
+
+  # ---- LLM-FAILURE GATE (loom-ug4p) ----------------------------------
+  # A throttled / rate-limited / crashed claude returns FAILUREs (empty /
+  # rc!=0 / unparseable) for most units. Treating those as
+  # {"salient":false} would write a clean near-0-draft "success" manifest
+  # — the exact false-green that produced loom-rnxp's 0/353 and the
+  # original 0/787. If the failure fraction over the processed set
+  # exceeds the threshold, ABORT NON-ZERO with a diagnostic naming the
+  # fraction, rather than emitting a manifest that looks successful.
+  if [ "$llm_abort" -eq 1 ] \
+     || { [ "$n_processed" -ge "$_LMH_FAIL_MIN_PROCESSED" ] \
+          && [ $(( n_failed * 100 )) -gt $(( n_processed * _LMH_FAIL_THRESHOLD_PCT )) ]; }; then
+    local pct=0
+    [ "$n_processed" -gt 0 ] && pct=$(( n_failed * 100 / n_processed ))
+    echo "loom_mine_history: ABORTING — claude FAILED on ${n_failed}/${n_processed} units (${pct}%, threshold ${_LMH_FAIL_THRESHOLD_PCT}%). This is a throttle/rate-limit/crash, NOT an all-{salient:false} result — refusing to emit a false-success near-0-draft manifest. Retry later or check claude auth/quota." >&2
+    rm -f "$synth_units"
+    if [ -z "$out" ]; then
+      rm -f "$drafts_jsonl" "$triples_jsonl" "$processed_file"
+    fi
+    rm -f "$survivors" "$candidates_jsonl"
+    return 4
+  fi
 
   # ---- TIER-2 SYNTHESIS (bn7.2, opt-in via --synthesize) -------------
   # Cluster salient units by shared decision-file-area; clusters of >=2
