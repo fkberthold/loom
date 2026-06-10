@@ -243,7 +243,14 @@ _lmh_claude_salience() {
   local attempt=1 reply rc errfile last_err="" backoff=1
   errfile=$(mktemp)
   while [ "$attempt" -le "$_LMH_LLM_RETRIES" ]; do
-    reply=$(claude -p "$prompt" --model "$model" --output-format text 2>"$errfile")
+    # </dev/null on stdin: this call runs INSIDE the `while read ... done
+    # < "$survivors"` salience loop, so without the redirect `claude -p`
+    # inherits the survivors fd as stdin and READS it — slurping the
+    # remaining units into its reply (derailing the per-unit verdict) AND
+    # corrupting the loop's own read position. That stdin leak produced
+    # the rnxp 0/787, 0/353, and 4/4-abort runs (masked by capped runs
+    # where the tiny remaining stream didn't derail the reply). (rnxp)
+    reply=$(claude -p "$prompt" --model "$model" --output-format text </dev/null 2>"$errfile")
     rc=$?
     last_err=$(cat "$errfile" 2>/dev/null)
     # Strip a ```json ... ``` markdown fence the model adds even when
@@ -748,8 +755,13 @@ $members
 EOF
 
       local arc_reply arc_title narrative
+      # </dev/null on stdin (same discipline as the salience call): a
+      # shelled-out `claude -p` in this engine must never read inherited
+      # stdin. Defensive here (this call is in a `for key` loop, not a
+      # file-read loop) but keeps the idiom consistent so a future nesting
+      # can't reintroduce the survivors-stream leak. (rnxp)
       arc_reply=$(claude -p "Synthesize a narrative arc from these related decisions (theme: ${key}). Return JSON {\"arc_title\":...,\"narrative\":...}:
-${prompt_units}" --model "$model" --output-format json 2>/dev/null)
+${prompt_units}" --model "$model" --output-format json </dev/null 2>/dev/null)
       arc_title=$(printf '%s' "$arc_reply" | sed -n 's/.*"arc_title":"\([^"]*\)".*/\1/p' | head -1)
       narrative=$(printf '%s' "$arc_reply" | sed -n 's/.*"narrative":"\([^"]*\)".*/\1/p' | head -1)
       [ -z "$arc_title" ] && arc_title="Arc: ${key}"
