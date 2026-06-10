@@ -240,17 +240,27 @@ _LMH_LLM_RETRIES=3
 # ---------------------------------------------------------------------
 _lmh_claude_salience() {
   local prompt="$1" model="$2"
-  local attempt=1 reply rc errfile last_err="" backoff=1
+  local attempt=1 reply rc errfile promptfile last_err="" backoff=1
   errfile=$(mktemp)
+  # Prompt VIA STDIN FROM A TEMP FILE — not as an argv argument. (loom-oekt)
+  # A large commit body/diff makes the full salience prompt exceed the OS
+  # per-argument size limit (Linux MAX_ARG_STRLEN ~= 128KiB, independent of
+  # the larger total ARG_MAX); passing it as `claude -p "$prompt"` then fails
+  # exec with `Argument list too long` (E2BIG) and that unit yields no draft.
+  # Feeding the prompt on stdin keeps it OUT of argv entirely, so no
+  # per-argument size limit applies.
+  #
+  # < "$promptfile" ALSO subsumes the older `</dev/null` rnxp guard: this
+  # call runs INSIDE the `while read ... done < "$survivors"` salience loop,
+  # so an UN-redirected `claude -p` would inherit the survivors fd as stdin
+  # and READ it — slurping the remaining units into its reply (derailing the
+  # per-unit verdict) AND corrupting the loop's own read position (the rnxp
+  # 0/787, 0/353, 4/4-abort runs). Redirecting stdin from the dedicated
+  # prompt file means stdin is NEVER the survivors fd. (rnxp + loom-oekt)
+  promptfile=$(mktemp)
+  printf '%s' "$prompt" > "$promptfile"
   while [ "$attempt" -le "$_LMH_LLM_RETRIES" ]; do
-    # </dev/null on stdin: this call runs INSIDE the `while read ... done
-    # < "$survivors"` salience loop, so without the redirect `claude -p`
-    # inherits the survivors fd as stdin and READS it — slurping the
-    # remaining units into its reply (derailing the per-unit verdict) AND
-    # corrupting the loop's own read position. That stdin leak produced
-    # the rnxp 0/787, 0/353, and 4/4-abort runs (masked by capped runs
-    # where the tiny remaining stream didn't derail the reply). (rnxp)
-    reply=$(claude -p "$prompt" --model "$model" --output-format text </dev/null 2>"$errfile")
+    reply=$(claude -p --model "$model" --output-format text <"$promptfile" 2>"$errfile")
     rc=$?
     last_err=$(cat "$errfile" 2>/dev/null)
     # Strip a ```json ... ``` markdown fence the model adds even when
@@ -260,7 +270,7 @@ _lmh_claude_salience() {
     if [ "$rc" -eq 0 ] && [ -n "$reply" ] \
        && printf '%s' "$reply" | grep -qE '"salient":[[:space:]]*(true|false)'; then
       printf '%s' "$reply"
-      rm -f "$errfile"
+      rm -f "$errfile" "$promptfile"
       return 0
     fi
     # FAILURE this attempt — back off and retry (unless out of budget).
@@ -269,7 +279,7 @@ _lmh_claude_salience() {
   done
   # Exhausted retries — surface the last stderr for the operator.
   [ -n "$last_err" ] && printf 'claude FAILED: %s\n' "$last_err" >&2
-  rm -f "$errfile"
+  rm -f "$errfile" "$promptfile"
   return 1
 }
 
