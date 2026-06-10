@@ -66,6 +66,11 @@ if declare -F loom_is_subagent_payload >/dev/null 2>&1; then
   loom_is_subagent_payload "$INPUT" && exit 0
 fi
 
+# Fail open when bd is not on PATH (loom-svcj): this hook does nothing
+# but wrap `bd prime`, so in an apartment / non-loom session without bd
+# it should no-op silently rather than fall through to the bd shell-out.
+command -v "${BD_BIN}" >/dev/null 2>&1 || exit 0
+
 # --- Fetch raw bd prime output -------------------------------------------
 
 if ! PRIME_RAW=$("$BD_BIN" prime 2>/dev/null); then

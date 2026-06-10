@@ -52,6 +52,12 @@ set -uo pipefail
 
 loom_env_enabled LOOM_BD_POST_REWRITE_SKIP && exit 0
 
+# Fail open when bd is not on PATH (loom-svcj). This hook's entire job
+# is re-exporting bd state from dolt; with no bd it should no-op before
+# doing any git work. (A later guard at the BD_BIN-resolution point
+# stays as defense-in-depth for the BD_BIN-override case.)
+command -v "${BD_BIN:-bd}" >/dev/null 2>&1 || exit 0
+
 # Drain stdin (git pipes <old> <new> pairs). We don't use it.
 cat >/dev/null 2>&1 || true
 

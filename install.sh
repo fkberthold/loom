@@ -292,6 +292,14 @@ for f in "$LOOM_ROOT"/commands/*.md; do
 done
 
 log "Linking hooks..."
+# install_link symlinks each hook back into the loom repo, so any
+# in-file convention rides along automatically — e.g. the fail-open
+# `command -v bd || exit 0` guard on the PURELY-bd subset
+# (bd-prime-wrapper, post-rewrite, bd-worktree-preseed, git-push-bd-sync;
+# loom-svcj) is shipped as part of the source file, not templated here.
+# Hooks that also do non-bd work (pre-push-mkdocs-strict,
+# bd-preflight-docs-strict, edit-after-failure-guard, cwd-drift-guard)
+# deliberately do NOT carry that guard.
 for f in "$LOOM_ROOT"/hooks/*.sh; do
   name=$(basename "$f")
   install_link "hooks/$name" "hooks/$name"
