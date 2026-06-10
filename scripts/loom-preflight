@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# loom-preflight — render a project's PR-readiness checklist from its
+# .claude/project-constitution.md, instead of `bd preflight`'s HARDCODED
+# Go-project template (go test -tags / golangci-lint / gofmt / vendorHash
+# / version.go), which is wrong for every non-Go runtime. (loom-ohjf,
+# supersedes loom-2wms — loom's own case falls out as the bash instance
+# of the general mechanism.)
+#
+# Source of truth: canonical_commands.{test,lint,build,gen} +
+# language.runtime in the project constitution. Parsing reuses the
+# yq-free awk helper _loom_sr_canonical_command from
+# lib/loom-script-resolve.sh (loom-6f8 constitution family), so this
+# runs on hosts without yq.
+#
+# Usage:
+#   loom-preflight [--root <dir>]
+#     --root <dir>   project root to read .claude/project-constitution.md
+#                    from (default: git toplevel, else $PWD).
+#
+# Exit: 0 always (it prints a checklist; it does not RUN checks — that is
+#       `bd preflight --check`'s job, which loom-preflight leaves to bd).
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/loom-script-resolve.sh
+. "$SCRIPT_DIR/../lib/loom-script-resolve.sh"
+
+# --- args ------------------------------------------------------------
+root=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --root)   shift; root="${1:-}" ;;
+    --root=*) root="${1#--root=}" ;;
+    -h|--help)
+      sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0 ;;
+    *) echo "loom-preflight: unknown argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# Default root: git toplevel, else cwd.
+if [ -z "$root" ]; then
+  root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+
+const="$root/.claude/project-constitution.md"
+
+# --- no constitution → graceful nudge, no Go template ----------------
+if [ ! -f "$const" ]; then
+  echo "PR Readiness Checklist:"
+  echo
+  echo "(no .claude/project-constitution.md — run /audit-project to capture this project's tooling profile)"
+  echo "[ ] No beads pollution: check .beads/issues.jsonl diff"
+  exit 0
+fi
+
+# --- language.runtime (header decoration; yq-free awk) ---------------
+runtime=$(awk '
+  BEGIN { fences = 0; in_fm = 0; in_lang = 0 }
+  /^---[[:space:]]*$/ {
+    fences++
+    if (fences == 1) { in_fm = 1; next }
+    if (fences == 2) { exit }
+    next
+  }
+  in_fm != 1 { next }
+  /^language:[[:space:]]*$/ { in_lang = 1; next }
+  in_lang == 1 && /^[^[:space:]]/ { in_lang = 0 }
+  in_lang == 1 && /^  runtime:/ {
+    v = $0; sub(/^  runtime:[[:space:]]*/, "", v)
+    gsub(/^[[:space:]]*"?|"?[[:space:]]*$/, "", v)
+    print v; exit
+  }
+' "$const")
+
+# --- render ----------------------------------------------------------
+if [ -n "$runtime" ]; then
+  echo "PR Readiness Checklist ($runtime, from .claude/project-constitution.md):"
+else
+  echo "PR Readiness Checklist (from .claude/project-constitution.md):"
+fi
+echo
+
+# One [ ] line per NON-EMPTY canonical command. _loom_sr_canonical_command
+# returns 1 (no output) for an empty/absent key, so empties are skipped.
+emit() { # <label> <canonical-command-key>
+  local label="$1" key="$2" cmd
+  if cmd=$(_loom_sr_canonical_command "$root" "$key"); then
+    printf '[ ] %s: %s\n' "$label" "$cmd"
+  fi
+}
+emit "Tests pass"             test
+emit "Lint passes"            lint
+emit "Build"                  build
+emit "Generated code current" gen
+
+# Universal, project-agnostic gate.
+echo "[ ] No beads pollution: check .beads/issues.jsonl diff"
+
+echo
+echo "Run 'bd preflight --check' to validate Go-project checks, or your project's canonical commands above."
+exit 0
