@@ -203,13 +203,19 @@ audit. This is a deliberately user-pulled workflow.
     [`docs/reference/claude-code-hook-layering.md`](../../docs/reference/claude-code-hook-layering.md)
     for the full finding (loom-jnn).
   Items NOT tagged AUTOFIX (item 2 `bd init`, item 5 MemPalace wing
-  creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`)
-  remain in the per-item approval queue. The flag never touches
-  WARN items (those imply real conflict — dirty tree, malformed
-  workflow.json, etc. — and need human triage). Items 17 and 18
-  are exceptions to the WARN-untouched rule because they resolve
-  by handoff (not by in-process write); the handoff message itself
-  IS the resolution.
+  creation, item 6 CLAUDE.md authoring, item 7 `.claude/rules/`
+  content) remain in the per-item approval queue. **`.claude/rules/`
+  CONTENT is HARD-EXCLUDED from every auto-apply path (loom-d50).**
+  The audit may SCAFFOLD an empty `[HUMAN AUTHOR]` stub rules file or
+  SUGGEST one, but it NEVER auto-drafts or auto-applies authored rule
+  content — rule text encodes project conventions, which a human
+  authors (same class as the constitution prose body, Step 7d). See
+  the `.claude/rules/` content-exclusion bullet in Step 3.5 for the
+  scaffold-stub shape. The flag never touches WARN items (those imply
+  real conflict — dirty tree, malformed workflow.json, etc. — and
+  need human triage). Items 17 and 18 are exceptions to the
+  WARN-untouched rule because they resolve by handoff (not by
+  in-process write); the handoff message itself IS the resolution.
 - `--workflow-mode=full|light|off` — only meaningful with
   `--apply-onboarding`. Sets the `mode` value the
   `[AUTOFIX:workflow-json]` recipe writes. Default `full`.
@@ -1383,6 +1389,22 @@ Print a `## Auto-applied` section listing every change made:
 - **Does not touch WARN items.** Onboarding WARNs (item 1 dirty
   tree, item 4 malformed workflow.json, etc.) imply real conflict
   — apply flags never auto-resolve them.
+- **Does not draft or apply `.claude/rules/` CONTENT (loom-d50 —
+  HARD EXCLUSION).** Item 7's `.claude/rules/<x>.md` MISS carries NO
+  `[AUTOFIX:...]` tag, so this walk never processes it. Even outside
+  the apply walk — in the Step 4 per-item gate — the rules-file fix is
+  **scaffold-stub-or-suggest ONLY**: the skill may write an EMPTY
+  `<root>/.claude/rules/<x>.md` whose body is a single
+  `> [HUMAN AUTHOR] TODO: author the <x> convention here.` placeholder
+  (mirroring the constitution prose-body stub, Step 7d), or it may
+  simply SUGGEST the file in the report — but it NEVER auto-drafts and
+  NEVER auto-applies AUTHORED rule content. Rule text encodes project
+  conventions; a human authors those. This is the loom-d50 lesson from
+  the loom-wxo liza_base trial (2026-05-04), where the audit silently
+  drafted+applied `.claude/rules/tests.md` content — convention-
+  encoding text the human never wrote. The scaffold stub is the only
+  thing the skill writes for a rules gap; the authored content stays a
+  human-authored MISS.
 
 ### Step 4 — present combined report + drive interactive fixes
 

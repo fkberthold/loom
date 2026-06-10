@@ -56,6 +56,7 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
 7. **`.claude/rules/` scaffolded for detected directories**
    - `<root>/tests/` with `*.py` → expect `tests.md`. `<root>/engine/` or `<root>/src/` → expect `engine.md`. `<root>/prompts/` → expect `prompts.md`.
    - Each detected dir: PASS (rules file present) or MISS (suggest scaffold).
+   - **MISS is a SUGGESTION only — never an AUTOFIX (loom-d50).** Report the gap as a MISS and suggest the skill SCAFFOLD an empty `[HUMAN AUTHOR]` stub rules file (mirroring the constitution prose-body stub) — but **never draft or propose the rule CONTENT**. `.claude/rules/<x>.md` text encodes project conventions, which a human authors; the audit must NEVER auto-draft or auto-apply authored rule content. Do NOT tag this line `[AUTOFIX:...]` — it stays a human-authored MISS, scaffold-stub-or-suggest only. Lineage: the loom-wxo liza_base trial (2026-05-04) where the audit silently drafted+applied `.claude/rules/tests.md` content; loom-d50 pins the scaffold-stub-or-suggest-only contract.
 
 8. **Diataxis-shaped docs (informational)**
    - `<root>/docs/.no-diataxis` present → INFO ("project opts out"). Marker wins even if quadrants exist.
@@ -293,5 +294,6 @@ Skill parses with literal-substring match — keep on a single line, single-brac
 
 - Run `bd init`, `bd hooks install`, `mempalace_*` writes, or any file write. Read-only.
 - Propose template content for missing files. Main agent owns templates.
+- Draft or propose `.claude/rules/<x>.md` CONTENT for item 7 (loom-d50). Rule text encodes project conventions — the human authors it. Report the gap as a MISS suggesting an empty `[HUMAN AUTHOR]` stub scaffold; never author the rule content and never tag it `[AUTOFIX:...]`.
 - Run pytest or any project test suite.
 - Exceed 250 lines of output.
