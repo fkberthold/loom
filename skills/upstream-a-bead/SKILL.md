@@ -145,6 +145,35 @@ at `~/.loom/upstream/<owner>/<repo>/` for M3-M4. Central retakes
 control at M6 to drive the user review gate, then runs the M7 `gh`
 calls and spawns the watch-bead.
 
+**Trivial-PR inline escape (nudge, not a gate).** The worker-dispatch
+default above is a *nudge*, not a hard rule (loom-yb5 nudge-not-block).
+When the loom side has **no code change** — the deliverable is bd-state +
+the closeout drawer only — AND the upstream change is a small prose edit
+(a doc / markdown PR with no upstream code), running M2–M7
+**inline-central** is the right call: the dispatch overhead exceeds the
+work. This mirrors the **within-bead** inline threshold in
+`bead-lifecycle-shell § Dispatch discipline` (loom-yb5): central may edit
+inline without justification for a single small change that **adds no new
+test**, and *pure prose edits qualify*. The loom-k2g.7 canary ran exactly
+this way — a 6-line `create-beads` doc PR, M2–M7 inline — and confirmed
+it; loom-ki5 (the two superpowers prose PRs) is the same shape. Record the
+choice in `workflow-state` as `dispatch=inline:<reason>`, the same way the
+within-bead nudge does. When the upstream change DOES carry code (a real
+RED→GREEN in the upstream's own test harness), the worker-dispatch default
+stands.
+
+**Smoke-battery caveat for a dispatched upstream M3/M4.** If you DO
+dispatch the worker, note that the dispatched-agents **pre-flight smoke
+battery** (`.claude/rules/dispatched-agents.md`: pwd / import / bd-state /
+base-freshness) **assumes a loom-side** `.claude/worktrees/agent-*`
+worktree — it has **no equivalent pre-flight** for the external
+`~/.loom/upstream/<owner>/<repo>` clone where M3–M4 actually operate. The
+battery's pwd / bd-state / base checks are meaningless against the upstream
+clone; the worker must rely on M2's existence / canonical-owner /
+dirty-state checks for clone hygiene instead. Until an upstream-clone
+pre-flight exists, prefer the inline escape above for prose PRs — it
+sidesteps the gap entirely.
+
 After the worker returns from M5, apply the re-dispatch decision rule
 from the shell: **clean** → advance to M6; **≤3-line polish to a
 draft** → central edits in place; **substantive rework needed** →
@@ -190,6 +219,22 @@ The contract has three components:
   watch-bead. Drawer captures the analysis per the loom-98x pattern.
   Recipe terminates after M1 with the drawer-only outcome captured
   at phase D3.
+
+**Prose-only sub-lane (modifier, orthogonal to the lane above).** When
+the upstream is a pure-prose project with **no native test harness** — a
+markdown skill plugin (superpowers, beadpowers), a docs-only repo — the
+`--issue+pr` lane still applies, but M3/M4 have **no test command to run**.
+There, the RED→GREEN pair **collapses to a documented doc-presence
+before/after grep on a single doc commit**: the "RED" is a grep showing
+the target prose is absent; the "GREEN" is the same grep showing it
+present after the edit. Loom does NOT impose a test framework on a prose
+upstream — recipe step Q4's "run the upstream's native test command"
+presumes one exists, and for a prose upstream it does not. Decide this
+modifier at M1 alongside the lane so the worker brief (or the
+inline-central path) carries it: it changes M3 (RED), M4 (GREEN), and the
+**Verification section** of the M5 PR body (see those steps). The
+loom-k2g.7 canary (a `create-beads` doc PR) and loom-ki5 (the two
+superpowers prose PRs) are both prose-only by this test.
 
 If the lane decision reveals the bead is actually local-fixable (a
 workaround exists, the upstream behavior is by-design and the local
@@ -253,6 +298,16 @@ or README to discover it: `npm test`, `pytest`, `go test`, `cargo
 test`, `make test`, etc.). Loom does NOT impose a test framework on
 the upstream — adopt the upstream's convention verbatim.
 
+**Prose-only sub-lane (no test harness).** If M1 set the prose-only
+modifier — the upstream has no native test command — this step does NOT
+write or run a test. Instead, capture the **RED grep**: run a
+`grep`/`rg` over the doc(s) the PR will change showing the target prose
+is **absent** (e.g. `grep -n "<phrase the PR adds>" <file>` returns
+nothing), and record that command + its empty output in the return
+summary. The doc edit itself is M4; the matching **GREEN grep** is the
+same command returning the new prose. There is no upstream branch test
+run — the before/after grep on a single doc commit IS the evidence.
+
 The worker should:
 - Branch from upstream's default branch (typically `main` or
   `master`): `git -C ~/.loom/upstream/<owner>/<repo>/ checkout -b
@@ -309,6 +364,15 @@ upstream's maintainers should make), STOP and surface to central
 — the lane should likely re-decide as `--issue-only` and let the
 upstream owner choose the implementation.
 
+**Prose-only sub-lane (no test harness).** Under the prose-only
+modifier, M4 is the **single doc commit** that makes the M3 RED grep
+go GREEN: edit the doc, then re-run the M3 grep and confirm it now
+returns the added prose. Commit with a loom-discipline message
+(`docs: <one-line> (loom <bead-id>)`), adapting to upstream's
+CONTRIBUTING.md as usual. There is no full-suite re-run (no suite
+exists); the before/after grep is the regression evidence the M5 PR
+body will cite.
+
 #### M5. Draft issue + PR bodies (scope item)
 
 Have the worker write stage `draft`. Sub-deliverables differ by lane:
@@ -331,8 +395,13 @@ covers the above PLUS a "(PR #<N> drafted)" note, and `/tmp/pr-
 - **Issue link** — the issue URL from M7 (worker leaves as
   `<ISSUE-URL>` placeholder; central fills in at M7 between the two
   `gh` calls).
-- **RED→GREEN evidence** — the M3 test name + M4 fix description
-  + the upstream test command + pass count.
+- **Verification** (a.k.a. RED→GREEN evidence) — the M3 test name +
+  M4 fix description + the upstream test command + pass count. **Under
+  the prose-only sub-lane** (no test harness), the **Verification
+  section** instead states the **doc-presence before/after grep**: the
+  grep command, its empty "before" result, and its matching "after"
+  result on the single doc commit — NOT a test command + pass count
+  (there is none).
 - **Adapted-to-CONTRIBUTING notes** — explicit confirmation that
   the PR follows upstream's commit format / sign-off / etc.
 
