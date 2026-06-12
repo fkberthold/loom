@@ -3,9 +3,9 @@ description: "Manage guest mode for the current repo. Activates loom's no-host-t
 disable-model-invocation: true
 ---
 
-Run `bash scripts/loom-guest <subcommand>` from the repo root (or
-`~/.claude/scripts/loom-guest <subcommand>` if loom is installed
-globally — both resolve to the same script).
+Run `~/.claude/scripts/loom-guest <subcommand>`. The installed global
+path resolves from any cwd, so this works whether you're in the loom
+repo or any host repo you're a guest in.
 
 ## Subcommands
 
@@ -15,7 +15,7 @@ globally — both resolve to the same script).
 
 ## Activation flow
 
-**Step 1.** Run `scripts/loom-guest on`.
+**Step 1.** Run `~/.claude/scripts/loom-guest on`.
 
 **Step 2.** If it errors with "no host .beads/ found", ask the user:
 
@@ -37,13 +37,13 @@ commit a one-liner to the host's `issues.jsonl`). Use a MemPalace
 drawer instead — see loom-n7x. To override (use a personal external
 workspace even though host has bd), pass `--personal-bd`.
 
-**Step 3.** Run `scripts/loom-guest status` to confirm: marker
+**Step 3.** Run `~/.claude/scripts/loom-guest status` to confirm: marker
 written, info/exclude block populated, suppression list rendered.
 
 ## Deactivation
 
 ```bash
-scripts/loom-guest off
+~/.claude/scripts/loom-guest off
 ```
 
 Both the marker and the info/exclude block are removed. The

@@ -636,8 +636,8 @@ session-startup step 1c (which only flags RED Deploy-docs runs)
 caught. The serving check closes that gap.
 
 ```bash
-scripts/loom-docs-serving-check          # derive site_url from mkdocs.yml
-scripts/loom-docs-serving-check <url>    # or pass an explicit site URL
+~/.claude/scripts/loom-docs-serving-check          # derive site_url from mkdocs.yml
+~/.claude/scripts/loom-docs-serving-check <url>    # or pass an explicit site URL
 ```
 
 The helper (loom-7q1g) gates on **full-Diataxis** (`docs/` +

@@ -263,7 +263,7 @@ project-onboarder use).
 ### Step 1 — resolve project root + flags + wing
 
 **Run the resolution helper first.** Invoke
-`scripts/loom-audit-resolve [--root <path>] [--wing <name>]` (passing
+`~/.claude/scripts/loom-audit-resolve [--root <path>] [--wing <name>]` (passing
 through whatever `--root`/`--wing` the user gave) and read its
 `key=value` stdout:
 
@@ -1545,7 +1545,7 @@ audits.
 This step runs **only when `--mine-history` was passed**. Without the
 flag, skip it entirely — the audit has already *flagged* the
 decision-history gap informationally (the `project-onboarder`
-decision-history line, which shells out to `scripts/loom-mine-history
+decision-history line, which shells out to `~/.claude/scripts/loom-mine-history
 --dry-run` for the unmined-unit count). Mining is a separate, billable
 action the user opts into; the audit never auto-mines.
 

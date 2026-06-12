@@ -43,7 +43,7 @@ parses them. Recognized flags:
   loom-managed project, not just loom itself.
 - `--wing <name>` — MemPalace wing for drawer-citation resolution
   (default: basename of `--root`, used **verbatim** — no `_`↔`-`
-  substitution, no case-folding; matches `scripts/loom-audit-resolve`
+  substitution, no case-folding; matches `~/.claude/scripts/loom-audit-resolve`
   and the skill).
 - `--mine-history` — after the audit report, delegate to the
   `/loom-mine-history` engine to mine the project's git/PR history

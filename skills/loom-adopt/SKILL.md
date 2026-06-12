@@ -83,7 +83,7 @@ activity recipes, or any hook.
   `/docs-scaffold`.
 - `--wing <name>` — MemPalace wing for the history-mine + constitution +
   tunnel phases (default: basename of `--root`, used **verbatim** — no
-  `_`↔`-` substitution, matching `scripts/loom-audit-resolve`). The wing
+  `_`↔`-` substitution, matching `~/.claude/scripts/loom-audit-resolve`). The wing
   resolved here is the one P4 mines into and P5 tunnels from; P1 also
   reports against it.
 - `--resume` — explicitly resume an interrupted run from the unfinished
@@ -127,7 +127,7 @@ probe against the loom checkout (`<loom>`):
   **loom-oxs** deliverable. If neither is present, **P2 is skipped with
   reason `scripts-scaffold (loom-oxs) not landed`**.
 - **P3 docs-scaffold** — `<loom>/skills/docs-scaffold/SKILL.md` exists.
-- **P4 history-mine** — `<loom>/scripts/loom-mine-history` AND
+- **P4 history-mine** — `~/.claude/scripts/loom-mine-history` AND
   `<loom>/skills/loom-mine-history/SKILL.md` exist.
 - **P5 constitution** — `<loom>/hooks/constitution-enforce.sh` exists
   (the **loom-8jz** enforce hook) — the signal that the constitution
@@ -409,7 +409,7 @@ correct.
   GitHub-style `script/` convention; degrades-skip until landed.
 - P3 primitive: `skills/docs-scaffold/SKILL.md` + `commands/docs-scaffold.md`.
 - P4 primitive: `skills/loom-mine-history/SKILL.md` +
-  `scripts/loom-mine-history` — the two-pass cost-gated decision-archaeology
+  `~/.claude/scripts/loom-mine-history` — the two-pass cost-gated decision-archaeology
   pass P4 nests.
 - P5 primitive: the constitution surface (loom-8jz enforce hook +
   loom-ld4 surfacing; `templates/project-constitution.md` schema is

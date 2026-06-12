@@ -129,7 +129,7 @@ is too large to relay comfortably.
   test/code division of labor (test-author then implementer).
 - **The loom-yb5 fan-out detector owns ACROSS-bead parallelism** —
   multiple independent ready beads, each worked via its own
-  `/dispatch-middle`. (`scripts/loom-fanout-detect`, surfaced at
+  `/dispatch-middle`. (`~/.claude/scripts/loom-fanout-detect`, surfaced at
   selection by session-startup step 6a + the `/working-a-bead`
   router.)
 
@@ -175,7 +175,7 @@ This is a **default NUDGE, not a hard gate** (loom-yb5,
 nudge-not-block) — pick concrete tiers to fit the bead (a subtle
 contract may want both roles strong; a rote one may run both cheap),
 but keep author ≥ implementer when you split them. The rule's payoff is
-**validated later via Move-3a telemetry** (`scripts/loom-stage-spend`,
+**validated later via Move-3a telemetry** (`~/.claude/scripts/loom-stage-spend`,
 loom-0ahj.3, the measure-first per-stage spend reader) — there is **no
 separate A/B**; the per-stage spend data tells us whether the split
 pays.
