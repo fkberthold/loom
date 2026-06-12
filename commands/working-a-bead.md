@@ -13,7 +13,7 @@ Parse the slash-command argument. Two cases:
 - **Bead-id given** (e.g., `/working-a-bead loom-foo`): treat that as
   the chosen bead. Continue to Step 2.
 - **No argument**: run `bd ready` and surface the top of the queue.
-  Before confirming a single bead, run `scripts/loom-fanout-detect`
+  Before confirming a single bead, run `~/.claude/scripts/loom-fanout-detect`
   (the fan-out detector). If it emits a wave of ≥2 independent ready
   beads (no dep edge between them + disjoint `Files:`), propose
   parallelizing them as the **default** —

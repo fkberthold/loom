@@ -1,6 +1,6 @@
 ---
 name: loom-mine-history
-description: Mine a brownfield repo's git/PR history for decisions stated in-flight but never captured, then file the salient survivors as `provenance:mined` decision drawers in the project's own MemPalace wing. Drives the `scripts/loom-mine-history` wrapper through a locked two-pass cost gate — zero-spend dry-run preview, explicit user go-ahead, then the paid LLM salience pass — and does the MCP filing the bash engine cannot. Invoked by `/loom-mine-history`.
+description: Mine a brownfield repo's git/PR history for decisions stated in-flight but never captured, then file the salient survivors as `provenance:mined` decision drawers in the project's own MemPalace wing. Drives the `~/.claude/scripts/loom-mine-history` wrapper through a locked two-pass cost gate — zero-spend dry-run preview, explicit user go-ahead, then the paid LLM salience pass — and does the MCP filing the bash engine cannot. Invoked by `/loom-mine-history`.
 ---
 
 # Mine-History — Decision Archaeology for a Brownfield Repo
@@ -93,7 +93,7 @@ dir now so the real pass can reuse it:
 
 ```bash
 out=$(mktemp -d)
-scripts/loom-mine-history --dry-run [--root <dir>] [--wing <name>] \
+~/.claude/scripts/loom-mine-history --dry-run [--root <dir>] [--wing <name>] \
   [--since=DATE] [--since-release=TAG] [--since-sha=WATERMARK] \
   [--max-units=N] [--synthesize]
 ```
@@ -133,7 +133,7 @@ tighter run, re-run step 1 with `--max-units`/`--since` and re-preview.
 ### 3 — Real pass (paid; only after go-ahead)
 
 ```bash
-scripts/loom-mine-history --out "$out" \
+~/.claude/scripts/loom-mine-history --out "$out" \
   [same --root/--wing/--since/--since-sha/... flags] [--synthesize] [--resume]
 ```
 
@@ -308,7 +308,7 @@ The LLM salience pass is the expensive beat; an interrupted real pass
 the real pass against the SAME `$out` with `--resume`:
 
 ```bash
-scripts/loom-mine-history --out "$out" --resume \
+~/.claude/scripts/loom-mine-history --out "$out" --resume \
   [same flags as the interrupted run, including --since-sha]
 ```
 
@@ -370,7 +370,7 @@ Only the latter advances the fact.
 ## Related
 
 - Command (user door): `commands/loom-mine-history.md`.
-- Wrapper (executable seam): `scripts/loom-mine-history`.
+- Wrapper (executable seam): `~/.claude/scripts/loom-mine-history`.
 - Engine (harvest → gate → LLM → manifest, `--synthesize` tier-2 arcs):
   `lib/loom-mine-history.sh`.
 - Closes: loom-bn7.4 (per-unit filing), loom-68r (arc filing +

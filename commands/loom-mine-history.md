@@ -14,7 +14,7 @@ new, natively-captured decisions.
 
 The engine (`lib/loom-mine-history.sh`, loom-bn7.1) does the
 deterministic harvest → gate → LLM → manifest pipeline; it cannot
-file into MemPalace from bash. The `scripts/loom-mine-history`
+file into MemPalace from bash. The `~/.claude/scripts/loom-mine-history`
 wrapper resolves the repo + wing and invokes the engine; the
 `skills/loom-mine-history` skill drives the two-pass cost gate and
 does the MCP filing. This command is the user-facing door onto that
@@ -126,7 +126,7 @@ Design source:
 
 - Engine: `lib/loom-mine-history.sh` (loom-bn7.1; `--synthesize` tier-2
   arcs: loom-bn7.2; `--since-sha`/`--resume`/watermark emit: loom-bn7.3).
-- Wrapper: `scripts/loom-mine-history` (this command's executable seam).
+- Wrapper: `~/.claude/scripts/loom-mine-history` (this command's executable seam).
 - Skill (cost gate + MCP filing): `skills/loom-mine-history/SKILL.md`.
 - Closes: loom-bn7.4 (per-unit filing), loom-68r (arc filing through
   the skill), loom-zcv (skill-side watermark round-trip +
