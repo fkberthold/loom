@@ -46,6 +46,19 @@ workflow_state_init "$CWD" >/dev/null 2>&1 || true
 CFG="$ROOT/.claude/workflow.json"
 [ -f "$CFG" ] && exit 0
 
+# workflow.json absent → this repo is NOT loom-managed. Auto-hide loom's own
+# artifacts (.claude/workflow.json, .claude/workflow-state.json,
+# .claude/settings.local.json, /issues.jsonl) from the host repo's git via
+# per-clone .git/info/exclude, so they never surface in a teammate's
+# `git status` (loom-e5ys). ADD-only + idempotent; never touches .beads/ (the
+# team's shared bd tracker). Non-fatal — a failure here must not break onboarding.
+# shellcheck source=../lib/auto-exclude.sh
+. "$HOME/.claude/lib/auto-exclude.sh" 2>/dev/null || \
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/auto-exclude.sh" 2>/dev/null || true
+if declare -F loom_auto_exclude_sync >/dev/null 2>&1; then
+  loom_auto_exclude_sync --start-dir="$CWD" 2>/dev/null || true
+fi
+
 # Inject onboarding prompt.
 cat <<EOF
 {
