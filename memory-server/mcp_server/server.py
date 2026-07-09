@@ -34,6 +34,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 
 from mcp_server.tools.drawers import register_drawer_tools
+from mcp_server.tools.kg import register_kg_tools
 from mcp_server.tools.search import register_search_tools
 
 SERVER_NAME = "loom-memory-server"
@@ -47,6 +48,7 @@ def create_server() -> FastMCP:
     mcp = FastMCP(SERVER_NAME)
     register_drawer_tools(mcp)
     register_search_tools(mcp)
+    register_kg_tools(mcp)
     return mcp
 
 
