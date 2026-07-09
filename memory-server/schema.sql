@@ -73,6 +73,22 @@ CREATE TABLE IF NOT EXISTS drawers (
 -- does support `IF NOT EXISTS` on dolt 2.1.10 — verified directly.
 CREATE VECTOR INDEX IF NOT EXISTS drawers_embedding_idx ON drawers(embedding);
 
+-- (wing, room) index — mitigation for the loom-40ec.7 finding that
+-- CREATE VECTOR INDEX is NOT used by ORDER BY VEC_DISTANCE ... LIMIT k
+-- on dolt 2.1.10 (confirmed full table scan at both 5,772 and 24,401
+-- real rows; see docs/vector-index-scaling.md). loom's actual common
+-- query pattern is per-project-scoped (WHERE wing = ? [AND room = ?]
+-- ORDER BY VEC_DISTANCE ... LIMIT k) — a regular B-tree index on
+-- (wing, room) lets that WHERE filter narrow the candidate set via a
+-- normal indexed lookup BEFORE the VEC_DISTANCE/TopN scan runs, so a
+-- single project's query latency stays a function of THAT project's
+-- row count, not the whole shared corpus's. This is orthogonal to the
+-- vector-index gap (a different, mature query-planning code path) and
+-- doesn't fix cross-project/unscoped search, which still scans
+-- everything — that case is covered by the ADEQUATE-at-sub-second
+-- verdict in docs/vector-index-scaling.md.
+CREATE INDEX IF NOT EXISTS drawers_wing_room_idx ON drawers(wing, room);
+
 -- D7: KG triples migrate as a curated relational table (reproduced
 -- verbatim from the locked decision — column set, types, and
 -- constraints are NOT to be changed without a new decision).
