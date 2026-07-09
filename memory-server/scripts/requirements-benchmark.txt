@@ -1,0 +1,12 @@
+# Extra dependencies for scripts/benchmark-at-scale.py (loom-40ec.7) ONLY.
+# NOT part of the production memory-server's requirements.txt — the
+# running dolt sql-server + MCP layer never needs sentence-transformers;
+# only this one-off at-scale vector-index benchmark does, to embed real
+# MemPalace drawer text with the same all-MiniLM-L6-v2 model loom-40ec.3's
+# SPIKE-1 lineage used.
+#
+# Install into the same venv as requirements.txt:
+#   .venv/bin/pip install -r scripts/requirements-benchmark.txt
+#
+sentence-transformers>=5.0
+numpy>=1.26
