@@ -8,3 +8,13 @@
 PyMySQL==1.2.0
 pytest==9.1.1
 ruff==0.15.21
+# MCP Python SDK (loom-40ec.4.1) -- verified against PyPI + a scratch
+# venv install that the current API is `mcp.server.fastmcp.FastMCP`,
+# not the `mcp.server.mcpserver.MCPServer` shape shown by some
+# in-progress SDK docs (see mcp_server/server.py's module docstring
+# for the full verification record).
+mcp==1.28.1
+# Embedding model for mcp_server/embeddings.py -- all-MiniLM-L6-v2,
+# matching the model used throughout this project's benchmarking
+# lineage (SPIKE-1/loom-zu91, loom-40ec.3, loom-40ec.7).
+sentence-transformers==5.6.0
