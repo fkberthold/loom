@@ -1,0 +1,24 @@
+# memory-server/.gitignore
+#
+# This subdirectory carves out its own Python runtime from loom's
+# top-level bash-only constitution (see .claude/project-constitution.md
+# here). These entries are memory-server-local additions on top of the
+# repo's root .gitignore.
+
+# The dolt binary (~40MB) — self-contained, no-root install via
+# scripts/install-dolt.sh. Never committed; a binary blob has no place
+# in loom's markdown+bash repo. install-dolt.sh re-fetches it on demand.
+/bin/dolt
+
+# The persistent Dolt data directory — a REAL database (drawers +
+# kg_triples rows), not schema/scripts. scripts/start-server.sh inits
+# and applies schema.sql to it on first run.
+/data/
+
+# Python virtual environment — recreated via:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
