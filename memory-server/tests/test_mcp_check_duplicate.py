@@ -22,8 +22,6 @@ defeat another test's duplicate verdict.
 """
 import os
 
-import pytest
-
 from mcp_server.tools.drawers import add_drawer
 
 # The function under test — does not exist yet (loom-4cb6 is RED until

@@ -20,8 +20,6 @@ counts for wings unique to each test) rather than absolute totals.
 """
 import os
 
-import pytest
-
 from mcp_server.db import connect
 from mcp_server.tools.drawers import add_drawer
 
