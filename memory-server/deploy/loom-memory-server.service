@@ -1,0 +1,51 @@
+# memory-server/deploy/loom-memory-server.service — canonical systemd
+# user-service unit for loom's PRODUCTION Dolt-backed memory server
+# (loom-40ec.6.1). This file is the source of truth committed to the
+# repo; it is NOT auto-installed. See
+# memory-server/docs/production-deployment.md for the install step
+# (systemctl --user link, or copy to ~/.config/systemd/user/).
+#
+# Runs the SAME scripts/start-server.sh used by tests/benchmarks, but
+# with production env vars: a persistent data directory OUTSIDE the
+# git repo (~/.loom-memory-server/data/doltdb) and a dedicated
+# production port (3308) distinct from the test-fixture default
+# (3307), so a test run and the production service never collide.
+#
+# Paths below are hardcoded to this machine's actual clone location
+# (/home/frank/repos/loom) rather than abstracted with a templating
+# mechanism — this is a single-machine deployment (loom-40ec.6.1
+# explicitly says not to over-engineer cross-platform portability
+# here). Re-point ExecStart/WorkingDirectory if the clone ever moves.
+
+[Unit]
+Description=loom memory-server — production Dolt sql-server (loom-40ec)
+Documentation=file:///home/frank/repos/loom/memory-server/docs/production-deployment.md
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/frank/repos/loom/memory-server
+
+# --- Production overrides for scripts/start-server.sh -------------------
+# Persistent data dir, OUTSIDE the git repo (it's a real running
+# database, not source under version control).
+Environment=LOOM_MEMORY_DATA_DIR=/home/frank/.loom-memory-server/data/doltdb
+Environment=LOOM_MEMORY_HOST=127.0.0.1
+# Dedicated production port — distinct from the 3307 test-fixture
+# default so a concurrent test run never collides with production.
+Environment=LOOM_MEMORY_PORT=3308
+Environment=LOOM_MEMORY_MAX_CONNS=150
+Environment=LOOM_MEMORY_SOCKET=/home/frank/.loom-memory-server/data/loom-memory.sock
+Environment=LOOM_MEMORY_LOG_LEVEL=info
+
+ExecStart=/home/frank/repos/loom/memory-server/scripts/start-server.sh
+
+# Restart on unexpected crash, but not in a hot loop.
+Restart=on-failure
+RestartSec=5
+
+# Give dolt sql-server time to flush/shut down cleanly on stop.
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
