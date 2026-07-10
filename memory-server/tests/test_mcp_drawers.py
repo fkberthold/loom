@@ -1,6 +1,6 @@
 """RED-spec test for loom-40ec.4.1 — MCP server scaffold + core drawer
-CRUD (memsrv_get_drawer / memsrv_add_drawer / memsrv_update_drawer /
-memsrv_list_drawers).
+CRUD (mempalace_get_drawer / mempalace_add_drawer / mempalace_update_drawer /
+mempalace_list_drawers).
 
 Boots a REAL `dolt sql-server` (via scripts/start-server.sh, same
 ephemeral-tmp-dir + free-port fixture pattern as
@@ -135,12 +135,12 @@ def drawers_module(dolt_server_env):
 def test_add_get_update_list_round_trip(drawers_module):
     """The bead's RED spec, end to end against a real dolt sql-server:
 
-      memsrv_add_drawer('loom', 'decisions', 'test title', 'test body')
+      mempalace_add_drawer('loom', 'decisions', 'test title', 'test body')
         returns a drawer_id;
-      memsrv_get_drawer(that_id) returns matching title/body;
-      memsrv_update_drawer(that_id, 'new body') then
-        memsrv_get_drawer(that_id) reflects the new body;
-      memsrv_list_drawers(wing='loom') includes that drawer_id.
+      mempalace_get_drawer(that_id) returns matching title/body;
+      mempalace_update_drawer(that_id, 'new body') then
+        mempalace_get_drawer(that_id) reflects the new body;
+      mempalace_list_drawers(wing='loom') includes that drawer_id.
     """
     d = drawers_module
 

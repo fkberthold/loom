@@ -1,4 +1,4 @@
-"""RED-spec test for loom-40ec.4.2 — memsrv_search (MCP semantic
+"""RED-spec test for loom-40ec.4.2 — mempalace_search (MCP semantic
 search tool, the mempalace_search equivalent).
 
 Boots a REAL dolt sql-server via the SAME `dolt_server_env` fixture
@@ -11,7 +11,7 @@ module-scoped fixture per requesting module).
 
 Seeds a small multi-wing/multi-room corpus via add_drawer() (the real
 write path — no hand-rolled INSERT SQL, per the bead brief) and
-exercises memsrv_search's wing/room scoping end-to-end against real
+exercises mempalace_search's wing/room scoping end-to-end against real
 VEC_DISTANCE queries. No mocks anywhere in this file.
 """
 import os
@@ -169,7 +169,7 @@ def test_search_result_shape(seeded_corpus):
 
 
 def test_search_registered_on_server():
-    """memsrv_search is registered on the FastMCP server built by
+    """mempalace_search is registered on the FastMCP server built by
     create_server(), alongside the drawer tools."""
     from mcp_server.server import create_server
 
@@ -179,4 +179,4 @@ def test_search_registered_on_server():
     # same registered-tools view, so this test stays a plain sync
     # test rather than needing asyncio machinery.
     tool_names = {t.name for t in server._tool_manager.list_tools()}
-    assert "memsrv_search" in tool_names
+    assert "mempalace_search" in tool_names

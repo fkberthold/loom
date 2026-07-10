@@ -1,7 +1,7 @@
 """mcp_server/tools/search.py — semantic search tool (loom-40ec.4.2)
 plus corpus-wide near-duplicate detection (loom-4cb6).
 
-  memsrv_search(query, wing=None, room=None, limit=10) -> list[dict]
+  mempalace_search(query, wing=None, room=None, limit=10) -> list[dict]
   mempalace_check_duplicate(content, threshold=0.9) -> dict
 
 The highest-value read path: embeds `query` (same all-MiniLM-L6-v2
@@ -25,13 +25,11 @@ sub-second latency bar, not something this bead attempts to fix.
 excerpt centered on the best-matching span — see this module's
 docstring on `_snippet()` for why that nice-to-have was skipped.
 
-`check_duplicate` (loom-4cb6) is registered as `mempalace_check_duplicate`
-— NOT `memsrv_` — since this whole server's tool surface is mid-rename
-to the final `mempalace_*` prefix as part of the wider loom-40ec.6.4
-cutover; new tools land under the final name directly rather than
-being renamed later. It reuses `search()`'s embed + VEC_DISTANCE query
-shape but is deliberately UNSCOPED (no wing/room filter) since dedup
-checks the whole corpus, not a sub-tree of it.
+`check_duplicate` (loom-4cb6) is registered as `mempalace_check_duplicate`,
+matching every other tool in this server under the `mempalace_*` prefix
+(loom-40ec.6.4 cutover). It reuses `search()`'s embed + VEC_DISTANCE
+query shape but is deliberately UNSCOPED (no wing/room filter) since
+dedup checks the whole corpus, not a sub-tree of it.
 
 Distance-to-similarity conversion for the threshold check: `VEC_DISTANCE`
 here resolves to Dolt's `VEC_DISTANCE_L2_SQUARED` (confirmed via
@@ -203,10 +201,10 @@ def check_duplicate(content: str, threshold: float = 0.9) -> dict:
 
 def register_search_tools(mcp) -> None:
     """Register the semantic-search + duplicate-check tools on a
-    FastMCP server instance. `search` keeps the `memsrv_` prefix
+    FastMCP server instance. `search` keeps the `mempalace_` prefix
     (matching register_drawer_tools's convention); `check_duplicate`
     is registered under the final `mempalace_` name directly (see
     module docstring — new tools in this mid-rename window land under
     the final name rather than being renamed later)."""
-    mcp.tool(name="memsrv_search")(search)
+    mcp.tool(name="mempalace_search")(search)
     mcp.tool(name="mempalace_check_duplicate")(check_duplicate)

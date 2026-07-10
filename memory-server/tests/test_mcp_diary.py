@@ -1,5 +1,5 @@
-"""RED-spec test for loom-40ec.4.4 — memsrv_diary_write /
-memsrv_diary_read (MCP diary tools, the mempalace_diary_write /
+"""RED-spec test for loom-40ec.4.4 — mempalace_diary_write /
+mempalace_diary_read (MCP diary tools, the mempalace_diary_write /
 mempalace_diary_read equivalent).
 
 Boots a REAL dolt sql-server via the SAME `dolt_server_env` fixture
@@ -10,7 +10,7 @@ server instance; see test_mcp_search.py's identical import for
 precedent).
 
 Diary entries are stored AS drawers (wing=`wing_<agent_name>` by
-default, room="diary") -- memsrv_diary_write/memsrv_diary_read are
+default, room="diary") -- mempalace_diary_write/mempalace_diary_read are
 thin wrappers, exercised here end-to-end against real dolt SQL (no
 mocks).
 """
@@ -104,12 +104,12 @@ def test_diary_write_respects_wing_override(dolt_server_env):  # noqa: F811 - py
 
 
 def test_diary_tools_registered_on_server():
-    """memsrv_diary_write/memsrv_diary_read are registered on the
+    """mempalace_diary_write/mempalace_diary_read are registered on the
     FastMCP server built by create_server(), alongside the other tool
     groups."""
     from mcp_server.server import create_server
 
     server = create_server()
     tool_names = {t.name for t in server._tool_manager.list_tools()}
-    assert "memsrv_diary_write" in tool_names
-    assert "memsrv_diary_read" in tool_names
+    assert "mempalace_diary_write" in tool_names
+    assert "mempalace_diary_read" in tool_names

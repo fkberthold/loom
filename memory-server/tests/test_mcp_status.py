@@ -1,4 +1,4 @@
-"""RED-spec test for loom-40ec.4.4 — memsrv_status / memsrv_kg_stats
+"""RED-spec test for loom-40ec.4.4 — mempalace_status / mempalace_kg_stats
 (MCP status + KG-stats tools).
 
 Boots a REAL dolt sql-server via the SAME `dolt_server_env` fixture
@@ -87,7 +87,7 @@ def test_kg_stats_returns_expected_keys(dolt_server_env):  # noqa: F811 - pytest
 
 def test_kg_stats_counts_seeded_triples(dolt_server_env):  # noqa: F811 - pytest fixture param, not a redefinition
     """Seed a couple of kg_triples rows directly (there is no
-    memsrv_kg_add tool yet in this worktree -- that's the sibling
+    mempalace_kg_add tool yet in this worktree -- that's the sibling
     bead's job) and confirm kg_stats() reflects the growth. Uses a
     before/after delta rather than an exact absolute count, for the
     same cross-test-within-module reason test_status_reflects_seeded_
@@ -119,12 +119,12 @@ def test_kg_stats_counts_seeded_triples(dolt_server_env):  # noqa: F811 - pytest
 
 
 def test_status_and_kg_stats_registered_on_server():
-    """memsrv_status/memsrv_kg_stats are registered on the FastMCP
+    """mempalace_status/mempalace_kg_stats are registered on the FastMCP
     server built by create_server(), alongside the other tool
     groups."""
     from mcp_server.server import create_server
 
     server = create_server()
     tool_names = {t.name for t in server._tool_manager.list_tools()}
-    assert "memsrv_status" in tool_names
-    assert "memsrv_kg_stats" in tool_names
+    assert "mempalace_status" in tool_names
+    assert "mempalace_kg_stats" in tool_names

@@ -1,17 +1,15 @@
 """mcp_server/tools/kg.py — knowledge-graph CRUD/query tools
 (loom-40ec.4.3).
 
-Four tools, prefixed `memsrv_` (matching tools/drawers.py's and
-tools/search.py's naming convention — final naming/config-swap against
-the still-live `mempalace_*` tools is loom-40ec.6's job, not this
-bead's):
+Four tools, prefixed `mempalace_` (loom-40ec.6.4 cutover — matching
+tools/drawers.py's and tools/search.py's naming convention):
 
-  memsrv_kg_add(subject, predicate, object, confidence=1.0,
+  mempalace_kg_add(subject, predicate, object, confidence=1.0,
                 source_closet=None) -> str
-  memsrv_kg_query(entity, direction="both", as_of=None) -> list[dict]
-  memsrv_kg_invalidate(triple_id=None, subject=None, predicate=None,
+  mempalace_kg_query(entity, direction="both", as_of=None) -> list[dict]
+  mempalace_kg_invalidate(triple_id=None, subject=None, predicate=None,
                         object=None) -> int
-  memsrv_graph_stats() -> dict
+  mempalace_graph_stats() -> dict
 
 Each function below is a plain, directly-callable Python function
 (importable and testable without going through the MCP/stdio
@@ -78,7 +76,7 @@ def _normalize_as_of(as_of: str) -> str:
 
 
 def _serialize_fact(row: dict, direction: str) -> dict:
-    """Shape a raw kg_triples row into the documented memsrv_kg_query
+    """Shape a raw kg_triples row into the documented mempalace_kg_query
     return shape: {direction, subject, predicate, object, confidence,
     valid_from, valid_to, source_closet, current} — mirrors the real
     mempalace_kg_query tool's field names exactly (per this bead's
@@ -110,7 +108,7 @@ def kg_add(
     `current=True`, `created_at=NOW()`. `valid_from`/`valid_to` are
     left NULL unless a caller has a specific reason to set them — a
     freshly-added triple's validity window is open-ended by default;
-    it only becomes bounded later via memsrv_kg_invalidate.
+    it only becomes bounded later via mempalace_kg_invalidate.
     """
     triple_id = _generate_triple_id()
 
@@ -309,8 +307,8 @@ def graph_stats() -> dict:
 
 def register_kg_tools(mcp) -> None:
     """Register the four knowledge-graph tools on a FastMCP server
-    instance, prefixed `memsrv_`."""
-    mcp.tool(name="memsrv_kg_add")(kg_add)
-    mcp.tool(name="memsrv_kg_query")(kg_query)
-    mcp.tool(name="memsrv_kg_invalidate")(kg_invalidate)
-    mcp.tool(name="memsrv_graph_stats")(graph_stats)
+    instance, prefixed `mempalace_`."""
+    mcp.tool(name="mempalace_kg_add")(kg_add)
+    mcp.tool(name="mempalace_kg_query")(kg_query)
+    mcp.tool(name="mempalace_kg_invalidate")(kg_invalidate)
+    mcp.tool(name="mempalace_graph_stats")(graph_stats)

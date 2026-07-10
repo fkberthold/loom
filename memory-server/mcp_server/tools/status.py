@@ -1,17 +1,17 @@
-"""mcp_server/tools/status.py — memsrv_status / memsrv_kg_stats tools
+"""mcp_server/tools/status.py — mempalace_status / mempalace_kg_stats tools
 (loom-40ec.4.4), plus mempalace_list_wings (loom-4cb6).
 
-  memsrv_status() -> dict
+  mempalace_status() -> dict
     {total_drawers, by_wing: {wing: count, ...}, by_room: {room: count, ...},
      dolt_reachable: bool}
 
-  memsrv_kg_stats() -> dict
+  mempalace_kg_stats() -> dict
     {entity_count, triple_count}
 
   mempalace_list_wings() -> dict
     {wings: {<wing>: <int count>, ...}}
 
-memsrv_status mirrors the real mempalace_status tool's shape MINUS
+mempalace_status mirrors the real mempalace_status tool's shape MINUS
 anything chroma/sqlite-specific (this is a Dolt backend, not chroma):
 the "backend health" concept is replaced with a cheap Dolt-appropriate
 check (`SELECT 1`) plus a `dolt_reachable` boolean. status() is meant
@@ -20,7 +20,7 @@ raising -- a connection failure (dolt sql-server down/unreachable)
 returns `dolt_reachable: False` with empty counts instead of
 propagating the exception.
 
-memsrv_kg_stats is a thin wrapper: if the sibling bead loom-40ec.4.3
+mempalace_kg_stats is a thin wrapper: if the sibling bead loom-40ec.4.3
 (KG tools) has landed, mcp_server/tools/kg.py exists with a
 graph_stats() function that this delegates to directly. If not (the
 sibling hasn't merged yet), a minimal standalone implementation runs
@@ -32,11 +32,7 @@ the sibling merges, the delegation just starts firing.
 mempalace_list_wings (loom-4cb6) is a thin, standalone wrapper over
 `SELECT wing, COUNT(*) FROM drawers GROUP BY wing` -- the same
 by_wing query status() already computes inline, surfaced on its own,
-unscoped (censuses the WHOLE drawers table). Registered under the
-final `mempalace_` name directly (not `memsrv_`), matching
-check_duplicate's registration in tools/search.py -- see that
-module's docstring for why new tools in this mid-rename window land
-under the final name rather than being renamed later.
+unscoped (censuses the WHOLE drawers table).
 """
 from __future__ import annotations
 
@@ -143,8 +139,8 @@ def list_wings() -> dict:
 
 def register_status_tools(mcp) -> None:
     """Register the status + kg-stats tools on a FastMCP server
-    instance, prefixed `memsrv_`, plus mempalace_list_wings under its
+    instance, prefixed `mempalace_`, plus mempalace_list_wings under its
     final name (see module docstring)."""
-    mcp.tool(name="memsrv_status")(status)
-    mcp.tool(name="memsrv_kg_stats")(kg_stats)
+    mcp.tool(name="mempalace_status")(status)
+    mcp.tool(name="mempalace_kg_stats")(kg_stats)
     mcp.tool(name="mempalace_list_wings")(list_wings)

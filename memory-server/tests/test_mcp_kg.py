@@ -1,6 +1,6 @@
 """RED-spec test for loom-40ec.4.3 — MCP knowledge-graph tools
-(memsrv_kg_add / memsrv_kg_query / memsrv_kg_invalidate /
-memsrv_graph_stats).
+(mempalace_kg_add / mempalace_kg_query / mempalace_kg_invalidate /
+mempalace_graph_stats).
 
 Boots the SAME `dolt_server_env` fixture test_mcp_drawers.py and
 test_mcp_search.py already define/reuse (imported here rather than
@@ -181,16 +181,16 @@ def test_graph_stats_reflects_seeded_data(kg_module):
 
 
 def test_kg_tools_registered_on_server():
-    """memsrv_kg_add/memsrv_kg_query/memsrv_kg_invalidate/
-    memsrv_graph_stats are registered on the FastMCP server built by
+    """mempalace_kg_add/mempalace_kg_query/mempalace_kg_invalidate/
+    mempalace_graph_stats are registered on the FastMCP server built by
     create_server(), alongside the drawer + search tools."""
     from mcp_server.server import create_server
 
     server = create_server()
     tool_names = {t.name for t in server._tool_manager.list_tools()}
     assert {
-        "memsrv_kg_add",
-        "memsrv_kg_query",
-        "memsrv_kg_invalidate",
-        "memsrv_graph_stats",
+        "mempalace_kg_add",
+        "mempalace_kg_query",
+        "mempalace_kg_invalidate",
+        "mempalace_graph_stats",
     } <= tool_names

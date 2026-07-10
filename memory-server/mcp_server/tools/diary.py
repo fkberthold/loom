@@ -4,9 +4,9 @@
 Diary entries are stored AS drawers: the real MemPalace tool
 convention this mirrors is that a diary entry for agent `X` lives in
 wing `wing_X` (unless the caller overrides via `wing=`), room
-"diary". `memsrv_diary_write` is a thin wrapper over `add_drawer()`
+"diary". `mempalace_diary_write` is a thin wrapper over `add_drawer()`
 from tools/drawers.py -- it reuses that function's embed+insert path
-directly rather than reimplementing it. `memsrv_diary_read` queries
+directly rather than reimplementing it. `mempalace_diary_read` queries
 `drawers` directly (`ORDER BY filed_at DESC LIMIT n`) rather than
 routing through `list_drawers()`'s paginated/preview shape: a diary
 read has a simpler contract -- "give me the last N entries, full
@@ -14,7 +14,7 @@ text, most-recent-first" -- with no offset/total-count concept.
 
 Title/topic convention: a diary entry's `topic` argument (default
 "general") becomes the underlying drawer's `title` column verbatim,
-and is reported back by `memsrv_diary_read` as `topic` in its return
+and is reported back by `mempalace_diary_read` as `topic` in its return
 shape ({id, topic, entry, filed_at}); the drawer's `text` column comes
 back as `entry`.
 
@@ -101,6 +101,6 @@ def diary_read(
 
 def register_diary_tools(mcp) -> None:
     """Register the two diary tools on a FastMCP server instance,
-    prefixed `memsrv_`."""
-    mcp.tool(name="memsrv_diary_write")(diary_write)
-    mcp.tool(name="memsrv_diary_read")(diary_read)
+    prefixed `mempalace_`."""
+    mcp.tool(name="mempalace_diary_write")(diary_write)
+    mcp.tool(name="mempalace_diary_read")(diary_read)

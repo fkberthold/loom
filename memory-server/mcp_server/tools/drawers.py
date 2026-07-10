@@ -1,13 +1,13 @@
 """mcp_server/tools/drawers.py — core drawer CRUD tools (loom-40ec.4.1).
 
-Four tools, prefixed `memsrv_` to avoid colliding with the still-live
-`mempalace_*` tools during parallel operation (final naming/config-swap
-is loom-40ec.6's job, not this bead's):
+Four tools, prefixed `mempalace_` (loom-40ec.6.4 cutover — matches the
+retired MemPalace/chroma system's tool names exactly, for full
+backward compatibility):
 
-  memsrv_get_drawer(drawer_id) -> dict
-  memsrv_add_drawer(wing, room, title, content, source_file=None) -> str
-  memsrv_update_drawer(drawer_id, content) -> bool
-  memsrv_list_drawers(wing=None, room=None, limit=20, offset=0) -> list[dict]
+  mempalace_get_drawer(drawer_id) -> dict
+  mempalace_add_drawer(wing, room, title, content, source_file=None) -> str
+  mempalace_update_drawer(drawer_id, content) -> bool
+  mempalace_list_drawers(wing=None, room=None, limit=20, offset=0) -> list[dict]
 
 Each function below is a plain, directly-callable Python function
 (importable and testable without going through the MCP/stdio
@@ -39,13 +39,13 @@ from mcp_server.embeddings import embed, vector_literal
 
 
 class DrawerNotFoundError(Exception):
-    """Raised by memsrv_get_drawer / memsrv_update_drawer when no row
+    """Raised by mempalace_get_drawer / mempalace_update_drawer when no row
     matches the given drawer_id — the MCP-tool-layer equivalent of a
     404, surfaced as a clear error rather than returning None/empty."""
 
 
 class ConcurrentModificationError(Exception):
-    """Raised by memsrv_update_drawer when D6's optimistic retry
+    """Raised by mempalace_update_drawer when D6's optimistic retry
     (refetch + reapply the caller's content once) STILL hits a Dolt
     serialization conflict on the second attempt. Surfaced to the
     caller rather than silently dropping the update or retrying
@@ -278,8 +278,8 @@ def list_drawers(
 
 def register_drawer_tools(mcp) -> None:
     """Register the four drawer-CRUD tools on a FastMCP server
-    instance, prefixed `memsrv_`."""
-    mcp.tool(name="memsrv_get_drawer")(get_drawer)
-    mcp.tool(name="memsrv_add_drawer")(add_drawer)
-    mcp.tool(name="memsrv_update_drawer")(update_drawer)
-    mcp.tool(name="memsrv_list_drawers")(list_drawers)
+    instance, prefixed `mempalace_`."""
+    mcp.tool(name="mempalace_get_drawer")(get_drawer)
+    mcp.tool(name="mempalace_add_drawer")(add_drawer)
+    mcp.tool(name="mempalace_update_drawer")(update_drawer)
+    mcp.tool(name="mempalace_list_drawers")(list_drawers)
