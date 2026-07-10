@@ -1,6 +1,8 @@
-"""mcp_server/tools/search.py — semantic search tool (loom-40ec.4.2).
+"""mcp_server/tools/search.py — semantic search tool (loom-40ec.4.2)
+plus corpus-wide near-duplicate detection (loom-4cb6).
 
   memsrv_search(query, wing=None, room=None, limit=10) -> list[dict]
+  mempalace_check_duplicate(content, threshold=0.9) -> dict
 
 The highest-value read path: embeds `query` (same all-MiniLM-L6-v2
 model as add_drawer/update_drawer, via mcp_server/embeddings.py) and
@@ -22,6 +24,27 @@ sub-second latency bar, not something this bead attempts to fix.
 `snippet` is a simple first-~300-chars truncation of `text`, not an
 excerpt centered on the best-matching span — see this module's
 docstring on `_snippet()` for why that nice-to-have was skipped.
+
+`check_duplicate` (loom-4cb6) is registered as `mempalace_check_duplicate`
+— NOT `memsrv_` — since this whole server's tool surface is mid-rename
+to the final `mempalace_*` prefix as part of the wider loom-40ec.6.4
+cutover; new tools land under the final name directly rather than
+being renamed later. It reuses `search()`'s embed + VEC_DISTANCE query
+shape but is deliberately UNSCOPED (no wing/room filter) since dedup
+checks the whole corpus, not a sub-tree of it.
+
+Distance-to-similarity conversion for the threshold check: `VEC_DISTANCE`
+here resolves to Dolt's `VEC_DISTANCE_L2_SQUARED` (confirmed via
+`EXPLAIN FORMAT=TREE` in docs/vector-index-scaling.md's query-plan
+dump), and `embeddings.py`'s all-MiniLM-L6-v2 model emits L2-unit-
+normalized vectors (empirically verified: `norm(embed(x)) ~= 1.0` for
+arbitrary x — this model ships a built-in Normalize pooling layer).
+For unit vectors a and b, `||a-b||^2 = ||a||^2 + ||b||^2 - 2*a.b
+= 2 - 2*cos_sim(a, b)`, so `cos_sim = 1 - (L2_squared / 2)`. This is
+the standard identity, not a fit to any specific test input — it holds
+for any pair of unit vectors in this embedding space, which is why the
+threshold test (loose 0.5 vs strict 0.999 against the SAME near-
+duplicate pair) calibrates correctly without special-casing.
 """
 from __future__ import annotations
 
@@ -114,8 +137,76 @@ def search(
     return results
 
 
+
+# Candidate pool size for check_duplicate's underlying VEC_DISTANCE
+# query: pulled BEFORE the threshold filter is applied, since (unlike
+# search()'s top-K "best few matches") we need every row that clears
+# the similarity bar, not just the single nearest one. 50 is a
+# generous cap for the "duplicate cluster" case (genuine near-dupes
+# of one drawer are realistically a handful, not hundreds) while
+# still bounding the Python-side filtering work.
+_DUPLICATE_CANDIDATE_LIMIT = 50
+
+
+def check_duplicate(content: str, threshold: float = 0.9) -> dict:
+    """Corpus-wide near-duplicate check. Embeds `content`, runs the
+    same embed + VEC_DISTANCE nearest-neighbor query as search() but
+    UNSCOPED (no wing/room filter — dedup spans the whole `drawers`
+    table), converts each candidate's distance to a cosine similarity
+    (see module docstring for the derivation), and keeps only
+    candidates whose similarity clears `threshold` (higher threshold
+    = stricter = fewer/no duplicates flagged).
+
+    Returns {"is_duplicate": bool, "matches": [...]}: `is_duplicate`
+    is True iff at least one candidate clears the threshold; `matches`
+    holds ONLY the qualifying (above-threshold) candidates, each a
+    dict mirroring search()'s per-result shape
+    ({id, wing, room, title, snippet, distance}), ordered by ascending
+    distance (closest/most-similar first).
+    """
+    vec_literal = vector_literal(embed(content))
+
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, wing, room, title, text, "
+                f"VEC_DISTANCE(embedding, string_to_vector('{vec_literal}')) AS dist "
+                "FROM drawers "
+                "ORDER BY dist ASC LIMIT %s",
+                [_DUPLICATE_CANDIDATE_LIMIT],
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    matches = []
+    for row in rows:
+        dist = float(row["dist"])
+        similarity = 1.0 - (dist / 2.0)
+        if similarity < threshold:
+            continue
+        text = row.get("text") or ""
+        matches.append(
+            {
+                "id": row["id"],
+                "wing": row["wing"],
+                "room": row["room"],
+                "title": row["title"],
+                "snippet": _snippet(text),
+                "distance": dist,
+            }
+        )
+
+    return {"is_duplicate": len(matches) > 0, "matches": matches}
+
+
 def register_search_tools(mcp) -> None:
-    """Register the semantic-search tool on a FastMCP server
-    instance, prefixed `memsrv_` (matching register_drawer_tools's
-    convention)."""
+    """Register the semantic-search + duplicate-check tools on a
+    FastMCP server instance. `search` keeps the `memsrv_` prefix
+    (matching register_drawer_tools's convention); `check_duplicate`
+    is registered under the final `mempalace_` name directly (see
+    module docstring — new tools in this mid-rename window land under
+    the final name rather than being renamed later)."""
     mcp.tool(name="memsrv_search")(search)
+    mcp.tool(name="mempalace_check_duplicate")(check_duplicate)

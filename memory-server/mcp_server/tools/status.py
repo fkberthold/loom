@@ -1,5 +1,5 @@
 """mcp_server/tools/status.py — memsrv_status / memsrv_kg_stats tools
-(loom-40ec.4.4).
+(loom-40ec.4.4), plus mempalace_list_wings (loom-4cb6).
 
   memsrv_status() -> dict
     {total_drawers, by_wing: {wing: count, ...}, by_room: {room: count, ...},
@@ -7,6 +7,9 @@
 
   memsrv_kg_stats() -> dict
     {entity_count, triple_count}
+
+  mempalace_list_wings() -> dict
+    {wings: {<wing>: <int count>, ...}}
 
 memsrv_status mirrors the real mempalace_status tool's shape MINUS
 anything chroma/sqlite-specific (this is a Dolt backend, not chroma):
@@ -25,6 +28,15 @@ a direct query against kg_triples. The import is attempted at CALL
 time (not module import time) so this module works correctly whether
 loaded before or after kg.py lands -- no code change needed here once
 the sibling merges, the delegation just starts firing.
+
+mempalace_list_wings (loom-4cb6) is a thin, standalone wrapper over
+`SELECT wing, COUNT(*) FROM drawers GROUP BY wing` -- the same
+by_wing query status() already computes inline, surfaced on its own,
+unscoped (censuses the WHOLE drawers table). Registered under the
+final `mempalace_` name directly (not `memsrv_`), matching
+check_duplicate's registration in tools/search.py -- see that
+module's docstring for why new tools in this mid-rename window land
+under the final name rather than being renamed later.
 """
 from __future__ import annotations
 
@@ -113,8 +125,26 @@ def kg_stats() -> dict:
     return graph_stats()
 
 
+def list_wings() -> dict:
+    """Unscoped wing census: {"wings": {<wing>: <int count>, ...}}
+    over the whole `drawers` table. Thin wrapper over the same
+    GROUP BY query status() already computes inline as `by_wing`,
+    surfaced standalone."""
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT wing, COUNT(*) AS cnt FROM drawers GROUP BY wing")
+            wings = {row["wing"]: int(row["cnt"]) for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+    return {"wings": wings}
+
+
 def register_status_tools(mcp) -> None:
     """Register the status + kg-stats tools on a FastMCP server
-    instance, prefixed `memsrv_`."""
+    instance, prefixed `memsrv_`, plus mempalace_list_wings under its
+    final name (see module docstring)."""
     mcp.tool(name="memsrv_status")(status)
     mcp.tool(name="memsrv_kg_stats")(kg_stats)
+    mcp.tool(name="mempalace_list_wings")(list_wings)
