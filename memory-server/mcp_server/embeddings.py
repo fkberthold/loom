@@ -37,6 +37,23 @@ def embed(text: str) -> list[float]:
     return vec.tolist()
 
 
+def embed_batch(texts: Iterable[str], batch_size: int = 64) -> list[list[float]]:
+    """Embed a LIST of texts in ONE `.encode()` call rather than one
+    per-row call — a real throughput win at migration scale (loom-40ec.5):
+    `SentenceTransformer.encode()` accepts a list input and internally
+    batches the forward passes (`batch_size` controls that internal
+    chunking, matching the convention already used by
+    scripts/benchmark-at-scale.py's `model.encode(texts, batch_size=64,
+    ...)` call), so N single-row `embed()` calls pay N times the Python/
+    tokenizer dispatch overhead that one `embed_batch()` call pays once.
+
+    Returns a list of plain float lists, same order as `texts`.
+    """
+    model = _get_model()
+    vecs = model.encode(list(texts), batch_size=batch_size, show_progress_bar=False)
+    return [v.tolist() for v in vecs]
+
+
 def vector_literal(vec: Iterable[float]) -> str:
     """Format a vector as the `[0.1,0.2,...]` string literal Dolt's
     `string_to_vector()` expects.
