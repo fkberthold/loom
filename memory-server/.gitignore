@@ -22,3 +22,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+
+# Real MemPalace corpus data gathered for the loom-40ec.6.2 production
+# migration — actual user memory content (drawers + KG triples), not
+# source. Never committed; regenerate via the wing-allowlist pagination
+# pass documented in docs/sessions-wing-migration-policy.md if needed.
+/scripts/production-corpus*.jsonl
+/scripts/production-kg*.jsonl
+/scripts/kg-bfs-state.json
