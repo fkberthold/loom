@@ -1,11 +1,15 @@
 # MemPalace MCP tools
 
-MemPalace is an upstream MCP server. The list below catalogues the 30
-tools loom relies on via skills, subagents, and the recipe family.
-For the full MemPalace reference, consult the upstream MemPalace
-documentation and `mempalace_get_aaak_spec` for the diary dialect.
+As of loom-40ec.6.4 (2026-07-10), the `mempalace_*` tool surface is
+served by loom's own Dolt-backed memory server
+(`memory-server/mcp_server/server.py`), not the upstream MemPalace
+project — the upstream server has been retired for loom's use. The
+`mempalace_*` tool names were kept for backward compatibility with
+existing skills/prompts rather than renamed to `memsrv_*`. The list
+below catalogues the tools loom relies on via skills, subagents, and
+the recipe family.
 
-!!! note "Count verified 2026-06-08"
+!!! note "Count verified 2026-06-08 (pre-cutover)"
     The tool count and catalogue below were verified against the live
     MemPalace MCP server on 2026-06-08 (enumerated via the session's
     `mempalace_*` tool surface). The server exposes 30 tools.

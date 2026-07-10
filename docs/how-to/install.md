@@ -9,8 +9,11 @@ these steps.
 - [Claude Code](https://claude.com/code) installed.
 - [`bd` (beads)](https://github.com/steveyegge/beads) installed and
   on `PATH`.
-- [MemPalace](https://github.com/MemPalace/mempalace) installed and
-  configured.
+- Loom's Dolt-backed memory server set up (`memory-server/`) and
+  registered as the `mempalace` MCP server in `~/.claude/settings.json`
+  (see `memory-server/mcp_server/server.py`). This replaces the
+  upstream [MemPalace](https://github.com/MemPalace/mempalace) server
+  as of loom-40ec.6.4; the `mempalace_*` tool names are unchanged.
 - Plugins enabled: `beads`, `mempalace`, `superpowers`, `beadpowers`,
   `context7-plugin`.
 - `jq` on `PATH` (used by hooks for JSON parsing).
