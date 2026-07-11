@@ -534,6 +534,67 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 11. Unresolved shell-variable in bead-ID position (loom-8sd3)
+# ---------------------------------------------------------------------------
+#
+# Bug: the shlex-based parser correctly isolates the positional token in
+# bead-ID position, but when that token is an UNRESOLVED shell-variable
+# reference ($name / ${name} shape) rather than a literal bead-ID-shaped
+# string, the token fails the bead-ID regex, BEAD_IDS ends up empty, and
+# the hook falls into the "Could not parse bead ID" hard-block (exit 2) --
+# aborting a multi-line script whose `bd close` line may never even
+# execute at runtime (e.g. an untaken `case` branch). Fix: detect the
+# $var / ${var} shape in bead-ID position and FAIL OPEN (exit 0, silent
+# no-op) instead, exactly mirroring the existing unbalanced-quotes /
+# shlex-ValueError `__NO_BD_CLOSE__` early-exit a few lines up in the
+# hook. Discovered live 2026-07-10 running a manual
+# /check-upstream-prs-style sweep; commands/check-upstream-prs.md's
+# documented sweep script has exactly the case-branch shape in 11a.
+#
+# REGRESSION GUARDS (not re-tested here -- already covered elsewhere in
+# this suite, and must NOT be broken by the loom-8sd3 fix):
+#   - bare `bd close --reason "..."` (no positional token at all) must
+#     STILL hard-block with "Could not parse bead ID" -- see section 9.
+#   - a normal literal `bd close <real-bead-id>` must still be extracted
+#     and proceed to the 5-matcher verification path -- see sections
+#     3-10 (in particular 10d/10e).
+
+echo "==> 11. Unresolved shell-variable bead-ID position (loom-8sd3)"
+
+# 11a. The live bug shape: a `case ... esac` script whose MERGED branch
+#      (containing `bd close "$id" --reason=...`) is NOT taken at
+#      runtime. The RAW unexecuted command text still contains the
+#      literal `"$id"` token in bead-ID position -- the hook parses the
+#      unexecuted text, not the executed branch, so it must fail open
+#      rather than hard-block the whole script.
+CASE_CMD='case "$state" in
+  MERGED) bd close "$id" --reason="Auto-merged, closing bead" ;;
+  *) echo "not merged" ;;
+esac'
+out=$(run_hook "$PROJ" "$CASE_CMD" "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass 'case-branch bd close "$id" (MERGED branch untaken) -> fails open silently'
+else
+  fail 'case-branch bd close "$id" wrongly hard-blocked' "$out ... (exit=$rc)"
+fi
+
+# 11b. Simple one-liner shape: `id=xyz-123; bd close "$id"`.
+out=$(run_hook "$PROJ" 'id=xyz-123; bd close "$id"' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass 'one-liner id=xyz-123; bd close "$id" -> fails open silently'
+else
+  fail 'one-liner bd close "$id" wrongly hard-blocked' "$out ... (exit=$rc)"
+fi
+
+# 11c. Brace-expansion shape: `id=xyz-123; bd close "${id}"`.
+out=$(run_hook "$PROJ" 'id=xyz-123; bd close "${id}"' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass 'brace-expansion id=xyz-123; bd close "${id}" -> fails open silently'
+else
+  fail 'brace-expansion bd close "${id}" wrongly hard-blocked' "$out ... (exit=$rc)"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo

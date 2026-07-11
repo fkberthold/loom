@@ -78,6 +78,7 @@ try:
 except ValueError:
     print("__NO_BD_CLOSE__"); sys.exit(0)
 ids = []
+unresolved_var = False
 i = 0
 n = len(toks)
 found = False
@@ -91,17 +92,29 @@ while i < n:
                 break
             if re.fullmatch(r"[a-z][a-z0-9_-]*-[0-9a-z]{3,}(\.[0-9a-z]+)*", t):
                 ids.append(t)
+            elif re.match(r"^\$", t):
+                unresolved_var = True
             j += 1
         break
     i += 1
 if not found:
     print("__NO_BD_CLOSE__")
-else:
+elif ids:
     print(" ".join(ids))
+elif unresolved_var:
+    print("__UNRESOLVED_VAR__")
+else:
+    print("")
 ')
 
 # Gate: no real `bd close` invocation → hook is a silent no-op.
 [ "$PARSE_OUT" = "__NO_BD_CLOSE__" ] && exit 0
+
+# Gate: unresolved shell variable in bead-ID position → fail open silently.
+# Cannot prove a close invocation from an unexecuted command, so be a no-op.
+# Mirrors the existing __NO_BD_CLOSE__ fail-open principle (loom-8sd3).
+[ "$PARSE_OUT" = "__UNRESOLVED_VAR__" ] && exit 0
+
 BEAD_IDS="$PARSE_OUT"
 
 # --- Mode resolution -------------------------------------------------------
