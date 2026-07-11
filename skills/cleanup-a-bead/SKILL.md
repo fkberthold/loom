@@ -181,6 +181,18 @@ key on the "removed" list from M1, the worker greps the entire repo
 (and adjacent repos if cross-project) and builds a **kill-list** of
 every other file that references it.
 
+**Detected structural tooling (loom-ts4m).** Optional enhancement,
+not a dependency: if `ast-grep` is installed (`command -v ast-grep` —
+never its `sg` alias, which collides with `/usr/bin/sg` setgroups on
+Linux), prefer it for the hunt: `ast-grep run --lang <lang> -p
+'<pattern>' <path>` finds real call-sites/references structurally,
+correctly skipping matches inside comments and string literals that a
+text grep would false-positive on (verified live: a plain grep for a
+to-be-removed symbol also matched a code comment mentioning it,
+ast-grep did not). Not installed → fall back to grep/sed (below) plus
+a one-line nudge that ast-grep would tighten the hunt. loom does not
+install ast-grep itself (machine-global Rust binary, user's choice).
+
 Surfaces the worker must scan that aren't covered by the test suite:
 
 - **Docs** — README, walkthrough, and the published docs site under

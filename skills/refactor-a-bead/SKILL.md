@@ -235,6 +235,22 @@ Brief the worker to set stage `restructuring` and make the change
 the bead describes, moving in small steps. The discipline the brief
 must transfer verbatim:
 
+- **Detected structural tooling (loom-ts4m).** Optional enhancement,
+  not a dependency: if `ast-grep` is installed (`command -v
+  ast-grep` — never its `sg` alias, which collides with `/usr/bin/sg`
+  setgroups on Linux), prefer `ast-grep run --lang <lang> -p
+  '<pattern>' -r '<rewrite>' <path>` for the restructuring step:
+  AST-safe structural find/replace across polyglot code, safer than
+  sed for rename/extract/consolidate because it matches on syntax,
+  not text (skips comments/string literals a text-based pass would
+  also touch — verified live: a plain grep for a renamed symbol also
+  matched a code comment mentioning it, ast-grep did not). Omit `-U`/
+  `--update-all` for a dry-run diff preview before applying. Not
+  installed → fall back to the manual edit discipline below plus a
+  one-line nudge that ast-grep would tighten the step. loom does not
+  install ast-grep itself (machine-global Rust binary, user's
+  choice).
+
 - **Run the test suite frequently — every meaningful step.** The
   whole point of M2 was to install a tripwire; a tripwire only
   works if you check it. After each rename / extraction / move /
