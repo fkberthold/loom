@@ -276,6 +276,74 @@ def list_drawers(
     return results
 
 
+def delete_drawer(drawer_id: str) -> dict:
+    """Delete a single drawer by id (and any chunk rows chained to it
+    via parent_drawer_id). Idempotent: deleting a nonexistent id does
+    NOT raise — it returns success=False with empty deleted_ids and
+    zero chunks_deleted, rather than surfacing an error."""
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM drawers WHERE id = %s OR parent_drawer_id = %s",
+                (drawer_id, drawer_id),
+            )
+            affected = cur.rowcount
+    finally:
+        conn.close()
+
+    if affected == 0:
+        return {
+            "success": False,
+            "drawer_id": drawer_id,
+            "deleted_ids": [],
+            "chunks_deleted": 0,
+        }
+
+    return {
+        "success": True,
+        "drawer_id": drawer_id,
+        "deleted_ids": [drawer_id],
+        "chunks_deleted": affected - 1,
+    }
+
+
+def delete_by_source(source_file: str, dry_run: bool = True) -> dict:
+    """Bulk-delete every drawer sharing `source_file`. Always previews
+    first (matched_count + a sample of matching rows); only actually
+    deletes when `dry_run` is explicitly False."""
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, wing, room, title FROM drawers WHERE source_file = %s",
+                (source_file,),
+            )
+            rows = cur.fetchall()
+            matched_count = len(rows)
+            sample = [_serialize_row(row) for row in rows[:5]]
+
+            if dry_run:
+                return {
+                    "matched_count": matched_count,
+                    "sample": sample,
+                    "deleted": False,
+                }
+
+            cur.execute(
+                "DELETE FROM drawers WHERE source_file = %s",
+                (source_file,),
+            )
+    finally:
+        conn.close()
+
+    return {
+        "matched_count": matched_count,
+        "sample": sample,
+        "deleted": True,
+    }
+
+
 def register_drawer_tools(mcp) -> None:
     """Register the four drawer-CRUD tools on a FastMCP server
     instance, prefixed `mempalace_`."""
@@ -283,3 +351,5 @@ def register_drawer_tools(mcp) -> None:
     mcp.tool(name="mempalace_add_drawer")(add_drawer)
     mcp.tool(name="mempalace_update_drawer")(update_drawer)
     mcp.tool(name="mempalace_list_drawers")(list_drawers)
+    mcp.tool(name="mempalace_delete_drawer")(delete_drawer)
+    mcp.tool(name="mempalace_delete_by_source")(delete_by_source)
