@@ -149,8 +149,9 @@ sed -i \
 ```
 
 Then file the populated body via `mempalace_add_drawer` into
-`<wing>/decisions`, and tag it `exploration` via `mempalace_tag_drawer`
-(the tag is what makes it discoverable).
+`<wing>/decisions`.
+
+**INTERIM FALLBACK — `mempalace_tag_drawer` unavailable (loom-40ec.4.5).** The `mempalace_tag_drawer` tool is not currently available on the loaded MemPalace MCP tool surface (tracking bead loom-40ec.4.5). Until it ships, use this documented FALLBACK convention for discovery: (1) title the drawer with a mandatory `# EXPLORATION` prefix, and (2) include the standardized machine-parseable status marker `<!-- tag: exploration status: active -->` (updated to `rested`/`promoted` at exit) in the drawer body. This combination is what `mempalace_search`/`mempalace_list_drawers` (which currently lack a tag-filter param) can match for discovery. This fallback is interim and should revert to real tagging once loom-40ec.4.5 ships.
 
 **Reason in prose; precipitate firm findings into structure.** The
 drawer's `## Inquiry log` is the permissive prose surface — think out
@@ -208,10 +209,13 @@ particular exploration is free to deviate.
 
 `session-startup` **step 1e** (ALREADY SHIPPED in
 `skills/session-startup/SKILL.md`) surfaces active explorations —
-drawers tagged `exploration` with `status=active` — under an `ACTIVE
-EXPLORATION` header on cold start, so a fresh session resumes the
-*thinking*, not just the bead queue. This skill does NOT duplicate
-that scan; it relies on it. `rested` and `promoted` explorations are
+drawers with titles starting with `# EXPLORATION` and bodies containing
+the status marker `<!-- tag: exploration status: active -->` — under an
+`ACTIVE EXPLORATION` header on cold start, so a fresh session resumes
+the *thinking*, not just the bead queue. This discovery currently runs
+via the documented FALLBACK text-matching mechanism (title prefix + status-marker
+HTML comment) described above, until the real `mempalace_tag_drawer` capability
+ships (tracking bead loom-40ec.4.5). This skill does NOT duplicate that scan; it relies on it. `rested` and `promoted` explorations are
 terminal and are correctly skipped by that scan.
 
 ## The two exits (user-declared, NO gate)
