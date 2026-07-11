@@ -36,6 +36,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_server.tools.diary import register_diary_tools
 from mcp_server.tools.drawers import register_drawer_tools
 from mcp_server.tools.kg import register_kg_tools
+from mcp_server.tools.reference import register_reference_tools
 from mcp_server.tools.search import register_search_tools
 from mcp_server.tools.status import register_status_tools
 
@@ -53,6 +54,7 @@ def create_server() -> FastMCP:
     register_kg_tools(mcp)
     register_diary_tools(mcp)
     register_status_tools(mcp)
+    register_reference_tools(mcp)
     return mcp
 
 
