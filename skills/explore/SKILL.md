@@ -149,9 +149,15 @@ sed -i \
 ```
 
 Then file the populated body via `mempalace_add_drawer` into
-`<wing>/decisions`.
+`<wing>/decisions`, then tag it via `mempalace_tag_drawer(<returned
+drawer_id>, "exploration")` (loom-40ec.4.5.2, shipped 2026-07-10) — the
+tag is the real discovery signal `session-startup` step 1e scans for.
 
-**INTERIM FALLBACK — `mempalace_tag_drawer` unavailable (loom-40ec.4.5).** The `mempalace_tag_drawer` tool is not currently available on the loaded MemPalace MCP tool surface (tracking bead loom-40ec.4.5). Until it ships, use this documented FALLBACK convention for discovery: (1) title the drawer with a mandatory `# EXPLORATION` prefix, and (2) include the standardized machine-parseable status marker `<!-- tag: exploration status: active -->` (updated to `rested`/`promoted` at exit) in the drawer body. This combination is what `mempalace_search`/`mempalace_list_drawers` (which currently lack a tag-filter param) can match for discovery. This fallback is interim and should revert to real tagging once loom-40ec.4.5 ships.
+Keep the body's `# EXPLORATION` title prefix and `<!-- tag:
+exploration status: active -->` marker too — `session-startup` step 1e
+no longer scans for them (real tagging is the sole discovery
+mechanism now), but they remain a human-readable status cue for
+anyone reading the drawer directly.
 
 **Reason in prose; precipitate firm findings into structure.** The
 drawer's `## Inquiry log` is the permissive prose surface — think out
@@ -209,14 +215,15 @@ particular exploration is free to deviate.
 
 `session-startup` **step 1e** (ALREADY SHIPPED in
 `skills/session-startup/SKILL.md`) surfaces active explorations —
-drawers with titles starting with `# EXPLORATION` and bodies containing
-the status marker `<!-- tag: exploration status: active -->` — under an
-`ACTIVE EXPLORATION` header on cold start, so a fresh session resumes
-the *thinking*, not just the bead queue. This discovery currently runs
-via the documented FALLBACK text-matching mechanism (title prefix + status-marker
-HTML comment) described above, until the real `mempalace_tag_drawer` capability
-ships (tracking bead loom-40ec.4.5). This skill does NOT duplicate that scan; it relies on it. `rested` and `promoted` explorations are
-terminal and are correctly skipped by that scan.
+drawers tagged `exploration` (the real tag, applied above at filing
+time via `mempalace_tag_drawer`) — under an `ACTIVE EXPLORATION`
+header on cold start, so a fresh session resumes the *thinking*, not
+just the bead queue. All drawers that predated real tagging were
+backfilled with the tag (loom-40ec.4.5.6, 2026-07-11), so step 1e's
+discovery is tag-only with no title/marker fallback to maintain. This
+skill does NOT duplicate that scan; it relies on it. `rested` and
+`promoted` explorations are terminal and are correctly skipped by that
+scan.
 
 ## The two exits (user-declared, NO gate)
 
