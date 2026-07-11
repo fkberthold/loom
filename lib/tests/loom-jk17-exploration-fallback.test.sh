@@ -44,6 +44,7 @@ set -uo pipefail
 LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SESSION_STARTUP_FILE="$LOOM_ROOT/skills/session-startup/SKILL.md"
 EXPLORE_FILE="$LOOM_ROOT/skills/explore/SKILL.md"
+EXPLORATION_TEMPLATE="$LOOM_ROOT/templates/exploration/EXPLORATION.md.template"
 
 passed=0
 failed=0
@@ -99,6 +100,16 @@ assert_contains_fixed \
 assert_contains_fixed \
   "explore documents '<!-- tag: exploration status:' convention" \
   "$EXPLORE_FILE" \
+  "<!-- tag: exploration status:"
+
+# ---------------------------------------------------------------------------
+# Marker 4: the documented convention must be BACKED by the actual template
+# an opened exploration is seeded from — otherwise the fallback describes a
+# marker that no real drawer ever contains, silently degrading again.
+echo "==> Marker 4: exploration template actually emits the status marker"
+assert_contains_fixed \
+  "exploration template contains '<!-- tag: exploration status:' marker" \
+  "$EXPLORATION_TEMPLATE" \
   "<!-- tag: exploration status:"
 
 echo ""
