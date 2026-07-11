@@ -39,6 +39,7 @@ from mcp_server.tools.kg import register_kg_tools
 from mcp_server.tools.reference import register_reference_tools
 from mcp_server.tools.search import register_search_tools
 from mcp_server.tools.status import register_status_tools
+from mcp_server.tools.tags import register_tag_tools
 
 SERVER_NAME = "loom-memory-server"
 
@@ -55,6 +56,7 @@ def create_server() -> FastMCP:
     register_diary_tools(mcp)
     register_status_tools(mcp)
     register_reference_tools(mcp)
+    register_tag_tools(mcp)
     return mcp
 
 

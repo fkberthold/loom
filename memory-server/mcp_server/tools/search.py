@@ -75,6 +75,7 @@ def search(
     query: str,
     wing: str | None = None,
     room: str | None = None,
+    tag_filter: list[str] | None = None,
     limit: int = 10,
 ) -> list[dict]:
     """Semantic search over `drawers`. Embeds `query`, then runs an
@@ -84,6 +85,16 @@ def search(
     tools/drawers.py). Returns a list of
     {id, wing, room, title, snippet, distance} dicts ordered by
     ascending distance (closest match first).
+
+    `tag_filter` (optional): when a non-empty list of tags is given,
+    restricts results to drawers carrying ALL of those tags (AND
+    semantics — a drawer must match every tag in the list, not just
+    one). Implemented as a subquery condition against `drawer_tags`
+    appended to the same `conditions`/`params` lists wing/room use:
+    `id IN (SELECT drawer_id FROM drawer_tags WHERE tag IN (...)
+    GROUP BY drawer_id HAVING COUNT(DISTINCT tag) = len(tag_filter))`.
+    `None` or an empty list leaves results unaffected (purely
+    additive parameter).
     """
     vec_literal = vector_literal(embed(query))
 
@@ -95,6 +106,15 @@ def search(
     if room is not None:
         conditions.append("room = %s")
         params.append(room)
+    if tag_filter:
+        placeholders = ", ".join(["%s"] * len(tag_filter))
+        conditions.append(
+            "id IN (SELECT drawer_id FROM drawer_tags "
+            f"WHERE tag IN ({placeholders}) "
+            "GROUP BY drawer_id HAVING COUNT(DISTINCT tag) = %s)"
+        )
+        params.extend(tag_filter)
+        params.append(len(tag_filter))
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     conn = connect()
