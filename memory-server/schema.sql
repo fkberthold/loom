@@ -113,3 +113,19 @@ CREATE TABLE IF NOT EXISTS kg_triples (
 CREATE INDEX IF NOT EXISTS kg_triples_subject_idx ON kg_triples(subject);
 CREATE INDEX IF NOT EXISTS kg_triples_object_idx ON kg_triples(object);
 CREATE INDEX IF NOT EXISTS kg_triples_subject_predicate_idx ON kg_triples(subject, predicate);
+
+-- drawer_tags — join table for the drawer tagging tools
+-- (mempalace_tag_drawer/untag_drawer/list_tags) plus the
+-- mempalace_search `tag_filter` parameter (loom-40ec.4.5.2). Plain
+-- (drawer_id, tag) composite PK: a drawer/tag pair is either present
+-- or absent, so the PK itself makes tag_drawer's INSERT ... ON
+-- DUPLICATE KEY UPDATE idempotent with no separate uniqueness index
+-- needed.
+CREATE TABLE IF NOT EXISTS drawer_tags (
+    drawer_id VARCHAR(128) NOT NULL,
+    tag VARCHAR(128) NOT NULL,
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (drawer_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS drawer_tags_tag_idx ON drawer_tags(tag);
