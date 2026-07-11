@@ -193,9 +193,9 @@ rewrite arc constituents. For each draft line in `<out>/drafts.jsonl`:
    content=<drawer_body>, source_file=<anchor.url or anchor.id>)`.
    Capture the returned `drawer_id`.
 3. **Tag provenance** —
-   `mempalace_tag_drawer(drawer_id=<id>, tag_key="provenance",
-   tag_value="mined")`. (The `provenance:mined` tag from the manifest's
-   `tags` array, expressed as the tool's key/value pair.)
+   `mempalace_tag_drawer(drawer_id=<id>, tag="provenance:mined")`. (The
+   `provenance:mined` tag from the manifest's `tags` array, filed as a
+   single composite tag string — `tag_drawer` has no key/value split.)
 4. **Record the mapping** — add `source_id → drawer_id` to `ID_MAP`,
    keyed by this draft's `source_id`. This is the lookup table step 4b
    consumes.
@@ -226,10 +226,10 @@ or the file is empty. Otherwise — **only after every per-unit draft in
    `mempalace_add_drawer(wing=WING, room="decisions",
    content=<rewritten drawer_body>)`. Capture the returned `drawer_id`.
 5. **Tag** — `mempalace_tag_drawer(drawer_id=<id>,
-   tag_key="provenance", tag_value="mined")` AND
-   `mempalace_tag_drawer(drawer_id=<id>, tag_key="synthesis",
-   tag_value="arc")`. (Both tags come from the arc line's `tags`
-   array: `provenance:mined` + `synthesis:arc`.)
+   tag="provenance:mined")` AND `mempalace_tag_drawer(drawer_id=<id>,
+   tag="synthesis:arc")` — two separate calls; a drawer can carry
+   multiple independent tags (many-to-many). (Both tags come from the
+   arc line's `tags` array: `provenance:mined` + `synthesis:arc`.)
 
 #### 4c — KG triples
 

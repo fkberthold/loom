@@ -19,7 +19,7 @@ the recipe family.
 ```
 mempalace_status              # palace overview at session start
 mempalace_kg_stats            # KG entity/triple counts
-mempalace_search              # semantic similarity over drawers
+mempalace_search              # semantic similarity over drawers; optional tag_filter=[tag,...] restricts to drawers carrying ALL listed tags (AND-match)
 mempalace_kg_query            # structured S→P→O lookup
 mempalace_kg_add              # add new fact
 mempalace_add_drawer          # file decision drawer
@@ -36,7 +36,9 @@ mempalace_kg_invalidate       # mark fact as no-longer-true
 mempalace_get_drawer          # fetch single drawer by ID
 mempalace_list_drawers        # paginated, optional wing/room filter
 mempalace_update_drawer       # modify content or relocate
-mempalace_tag_drawer          # set/clear single-valued tag (e.g. regression_status)
+mempalace_tag_drawer          # idempotent add; params: drawer_id, tag (many-to-many, not single-valued)
+mempalace_untag_drawer        # idempotent remove; params: drawer_id, tag
+mempalace_list_tags           # all tags on one drawer; params: drawer_id
 ```
 
 ## Low-frequency / advanced tools
