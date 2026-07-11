@@ -113,3 +113,21 @@ CREATE TABLE IF NOT EXISTS kg_triples (
 CREATE INDEX IF NOT EXISTS kg_triples_subject_idx ON kg_triples(subject);
 CREATE INDEX IF NOT EXISTS kg_triples_object_idx ON kg_triples(object);
 CREATE INDEX IF NOT EXISTS kg_triples_subject_predicate_idx ON kg_triples(subject, predicate);
+
+-- loom-40ec.4.5.1: tunnels — explicit + passive/derived cross-project
+-- memory linking. An explicit tunnel row links two (wing, room)
+-- endpoints (e.g. loom/decisions <-> hundred_acre_woods/decisions);
+-- `id` is a symmetric, deterministic id derived from the SORTED pair
+-- of endpoints (see tools/tunnels.py's _canonical_tunnel_id), so
+-- creating the same link in either direction upserts the same row
+-- rather than duplicating it.
+CREATE TABLE IF NOT EXISTS tunnels (
+    id VARCHAR(32) NOT NULL,
+    source_wing VARCHAR(128) NOT NULL, source_room VARCHAR(128) NOT NULL, source_drawer_id VARCHAR(128) NULL,
+    target_wing VARCHAR(128) NOT NULL, target_room VARCHAR(128) NOT NULL, target_drawer_id VARCHAR(128) NULL,
+    label VARCHAR(512) NULL, kind VARCHAR(32) NOT NULL DEFAULT 'explicit',
+    created_at DATETIME NOT NULL, PRIMARY KEY (id)
+);
+
+CREATE INDEX IF NOT EXISTS tunnels_source_wing_idx ON tunnels(source_wing);
+CREATE INDEX IF NOT EXISTS tunnels_target_wing_idx ON tunnels(target_wing);
