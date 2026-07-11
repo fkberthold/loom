@@ -30,10 +30,10 @@
 - **question:** {{ question }}
 - **status:** active  <!-- active | rested | promoted -->
 <!-- tag: exploration status: active -->
-<!-- Machine-parseable FALLBACK marker (loom-jk17) — keep this comment's
-     status value in sync with the **status:** field above on every
-     REST/PROMOTE flip. Interim until mempalace_tag_drawer ships
-     (loom-40ec.4.5) and restores real tag-filtering. -->
+<!-- Human-readable status cue — keep this comment's status value in
+     sync with the **status:** field above on every REST/PROMOTE flip.
+     Discovery itself is via the real `exploration` tag (mempalace_tag_drawer,
+     loom-40ec.4.5.2); this marker is not the discovery mechanism. -->
 - **tiers-touched:**
   - _(none yet — list each source tier touched: 1 self · 2 repo+docs ·
     3 web · 4 literature)_
