@@ -18,3 +18,8 @@ mcp==1.28.1
 # matching the model used throughout this project's benchmarking
 # lineage (SPIKE-1/loom-zu91, loom-40ec.3, loom-40ec.7).
 sentence-transformers==5.6.0
+# BM25 keyword-retrieval lane (loom-rpsf.4, S2) -- the Okapi-BM25 engine
+# behind mcp_server/bm25.py's full-corpus keyword lane, fused with the
+# vector lane by Reciprocal Rank Fusion in tools/search.py. Pure-Python
+# (numpy only), pinned to the current stable release.
+rank_bm25==0.2.2
