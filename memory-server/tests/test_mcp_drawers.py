@@ -15,6 +15,7 @@ assertion; the ONE exception is test_update_drawer_occ_retry_logic_in_isolation,
 which deliberately mocks the DB layer to deterministically drive the
 retry-then-raise path (see that test's docstring for why).
 """
+import math
 import os
 import socket
 import subprocess
@@ -548,3 +549,206 @@ def test_update_drawer_relayers_children_on_length_change(drawers_module):
     )
     assert [c["chunk_index"] for c in children] == [0, 1]
     assert f"{drawer_id}_chunk_000002" not in {r["id"] for r in rows}
+
+
+# ---------------------------------------------------------------------------
+# loom-rpsf.6 — content-hash drawer IDs + idempotent add (S4, design D6,
+# drawer drawer_loom_decisions_04b915d08eac99c49cef0f1f).
+#
+# RED invariant (from the bead):
+#   add_drawer(wing, room, title, content) called twice with identical
+#   (wing, room, content) => exactly ONE row (the second upserts the
+#   first, same id).
+#   AND INVARIANT: drawer_id == "drawer_{wing}_{room}_" +
+#     sha256("".join(f"{len(p)}:{p}" for p in (wing,room,content))).hexdigest()[:24]
+#
+# The content-hash is the PARENT id; child chunk rows keep
+# {parent}_chunk_{i:06d}, so re-adding identical >CHUNK_SIZE content
+# yields the SAME parent id AND the SAME child ids — the upsert must
+# cleanly replace parent + all children with NO duplicate/orphan rows.
+# Existing random-id rows are GRANDFATHERED (this only changes newly
+# minted ids; old rows are never rehashed).
+# ---------------------------------------------------------------------------
+
+
+def _expected_drawer_id(wing: str, room: str, content: str) -> str:
+    """The loom-rpsf.6 content-hash id, computed independently of the
+    implementation under test (length-prefixed SHA-256, first 24 hex)."""
+    import hashlib
+
+    digest = hashlib.sha256(
+        "".join(f"{len(p)}:{p}" for p in (wing, room, content)).encode()
+    ).hexdigest()[:24]
+    return f"drawer_{wing}_{room}_{digest}"
+
+
+def test_generate_drawer_id_is_content_hash():
+    """INVARIANT: _generate_drawer_id is a deterministic content hash,
+    not a random token (pure unit — no dolt server needed)."""
+    from mcp_server.tools import drawers as d
+
+    wing, room, content = "loom", "decisions", "some drawer body text"
+    assert d._generate_drawer_id(wing, room, content) == _expected_drawer_id(
+        wing, room, content
+    )
+    # deterministic: identical inputs -> identical id
+    assert d._generate_drawer_id(wing, room, content) == d._generate_drawer_id(
+        wing, room, content
+    )
+    # content-sensitive: any change in content changes the id
+    assert d._generate_drawer_id(wing, room, content) != d._generate_drawer_id(
+        wing, room, content + "!"
+    )
+    # length-prefix guards the concat-collision defect class: the
+    # boundary between wing and room must matter.
+    assert d._generate_drawer_id("ab", "c", content) != d._generate_drawer_id(
+        "a", "bc", content
+    )
+
+
+def test_add_drawer_idempotent_short_content(drawers_module):
+    """add_drawer twice with identical (wing, room, content) short body
+    => exactly ONE row, same content-hash id (second upserts first)."""
+    d = drawers_module
+    room = f"idem_room_{os.urandom(4).hex()}"
+
+    id1 = d.add_drawer("loom", room, "idem title", "idem body")
+    id2 = d.add_drawer("loom", room, "idem title", "idem body")
+
+    assert id1 == id2 == _expected_drawer_id("loom", room, "idem body")
+
+    rows = _rows_for_parent(id1)
+    assert len(rows) == 1  # the second add upserted the first, not a new row
+    assert d.get_drawer(id1)["text"] == "idem body"
+
+
+def test_add_drawer_id_ignores_title_and_source_file(drawers_module):
+    """The id is a hash of (wing, room, content) ONLY — a re-add with a
+    different title/source_file but identical content still upserts the
+    same row (the D6 formula does not include title or source_file)."""
+    d = drawers_module
+    room = f"idemmeta_room_{os.urandom(4).hex()}"
+
+    id1 = d.add_drawer("loom", room, "title A", "shared body", source_file="a.md")
+    id2 = d.add_drawer("loom", room, "title B", "shared body", source_file="b.md")
+
+    assert id1 == id2
+    assert len(_rows_for_parent(id1)) == 1
+    # the upsert reflects the SECOND add's metadata
+    fetched = d.get_drawer(id1)
+    assert fetched["title"] == "title B"
+    assert fetched["source_file"] == "b.md"
+
+
+def test_add_drawer_idempotent_chunked_no_orphans(drawers_module):
+    """Re-adding identical >CHUNK_SIZE content yields the SAME parent id
+    AND the SAME child ids => still exactly 1 parent + N children, with
+    NO duplicate rows and NO orphaned stale children."""
+    d = drawers_module
+    room = f"idemchunk_room_{os.urandom(4).hex()}"
+    body = "".join(chr(ord("a") + (i % 26)) for i in range(2000))  # 3 chunks
+    assert len(body) == 2000
+
+    id1 = d.add_drawer("loom", room, "idem chunk title", body)
+    rows1 = _rows_for_parent(id1)
+    assert len(rows1) == 4  # parent + 3 children
+
+    id2 = d.add_drawer("loom", room, "idem chunk title", body)
+    assert id1 == id2
+
+    rows2 = _rows_for_parent(id2)
+    # STILL exactly 1 parent + 3 children — the upsert replaced parent +
+    # all children in place; no duplicates, no orphaned chunk rows.
+    assert len(rows2) == 4
+    assert sorted(r["id"] for r in rows2) == sorted(
+        [
+            id1,
+            f"{id1}_chunk_000000",
+            f"{id1}_chunk_000001",
+            f"{id1}_chunk_000002",
+        ]
+    )
+
+    parent = next(r for r in rows2 if r["id"] == id1)
+    assert parent["parent_drawer_id"] is None
+    assert parent["chunk_index"] is None
+    assert parent["text"] == body
+
+    children = sorted(
+        (r for r in rows2 if r["parent_drawer_id"] == id1),
+        key=lambda r: r["chunk_index"],
+    )
+    assert [c["chunk_index"] for c in children] == [0, 1, 2]
+    assert "".join(c["text"] for c in children) == body
+    # get_drawer(parent) still returns the full body, list_drawers counts once
+    assert d.get_drawer(id1)["text"] == body
+    listing = d.list_drawers(wing="loom", room=room, limit=100)
+    assert listing[0]["total"] == 1
+
+
+# ---------------------------------------------------------------------------
+# loom-rpsf.6 — dedup-sweep.py near-duplicate detection (pure unit tests,
+# no dolt server and no embedding model: find_near_duplicates operates on
+# supplied vectors). The offline sweep groups per source_file, keeps the
+# LONGEST body as canonical, and flags anything within the cosine-distance
+# threshold of a kept canonical.
+# ---------------------------------------------------------------------------
+
+DEDUP_SWEEP_PATH = MEMSERVER_ROOT / "scripts" / "dedup-sweep.py"
+
+
+@pytest.fixture(scope="module")
+def dedup_sweep_module():
+    """Load scripts/dedup-sweep.py by path (hyphenated filename is not a
+    normal import target), same importlib pattern test_eval_recall uses."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("dedup_sweep", DEDUP_SWEEP_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_cosine_distance_identical_and_orthogonal(dedup_sweep_module):
+    m = dedup_sweep_module
+    assert m.cosine_distance([1.0, 0.0], [1.0, 0.0]) == pytest.approx(0.0)
+    assert m.cosine_distance([1.0, 0.0], [0.0, 1.0]) == pytest.approx(1.0)
+    # zero-magnitude vector is treated as maximally distant, not a crash
+    assert m.cosine_distance([0.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
+
+
+def test_find_near_duplicates_keeps_longest_flags_near(dedup_sweep_module):
+    m = dedup_sweep_module
+    candidates = [
+        # near-identical direction; the SHORTER body is the near-dup
+        {"id": "short", "text": "x" * 10, "embedding": [1.0, 0.0], "source_file": "a.md"},
+        {"id": "long", "text": "x" * 100, "embedding": [0.99, 0.01], "source_file": "a.md"},
+        # clearly distinct direction — kept
+        {"id": "other", "text": "y" * 50, "embedding": [0.0, 1.0], "source_file": "a.md"},
+    ]
+    removed = m.find_near_duplicates(candidates, threshold=0.15)
+    removed_ids = {r["id"] for r in removed}
+    assert removed_ids == {"short"}  # the longest ("long") is kept as canonical
+    (dup,) = removed
+    assert dup["canonical_id"] == "long"
+    assert dup["distance"] <= 0.15
+
+
+def test_find_near_duplicates_scopes_per_source_file(dedup_sweep_module):
+    m = dedup_sweep_module
+    # identical vectors but DIFFERENT source_file => never cross-flagged
+    candidates = [
+        {"id": "a1", "text": "x" * 10, "embedding": [1.0, 0.0], "source_file": "a.md"},
+        {"id": "b1", "text": "x" * 10, "embedding": [1.0, 0.0], "source_file": "b.md"},
+    ]
+    assert m.find_near_duplicates(candidates, threshold=0.15) == []
+
+
+def test_find_near_duplicates_threshold_excludes_distant(dedup_sweep_module):
+    m = dedup_sweep_module
+    candidates = [
+        {"id": "one", "text": "x" * 20, "embedding": [1.0, 0.0], "source_file": "a.md"},
+        # cosine distance 0.5 (60 degrees) — outside a 0.15 threshold
+        {"id": "two", "text": "x" * 10, "embedding": [0.5, math.sqrt(3) / 2], "source_file": "a.md"},
+    ]
+    assert m.find_near_duplicates(candidates, threshold=0.15) == []

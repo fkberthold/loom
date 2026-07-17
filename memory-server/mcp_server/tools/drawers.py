@@ -28,7 +28,7 @@ transaction explicitly upgrades to SERIALIZABLE, which DOES raise).
 """
 from __future__ import annotations
 
-import secrets
+import hashlib
 from datetime import datetime
 from typing import Any
 
@@ -78,14 +78,44 @@ class _OccConflict(Exception):
 _SERIALIZATION_FAILURE_ERRNO = 1213
 
 
-def _generate_drawer_id(wing: str, room: str) -> str:
-    """Match MemPalace's existing drawer_id shape:
-    `drawer_<wing>_<room>_<24-hex-char-random>` (e.g.
-    `drawer_loom_decisions_2ee82f47ed6bc219866cd5c4`, seen throughout
-    this repo's existing decision-drawer references). `secrets.token_hex(12)`
-    gives 24 hex characters, matching that observed suffix length.
+# SHA-256 hex truncation length for drawer ids. 24 hex chars matches
+# both the historical random-suffix length AND MemPalace's
+# _HASH_TRUNC_DRAWER (mempalace/ids.py:36), so a content-hash id is
+# indistinguishable in shape from the grandfathered random-id rows.
+_HASH_TRUNC_DRAWER = 24
+
+
+def _content_hash(*parts: str) -> str:
+    """First 24 hex chars of SHA-256 over the LENGTH-PREFIXED join of
+    `parts` — each part contributes `f"{len(p)}:{p}"`. Ported verbatim
+    from MemPalace's mempalace/ids.py `_delimited_sha256`
+    (loom-rpsf.6, design D6): the length prefix makes the join
+    unambiguous at every part boundary, so a concat-into-hash can never
+    collide across parts (`s1+s2 == s3+s4` — the "partial-scope-key"
+    defect class where a second upsert silently overwrites the first).
     """
-    return f"drawer_{wing}_{room}_{secrets.token_hex(12)}"
+    key = "".join(f"{len(part)}:{part}" for part in parts).encode()
+    return hashlib.sha256(key).hexdigest()[:_HASH_TRUNC_DRAWER]
+
+
+def _generate_drawer_id(wing: str, room: str, content: str) -> str:
+    """Content-addressed drawer id (loom-rpsf.6 / design D6, drawer
+    drawer_loom_decisions_04b915d08eac99c49cef0f1f). Replaces the former
+    random `secrets.token_hex(12)` suffix with a deterministic
+    length-prefixed SHA-256 over (wing, room, content), so re-adding
+    identical content produces the SAME id and add_drawer's upsert
+    reconciles to a single row instead of polluting the candidate pool
+    with a near-duplicate. Existing random-id rows are GRANDFATHERED —
+    this only changes newly minted ids; old rows are never rehashed.
+
+    INVARIANT: drawer_id == "drawer_{wing}_{room}_" +
+      sha256("".join(f"{len(p)}:{p}" for p in (wing,room,content))).hexdigest()[:24]
+
+    Shape (`drawer_<wing>_<room>_<24-hex>`) is unchanged from the random
+    scheme it supersedes, so every existing consumer of a drawer_id
+    keeps working.
+    """
+    return f"drawer_{wing}_{room}_{_content_hash(wing, room, content)}"
 
 
 def _jsonify(value: Any) -> Any:
@@ -138,6 +168,35 @@ def _insert_row(cur, wing, room, title, source_file, row_id, text, vec_literal,
     )
 
 
+def _upsert_row(cur, wing, room, title, source_file, row_id, text, vec_literal,
+                chunk_index, parent_drawer_id) -> None:
+    """Idempotent INSERT of one drawer/chunk row (loom-rpsf.6): a row
+    whose id already exists (the content-hash parent id) is UPDATED in
+    place rather than raising a PK violation, so a re-add of identical
+    content reconciles to a single row. Column set mirrors _insert_row;
+    the ON DUPLICATE KEY UPDATE tail uses the same VALUES()-based pattern
+    tools/tunnels.py + tags.py use. The embedding is re-stated via
+    string_to_vector (not VALUES(embedding)) so no vector-typed VALUES()
+    reference is relied on, reusing the already-interpolated `vec_literal`
+    so the params tuple is identical to _insert_row's.
+    """
+    cur.execute(
+        "INSERT INTO drawers "
+        "(id, wing, room, title, text, embedding, filed_at, "
+        " source_file, chunk_index, parent_drawer_id, added_by) "
+        f"VALUES (%s, %s, %s, %s, %s, string_to_vector('{vec_literal}'), "
+        "NOW(), %s, %s, %s, %s) "
+        "ON DUPLICATE KEY UPDATE "
+        "wing=VALUES(wing), room=VALUES(room), title=VALUES(title), "
+        "text=VALUES(text), "
+        f"embedding=string_to_vector('{vec_literal}'), filed_at=NOW(), "
+        "source_file=VALUES(source_file), chunk_index=VALUES(chunk_index), "
+        "parent_drawer_id=VALUES(parent_drawer_id), added_by=VALUES(added_by)",
+        (row_id, wing, room, title, text, source_file, chunk_index,
+         parent_drawer_id, "memsrv"),
+    )
+
+
 def add_drawer(
     wing: str,
     room: str,
@@ -160,22 +219,44 @@ def add_drawer(
     or vice versa). Embeddings are computed BEFORE the transaction opens
     so the slow model work does not hold the write lock.
 
-    Returns the newly-generated (parent) drawer_id.
+    Idempotent (loom-rpsf.6 / D6): drawer_id is a content hash of
+    (wing, room, content), so re-adding identical content targets the
+    SAME parent id (and hence the SAME child chunk ids). The write is an
+    upsert — the parent row is INSERT ... ON DUPLICATE KEY UPDATE, and
+    any pre-existing child chunk rows are deleted before the new children
+    are inserted — so a re-add cleanly REPLACES parent + all children
+    with no duplicate rows and no orphaned stale children, rather than
+    minting a second near-duplicate drawer that pollutes the candidate
+    pool. Existing random-id rows are untouched (grandfathered).
+
+    Returns the (content-hash) parent drawer_id.
     """
-    drawer_id = _generate_drawer_id(wing, room)
+    drawer_id = _generate_drawer_id(wing, room, content)
     specs = plan_rows(drawer_id, title, content)
     rows = [
         (s.row_id, s.text, vector_literal(embed(s.embed_source)),
-         s.chunk_index, s.parent_drawer_id)
+         s.chunk_index, s.parent_drawer_id, s.is_parent)
         for s in specs
     ]
 
     conn = connect(autocommit=False)
     try:
         with conn.cursor() as cur:
-            for row_id, text, vec_literal, chunk_index, parent_id in rows:
-                _insert_row(cur, wing, room, title, source_file, row_id, text,
-                            vec_literal, chunk_index, parent_id)
+            # Clear any children left from a prior add of this exact
+            # content, so a re-add can never leave orphaned chunk rows
+            # behind (parents are upserted in place below; children are
+            # keyed off parent_drawer_id and re-inserted fresh). Mirrors
+            # update_drawer's re-chunk-safe delete-then-insert.
+            cur.execute(
+                "DELETE FROM drawers WHERE parent_drawer_id = %s", (drawer_id,)
+            )
+            for row_id, text, vec_literal, chunk_index, parent_id, is_parent in rows:
+                if is_parent:
+                    _upsert_row(cur, wing, room, title, source_file, row_id,
+                                text, vec_literal, chunk_index, parent_id)
+                else:
+                    _insert_row(cur, wing, room, title, source_file, row_id,
+                                text, vec_literal, chunk_index, parent_id)
         conn.commit()
     except Exception:
         conn.rollback()
