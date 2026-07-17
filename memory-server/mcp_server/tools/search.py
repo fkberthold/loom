@@ -21,9 +21,12 @@ wing/room) falls back to the documented full-table-scan behavior —
 see docs/vector-index-scaling.md: ADEQUATE at real scale under a
 sub-second latency bar, not something this bead attempts to fix.
 
-`snippet` is a simple first-~300-chars truncation of `text`, not an
-excerpt centered on the best-matching span — see this module's
-docstring on `_snippet()` for why that nice-to-have was skipped.
+`snippet` is the returned CONTEXT for a hit. For a chunked drawer it is
+the neighbour-chunk STITCH (loom-rpsf.5): the best-matching chunk plus
+its +/-1 neighbours, joined and capped (see `_stitch_window`). For a
+standalone (unchunked) drawer it stays a simple first-~300-chars
+truncation of `text` (see `_snippet()` for why that nice-to-have of
+centering on the best-matching span was skipped there).
 
 `check_duplicate` (loom-4cb6) is registered as `mempalace_check_duplicate`,
 matching every other tool in this server under the `mempalace_*` prefix
@@ -71,6 +74,35 @@ RRF_K = 60
 # would need >10x `limit` chunks ranked above the true limit-th drawer
 # to under-fill) while staying a bounded TopN at the DB.
 _ROLLUP_OVERFETCH = 10
+
+# Neighbour-chunk stitch ceiling (loom-rpsf.5, design D4-stitch). The stitched
+# +/-1 neighbour window is hard-capped at this many characters. Ported from
+# MemPalace searcher.py:1281-1289 (`MAX_HYDRATION_CHARS = 10000`). At
+# CHUNK_SIZE=800 a 3-chunk window is at most ~2404 chars, so this is a safety
+# ceiling that never fires under the current chunk size — it exists so the cap
+# holds no matter how CHUNK_SIZE (chunking.py) is later tuned.
+MAX_HYDRATION_CHARS = 10000
+
+
+def _stitch_window(chunk_texts: dict[int, str], best_idx: int) -> str:
+    """Neighbour-chunk stitch (loom-rpsf.5, design D4-stitch). Join the
+    best-matching chunk with its immediate neighbours — chunk_index in
+    [best-1, best, best+1] — in ascending index order, separated by a blank
+    line (`"\\n\\n"`), hard-capped at MAX_HYDRATION_CHARS.
+
+    `chunk_texts` maps a canonical drawer's child chunk_index -> that chunk's
+    text; `best_idx` is the chunk_index of the best-matching chunk (min vector
+    distance). Out-of-range neighbours (best-1 < 0 at the first chunk, best+1
+    past the last) are simply dropped — the window clamps rather than
+    fabricating a neighbour. Ported from MemPalace searcher.py:1281-1289
+    (N=+/-1 window, 10k cap).
+    """
+    window = [
+        chunk_texts[i]
+        for i in (best_idx - 1, best_idx, best_idx + 1)
+        if i in chunk_texts
+    ]
+    return "\n\n".join(window)[:MAX_HYDRATION_CHARS]
 
 
 def _snippet(text: str) -> str:
@@ -221,6 +253,18 @@ def _build_results(vec_literal: str, canonicals: list[str]) -> list[dict]:
     (its best chunk or its title/body) supplies `distance` — so a
     BM25-surfaced drawer that never appeared in the vector over-fetch
     still gets a real distance.
+
+    `snippet` carries the neighbour-chunk STITCH (loom-rpsf.5, design
+    D4-stitch): for a CHUNKED drawer, it is the best-matching chunk plus its
+    +/-1 neighbours (chunk_index IN [best-1, best, best+1]) joined with a
+    blank line and capped at MAX_HYDRATION_CHARS — a richer, less-fragmentary
+    context than any single chunk. The stitch is ADDITIVE over the S1 rollup
+    + S2 RRF fusion: `canonicals` is already the rolled-up, fused order; this
+    only enriches each result's returned context. "Best-matching chunk" is the
+    child chunk with the minimum VEC_DISTANCE (the chunk the vector lane landed
+    on), read from the same per-row distances this query already computes. A
+    STANDALONE (unchunked) drawer has no child chunks, so its snippet stays the
+    plain truncation of its body (nothing to stitch).
     """
     if not canonicals:
         return []
@@ -229,7 +273,7 @@ def _build_results(vec_literal: str, canonicals: list[str]) -> list[dict]:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, wing, room, title, text, parent_drawer_id, "
+                "SELECT id, wing, room, title, text, chunk_index, parent_drawer_id, "
                 f"VEC_DISTANCE(embedding, string_to_vector('{vec_literal}')) AS dist "
                 f"FROM drawers WHERE id IN ({placeholders}) "
                 f"OR parent_drawer_id IN ({placeholders})",
@@ -241,6 +285,10 @@ def _build_results(vec_literal: str, canonicals: list[str]) -> list[dict]:
 
     display: dict[str, dict] = {}
     best_dist: dict[str, float] = {}
+    # Per canonical, the child chunk_index -> text map + the best-matching
+    # child chunk_index (min VEC_DISTANCE) — the inputs to _stitch_window.
+    chunk_texts: dict[str, dict[int, str]] = {}
+    best_chunk: dict[str, tuple[float, int]] = {}
     for row in rows:
         cid = canonical_id(row.get("parent_drawer_id"), row["id"])
         dist = float(row["dist"])
@@ -248,13 +296,23 @@ def _build_results(vec_literal: str, canonicals: list[str]) -> list[dict]:
             best_dist[cid] = dist
         if row["id"] == cid:  # the logical-drawer row supplies display fields
             display[cid] = row
+        chunk_index = row.get("chunk_index")
+        if chunk_index is not None:  # a child chunk row of a chunked drawer
+            ci = int(chunk_index)
+            chunk_texts.setdefault(cid, {})[ci] = row.get("text") or ""
+            if cid not in best_chunk or dist < best_chunk[cid][0]:
+                best_chunk[cid] = (dist, ci)
 
     results: list[dict] = []
     for cid in canonicals:
         row = display.get(cid)
         if row is None:  # drawer vanished between fusion and this fetch (rare)
             continue
-        text = row.get("text") or ""
+        children = chunk_texts.get(cid)
+        if children:  # chunked drawer -> stitch the +/-1 neighbour window
+            snippet = _stitch_window(children, best_chunk[cid][1])
+        else:  # standalone drawer -> plain body truncation (nothing to stitch)
+            snippet = _snippet(row.get("text") or "")
         results.append(
             {
                 # The canonical (logical-drawer) id, never a raw `_chunk_`
@@ -264,7 +322,7 @@ def _build_results(vec_literal: str, canonicals: list[str]) -> list[dict]:
                 "wing": row["wing"],
                 "room": row["room"],
                 "title": row["title"],
-                "snippet": _snippet(text),
+                "snippet": snippet,
                 # Explicit float() cast for the same JSON-serialization
                 # reason as the pre-hybrid code: VEC_DISTANCE may come back
                 # as Decimal depending on the driver's numeric-type mapping.
