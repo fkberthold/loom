@@ -34,6 +34,7 @@ from typing import Any
 
 import pymysql
 
+from mcp_server.chunking import plan_rows, should_chunk
 from mcp_server.db import connect
 from mcp_server.embeddings import embed, vector_literal
 
@@ -121,6 +122,22 @@ def get_drawer(drawer_id: str) -> dict:
     return _serialize_row(row)
 
 
+def _insert_row(cur, wing, room, title, source_file, row_id, text, vec_literal,
+                chunk_index, parent_drawer_id) -> None:
+    """INSERT one drawer/chunk row. Children share the parent's
+    wing/room/title/source_file/added_by so list/search scoping and
+    delete_by_source stay consistent across the whole logical drawer."""
+    cur.execute(
+        "INSERT INTO drawers "
+        "(id, wing, room, title, text, embedding, filed_at, "
+        " source_file, chunk_index, parent_drawer_id, added_by) "
+        f"VALUES (%s, %s, %s, %s, %s, string_to_vector('{vec_literal}'), "
+        "NOW(), %s, %s, %s, %s)",
+        (row_id, wing, room, title, text, source_file, chunk_index,
+         parent_drawer_id, "memsrv"),
+    )
+
+
 def add_drawer(
     wing: str,
     room: str,
@@ -128,22 +145,41 @@ def add_drawer(
     content: str,
     source_file: str | None = None,
 ) -> str:
-    """Embed `content` (all-MiniLM-L6-v2) and insert a new drawer row.
-    Returns the newly-generated drawer_id."""
-    drawer_id = _generate_drawer_id(wing, room)
-    vec_literal = vector_literal(embed(content))
+    """Embed `content` (all-MiniLM-L6-v2) and insert a new drawer.
 
-    conn = connect()
+    Chunking (loom-rpsf.2): a body <= CHUNK_SIZE stores as one row
+    (embedding = embed(full text), as before). A body > CHUNK_SIZE
+    stores as one parent row holding the FULL body (embedding =
+    embed(title)) plus one child row per non-overlapping CHUNK_SIZE-char
+    slice (embedding = embed(slice)) — so search can match anywhere in a
+    long body instead of only within the model's 256-token truncation of
+    the whole thing. See mcp_server/chunking.py for the row plan.
+
+    All rows for the drawer are written in a single transaction so a
+    long drawer can never be left half-chunked (parent without children
+    or vice versa). Embeddings are computed BEFORE the transaction opens
+    so the slow model work does not hold the write lock.
+
+    Returns the newly-generated (parent) drawer_id.
+    """
+    drawer_id = _generate_drawer_id(wing, room)
+    specs = plan_rows(drawer_id, title, content)
+    rows = [
+        (s.row_id, s.text, vector_literal(embed(s.embed_source)),
+         s.chunk_index, s.parent_drawer_id)
+        for s in specs
+    ]
+
+    conn = connect(autocommit=False)
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO drawers "
-                "(id, wing, room, title, text, embedding, filed_at, "
-                " source_file, chunk_index, parent_drawer_id, added_by) "
-                f"VALUES (%s, %s, %s, %s, %s, string_to_vector('{vec_literal}'), "
-                "NOW(), %s, NULL, NULL, %s)",
-                (drawer_id, wing, room, title, content, source_file, "memsrv"),
-            )
+            for row_id, text, vec_literal, chunk_index, parent_id in rows:
+                _insert_row(cur, wing, room, title, source_file, row_id, text,
+                            vec_literal, chunk_index, parent_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -154,12 +190,32 @@ def _is_serialization_conflict(exc: pymysql.err.OperationalError) -> bool:
     return bool(exc.args) and exc.args[0] == _SERIALIZATION_FAILURE_ERRNO
 
 
-def _attempt_update(drawer_id: str, content: str, vec_literal: str) -> None:
-    """One attempt at the refetch-then-write, inside an explicit
+def _attempt_update(
+    drawer_id: str,
+    wing: str,
+    room: str,
+    title: str,
+    source_file: str | None,
+    plan_emb: list[tuple],
+) -> None:
+    """One attempt at the re-chunk-then-write, inside an explicit
     SERIALIZABLE transaction so a same-row concurrent write is caught
     (raises _OccConflict) rather than silently overwritten (see the
     module-level _SERIALIZATION_FAILURE_ERRNO comment for the
     empirical basis).
+
+    `plan_emb` is the precomputed row plan for the NEW content: a list
+    of (row_id, text, vec_literal, chunk_index, parent_drawer_id,
+    is_parent) tuples (embeddings already computed outside this
+    transaction). Exactly one entry is the parent (row_id == drawer_id,
+    is_parent True); the rest are child chunks.
+
+    The update is re-chunk-safe (loom-rpsf.2): it deletes ALL existing
+    child rows for this drawer, UPDATEs the parent row's text/embedding
+    (resetting it to a parent/standalone shape: chunk_index NULL,
+    parent_drawer_id NULL), then INSERTs the new children. Doing the
+    whole thing in one SERIALIZABLE transaction keeps a concurrent
+    writer from observing a torn re-chunk and preserves D6's OCC guard.
 
     Raises DrawerNotFoundError if the row disappeared between the
     caller's original call and this attempt (rare, but a real 404 if
@@ -177,12 +233,25 @@ def _attempt_update(drawer_id: str, content: str, vec_literal: str) -> None:
                 conn.rollback()
                 raise DrawerNotFoundError(f"no drawer found with id={drawer_id!r}")
 
+            # Drop any existing children before re-chunking so a body
+            # that shrinks (fewer chunks) or de-chunks (<= CHUNK_SIZE)
+            # never leaves stale chunk rows behind.
             cur.execute(
-                "UPDATE drawers SET text = %s, "
-                f"embedding = string_to_vector('{vec_literal}') "
-                "WHERE id = %s",
-                (content, drawer_id),
+                "DELETE FROM drawers WHERE parent_drawer_id = %s", (drawer_id,)
             )
+
+            for row_id, text, vec_lit, chunk_index, parent_id, is_parent in plan_emb:
+                if is_parent:
+                    cur.execute(
+                        "UPDATE drawers SET text = %s, "
+                        f"embedding = string_to_vector('{vec_lit}'), "
+                        "chunk_index = NULL, parent_drawer_id = NULL "
+                        "WHERE id = %s",
+                        (text, drawer_id),
+                    )
+                else:
+                    _insert_row(cur, wing, room, title, source_file, row_id,
+                                text, vec_lit, chunk_index, parent_id)
         conn.commit()
     except pymysql.err.OperationalError as exc:
         conn.rollback()
@@ -195,7 +264,10 @@ def _attempt_update(drawer_id: str, content: str, vec_literal: str) -> None:
 
 def update_drawer(drawer_id: str, content: str) -> bool:
     """Re-embed `content` and replace the drawer's text + embedding
-    (title/wing/room unchanged).
+    (title/wing/room unchanged), re-chunking as needed (loom-rpsf.2):
+    the new body is re-planned through mcp_server.chunking, existing
+    child chunks are deleted, and fresh children are inserted when the
+    new body exceeds CHUNK_SIZE.
 
     Implements D6's locked concurrency model
     (drawer_loom_decisions_521e654693797b4f169b4cbd): no
@@ -205,14 +277,34 @@ def update_drawer(drawer_id: str, content: str) -> bool:
     ALSO conflicts, raise ConcurrentModificationError to the caller
     rather than retrying forever or silently dropping the update.
     """
-    vec_literal = vector_literal(embed(content))
+    # The parent row of a chunked drawer embeds its TITLE (not its
+    # body), and update_drawer's signature does not carry the title, so
+    # fetch the drawer's current title/wing/room/source_file only when
+    # the new body actually chunks. A short body embeds its own text and
+    # needs no metadata read — this also keeps the DB-mocked isolation
+    # test (which drives a short body) from touching a real server.
+    wing = room = source_file = None
+    title = ""
+    if should_chunk(content):
+        existing = get_drawer(drawer_id)  # raises DrawerNotFoundError if gone
+        title = existing["title"]
+        wing = existing["wing"]
+        room = existing["room"]
+        source_file = existing.get("source_file")
+
+    specs = plan_rows(drawer_id, title, content)
+    plan_emb = [
+        (s.row_id, s.text, vector_literal(embed(s.embed_source)),
+         s.chunk_index, s.parent_drawer_id, s.is_parent)
+        for s in specs
+    ]
 
     try:
-        _attempt_update(drawer_id, content, vec_literal)
+        _attempt_update(drawer_id, wing, room, title, source_file, plan_emb)
         return True
     except _OccConflict:
         try:
-            _attempt_update(drawer_id, content, vec_literal)
+            _attempt_update(drawer_id, wing, room, title, source_file, plan_emb)
             return True
         except _OccConflict as exc:
             raise ConcurrentModificationError(
@@ -235,7 +327,12 @@ def list_drawers(
     pagination) repeated on every row so the return type stays a flat
     list[dict] rather than a wrapper object.
     """
-    conditions: list[str] = []
+    # `parent_drawer_id IS NULL` restricts the listing to LOGICAL
+    # drawers (standalone rows + chunked-drawer parents), never the
+    # child chunk rows a long drawer is split into (loom-rpsf.2). The
+    # COUNT(*) total inherits the same filter, so a chunked drawer
+    # counts once, not once-per-chunk.
+    conditions: list[str] = ["parent_drawer_id IS NULL"]
     params: list[Any] = []
     if wing is not None:
         conditions.append("wing = %s")
@@ -243,7 +340,7 @@ def list_drawers(
     if room is not None:
         conditions.append("room = %s")
         params.append(room)
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    where_clause = f"WHERE {' AND '.join(conditions)}"
 
     conn = connect()
     try:
