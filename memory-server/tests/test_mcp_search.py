@@ -376,3 +376,143 @@ def test_hybrid_search_surfaces_bead_id_in_semantically_unrelated_drawer(hybrid_
         "snippet",
         "distance",
     }
+
+
+# ---------------------------------------------------------------------------
+# loom-rpsf.5 — neighbour-chunk stitching + recency (S3, design D4-stitch).
+# For the best-matching chunk of a canonical hit, the returned context is the
+# +/-1 neighbour window (chunk_index IN [best-1, best, best+1]) joined with a
+# blank line and capped at MAX_HYDRATION_CHARS (10000). The stitch is ADDITIVE
+# over the S1 rollup + S2 RRF fusion: it enriches the `snippet` (returned
+# context) of each already-rolled-up, already-fused canonical result — the
+# parent id still surfaces exactly once, never a raw `_chunk_` fragment.
+# Ported from MemPalace searcher.py:1281-1289 (N=+/-1 window, 10k cap).
+# ---------------------------------------------------------------------------
+
+from datetime import datetime  # noqa: E402 — grouped with its tests
+
+from mcp_server.bm25 import DrawerMeta  # noqa: E402
+from mcp_server.chunking import CHUNK_SIZE  # noqa: E402
+from mcp_server.tools.search import (  # noqa: E402
+    MAX_HYDRATION_CHARS,
+    _recency_sort_key,
+    _stitch_window,
+)
+
+# A run-unique marker suffix so this module's per-chunk sentinels can never
+# collide with rows any other test (or a prior run) left behind.
+STITCH_RUN = os.urandom(4).hex()
+STITCH_WING = f"loomtest_stitch_{os.urandom(4).hex()}"
+
+# Ten vividly-distinct topical sentences, one dominating each 800-char chunk,
+# so the vector lane deterministically picks the chunk whose topic matches the
+# query. Chunk index 5's topic is the query below, so the best-matching chunk
+# is 5 and the +/-1 stitch window is chunks 4, 5, 6.
+_STITCH_TOPICS = [
+    "Glacial moraines deposit unsorted till across the alpine valley floor.",
+    "The pipe organ's diapason reeds resonate through the cathedral nave.",
+    "Mycorrhizal fungi exchange phosphorus with pine roots underground.",
+    "Sailmakers reinforce the clew with triple-stitched dacron webbing.",
+    "Neutron stars spin down as magnetic dipole radiation drains their spin.",
+    "The quintavium resonator hums in glissando across its ninth harmonic node.",
+    "Beekeepers smoke the hive before lifting the honey-laden brood frames.",
+    "Ledger reconciliation flags the unmatched quarterly settlement entry.",
+    "Tectonic subduction melts the slab and feeds the arc volcano's magma.",
+    "The lexicographer annotates each headword with its etymological root.",
+]
+
+
+def _stitch_chunk(i: int) -> str:
+    """Build one exactly-CHUNK_SIZE-char segment dominated by topic `i`, with
+    a run-unique `STITCHMARK_<i>_<run>` sentinel near the front so the test can
+    assert exactly which chunks landed in the stitched window."""
+    marker = f"STITCHMARK_{i}_{STITCH_RUN}"
+    base = f"{marker}. " + (_STITCH_TOPICS[i] + " ") * 40
+    # [:CHUNK_SIZE] then .ljust(CHUNK_SIZE): guarantees EXACTLY 800 chars so
+    # the non-overlapping 800-char slicing aligns each stored chunk with one
+    # segment (chunk_index i == segment i).
+    return base[:CHUNK_SIZE].ljust(CHUNK_SIZE)
+
+
+@pytest.fixture(scope="module")
+def stitch_drawer(dolt_server_env):  # noqa: F811 - pytest fixture param
+    """Seed ONE drawer whose body is exactly ten 800-char chunks (chunk_index
+    0..9), each dominated by a distinct topic. Returns the parent drawer id."""
+    body = "".join(_stitch_chunk(i) for i in range(10))
+    assert len(body) == 10 * CHUNK_SIZE  # exactly ten 800-char chunks
+    parent_id = drawers_mod.add_drawer(
+        STITCH_WING, "chunks", "Ten-chunk stitch fixture", body
+    )
+    return parent_id
+
+
+def test_search_stitches_neighbour_chunks_into_context(stitch_drawer):
+    """RED (loom-rpsf.5): a query matching chunk 5 of a 10-chunk drawer returns
+    context stitched from chunks 4, 5, 6 joined with a blank line, capped at
+    10000 chars, and the parent id appears exactly once (never a `_chunk_`)."""
+    results = search(_STITCH_TOPICS[5], wing=STITCH_WING, limit=5)
+    result_ids = [r["id"] for r in results]
+
+    # S1 rollup preserved: parent surfaces once, no raw chunk fragment id.
+    assert stitch_drawer in result_ids
+    assert result_ids.count(stitch_drawer) == 1
+    assert not any("_chunk_" in i for i in result_ids)
+    # chunk 5's topic is unique to this wing's sole drawer, so it leads.
+    assert results[0]["id"] == stitch_drawer
+
+    snippet = results[0]["snippet"]
+    # the +/-1 window around the best-matching chunk (5): chunks 4, 5, 6 ...
+    assert f"STITCHMARK_4_{STITCH_RUN}" in snippet
+    assert f"STITCHMARK_5_{STITCH_RUN}" in snippet
+    assert f"STITCHMARK_6_{STITCH_RUN}" in snippet
+    # ... and NOT chunks 3 or 7 (window is strictly +/-1, not wider).
+    assert f"STITCHMARK_3_{STITCH_RUN}" not in snippet
+    assert f"STITCHMARK_7_{STITCH_RUN}" not in snippet
+    # joined with a blank line between the three chunks ...
+    assert "\n\n" in snippet
+    # ... and capped at MAX_HYDRATION_CHARS.
+    assert len(snippet) <= MAX_HYDRATION_CHARS
+    # result shape is preserved through the stitch (snippet enriched in place).
+    assert set(results[0].keys()) == {
+        "id",
+        "wing",
+        "room",
+        "title",
+        "snippet",
+        "distance",
+    }
+
+
+def test_stitch_window_selects_pm1_neighbours():
+    """_stitch_window joins chunk_index [best-1, best, best+1] in ascending
+    order, separated by a blank line."""
+    texts = {i: f"chunk{i}" for i in range(10)}
+    assert _stitch_window(texts, 5) == "chunk4\n\nchunk5\n\nchunk6"
+
+
+def test_stitch_window_clamps_at_boundaries():
+    """At the first/last chunk the window clamps — no out-of-range neighbour
+    is fabricated (best-1 < 0 or best+1 > max is simply dropped)."""
+    texts = {i: f"chunk{i}" for i in range(10)}
+    assert _stitch_window(texts, 0) == "chunk0\n\nchunk1"
+    assert _stitch_window(texts, 9) == "chunk8\n\nchunk9"
+
+
+def test_stitch_window_caps_at_max_hydration_chars():
+    """A window whose joined text exceeds MAX_HYDRATION_CHARS is hard-capped
+    to exactly MAX_HYDRATION_CHARS (the 10k ceiling ported from MemPalace)."""
+    big = {4: "a" * 6000, 5: "b" * 6000, 6: "c" * 6000}
+    out = _stitch_window(big, 5)
+    assert len(out) == MAX_HYDRATION_CHARS
+
+
+def test_recency_sort_key_orders_newer_first():
+    """Recency reconciliation (S3 step 3): the S2 fusion tie-break already
+    breaks exact-score ties toward the newer filed_at. This pins that
+    contract — newer filed_at yields a smaller sort key (sorts earlier under
+    Python's ascending sort), and a missing filed_at sorts last."""
+    older = DrawerMeta("w", "r", "t", "x", datetime(2020, 1, 1))
+    newer = DrawerMeta("w", "r", "t", "x", datetime(2026, 1, 1))
+    assert _recency_sort_key(newer) < _recency_sort_key(older)
+    assert _recency_sort_key(None) == float("inf")
+    assert _recency_sort_key(DrawerMeta("w", "r", "t", "x", None)) == float("inf")
