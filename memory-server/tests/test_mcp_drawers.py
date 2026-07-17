@@ -326,3 +326,225 @@ def test_update_drawer_occ_retry_logic_in_isolation():
         with pytest.raises(d.ConcurrentModificationError):
             d.update_drawer("drawer_whatever", "new content")
         assert m.call_count == 2, "expected exactly one retry (two attempts total)"
+
+
+# ---------------------------------------------------------------------------
+# loom-rpsf.2 — document chunking + search rollup (S1).
+#
+# RED invariant (from the bead):
+#   len(text) <= 800  => exactly ONE row (parent_drawer_id NULL,
+#     chunk_index NULL, embedding = embed(full text)).
+#   len(text) > 800   => ONE parent row (text = full body,
+#     embedding = embed(title), parent_drawer_id/chunk_index NULL)
+#     PLUS ceil(len/800) CHILD rows: id = f"{parent}_chunk_{i:06d}",
+#     text = i-th non-overlapping 800-char slice, embedding =
+#     embed(slice), chunk_index = i, parent_drawer_id = parent.
+#   A 2000-char drawer => 1 parent + 3 children (800/800/400);
+#     get_drawer(parent) returns the full 2000 chars; list_drawers
+#     never returns a chunk row.
+# ---------------------------------------------------------------------------
+
+
+def _rows_for_parent(parent_id):
+    """Return every row whose id == parent_id OR whose parent_drawer_id
+    == parent_id, straight from the DB (bypassing the tool layer) so a
+    test can inspect the raw stored chunk shape."""
+    from mcp_server.db import connect
+
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, text, chunk_index, parent_drawer_id "
+                "FROM drawers WHERE id = %s OR parent_drawer_id = %s "
+                "ORDER BY (parent_drawer_id IS NOT NULL), chunk_index",
+                (parent_id, parent_id),
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
+# --- pure chunking-logic unit tests (no dolt server needed) ---
+
+
+def test_chunk_text_non_overlapping_slices():
+    from mcp_server.chunking import chunk_text
+
+    slices = chunk_text("a" * 2000, chunk_size=800)
+    assert [len(s) for s in slices] == [800, 800, 400]
+    # non-overlapping + lossless: concatenation reproduces the original
+    assert "".join(slices) == "a" * 2000
+
+
+def test_should_chunk_boundary():
+    from mcp_server.chunking import should_chunk
+
+    assert should_chunk("a" * 800, chunk_size=800) is False
+    assert should_chunk("a" * 801, chunk_size=800) is True
+
+
+def test_plan_rows_short_body_single_standalone_row():
+    from mcp_server.chunking import plan_rows
+
+    specs = plan_rows("drawer_x", "the title", "short body", chunk_size=800)
+    assert len(specs) == 1
+    (spec,) = specs
+    assert spec.row_id == "drawer_x"
+    assert spec.text == "short body"
+    assert spec.embed_source == "short body"  # embed(full text)
+    assert spec.chunk_index is None
+    assert spec.parent_drawer_id is None
+    assert spec.is_parent is True
+
+
+def test_plan_rows_long_body_parent_plus_children():
+    from mcp_server.chunking import plan_rows
+
+    body = "a" * 2000
+    specs = plan_rows("drawer_x", "the title", body, chunk_size=800)
+    # 1 parent + ceil(2000/800)=3 children
+    assert len(specs) == 4
+
+    parent = specs[0]
+    assert parent.row_id == "drawer_x"
+    assert parent.text == body  # full body lives on the parent
+    assert parent.embed_source == "the title"  # embed(title)
+    assert parent.chunk_index is None
+    assert parent.parent_drawer_id is None
+    assert parent.is_parent is True
+
+    children = specs[1:]
+    assert [c.row_id for c in children] == [
+        "drawer_x_chunk_000000",
+        "drawer_x_chunk_000001",
+        "drawer_x_chunk_000002",
+    ]
+    assert [c.chunk_index for c in children] == [0, 1, 2]
+    assert [len(c.text) for c in children] == [800, 800, 400]
+    assert all(c.parent_drawer_id == "drawer_x" for c in children)
+    assert all(c.is_parent is False for c in children)
+    # each child embeds its own slice
+    assert all(c.embed_source == c.text for c in children)
+
+
+# --- integration tests against a real dolt sql-server ---
+
+
+def test_short_drawer_stored_as_single_row(drawers_module):
+    """len(text) <= 800 => exactly one row, parent_drawer_id NULL,
+    chunk_index NULL (no chunk rows created)."""
+    d = drawers_module
+    drawer_id = d.add_drawer("loom", "decisions", "short title", "x" * 800)
+
+    rows = _rows_for_parent(drawer_id)
+    assert len(rows) == 1
+    (row,) = rows
+    assert row["id"] == drawer_id
+    assert row["chunk_index"] is None
+    assert row["parent_drawer_id"] is None
+    assert row["text"] == "x" * 800
+
+
+def test_long_drawer_stored_as_parent_plus_children(drawers_module):
+    """A 2000-char drawer => 1 parent + 3 child rows (800/800/400).
+    get_drawer(parent) returns the full 2000 chars; list_drawers never
+    returns a chunk row."""
+    d = drawers_module
+    # room name deliberately avoids the substring "_chunk_" so the
+    # "no chunk row in listing" assertion below cannot false-positive on
+    # the parent drawer's OWN id (which embeds wing/room).
+    room = f"bigbody_room_{os.urandom(4).hex()}"
+    body = "".join(chr(ord("a") + (i % 26)) for i in range(2000))
+    assert len(body) == 2000
+
+    drawer_id = d.add_drawer("loom", room, "big title", body)
+
+    rows = _rows_for_parent(drawer_id)
+    # 1 parent + 3 children
+    assert len(rows) == 4
+
+    parent = next(r for r in rows if r["id"] == drawer_id)
+    assert parent["parent_drawer_id"] is None
+    assert parent["chunk_index"] is None
+    assert parent["text"] == body  # full body on the parent
+
+    children = sorted(
+        (r for r in rows if r["parent_drawer_id"] == drawer_id),
+        key=lambda r: r["chunk_index"],
+    )
+    assert [c["id"] for c in children] == [
+        f"{drawer_id}_chunk_000000",
+        f"{drawer_id}_chunk_000001",
+        f"{drawer_id}_chunk_000002",
+    ]
+    assert [c["chunk_index"] for c in children] == [0, 1, 2]
+    assert [len(c["text"]) for c in children] == [800, 800, 400]
+    # non-overlapping slices reconstruct the full body
+    assert "".join(c["text"] for c in children) == body
+    assert children[0]["text"] == body[0:800]
+    assert children[1]["text"] == body[800:1600]
+    assert children[2]["text"] == body[1600:2000]
+
+    # get_drawer(parent) returns the FULL 2000 chars
+    fetched = d.get_drawer(drawer_id)
+    assert fetched["text"] == body
+    assert len(fetched["text"]) == 2000
+
+    # list_drawers NEVER returns a chunk row
+    listing = d.list_drawers(wing="loom", room=room, limit=100)
+    listed_ids = {r["id"] for r in listing}
+    assert drawer_id in listed_ids
+    assert not any("_chunk_" in i for i in listed_ids)
+    # the logical drawer is counted once, not once-per-chunk
+    assert listing[0]["total"] == 1
+
+
+def test_update_drawer_rechunks(drawers_module):
+    """update_drawer deletes existing children then re-inserts:
+    short->long grows children, long->short removes them."""
+    d = drawers_module
+    room = f"rechunk_room_{os.urandom(4).hex()}"
+
+    # start short: one standalone row, no children
+    drawer_id = d.add_drawer("loom", room, "rechunk title", "tiny body")
+    assert len(_rows_for_parent(drawer_id)) == 1
+
+    # grow to long: parent + 3 children
+    long_body = "z" * 2000
+    assert d.update_drawer(drawer_id, long_body) is True
+    rows = _rows_for_parent(drawer_id)
+    assert len(rows) == 4
+    parent = next(r for r in rows if r["id"] == drawer_id)
+    assert parent["text"] == long_body
+    assert parent["parent_drawer_id"] is None
+    assert parent["chunk_index"] is None
+    assert d.get_drawer(drawer_id)["text"] == long_body
+
+    # shrink back to short: children are deleted, one row remains
+    assert d.update_drawer(drawer_id, "small again") is True
+    rows = _rows_for_parent(drawer_id)
+    assert len(rows) == 1
+    assert rows[0]["id"] == drawer_id
+    assert rows[0]["parent_drawer_id"] is None
+    assert d.get_drawer(drawer_id)["text"] == "small again"
+
+
+def test_update_drawer_relayers_children_on_length_change(drawers_module):
+    """long -> shorter-but-still-long re-chunks: stale children from the
+    previous body must not linger (delete-then-reinsert, not merge)."""
+    d = drawers_module
+    room = f"relayer_room_{os.urandom(4).hex()}"
+
+    drawer_id = d.add_drawer("loom", room, "relayer title", "a" * 2400)  # 3 chunks
+    assert len(_rows_for_parent(drawer_id)) == 4  # parent + 3
+
+    assert d.update_drawer(drawer_id, "b" * 900) is True  # now ceil(900/800)=2
+    rows = _rows_for_parent(drawer_id)
+    assert len(rows) == 3  # parent + 2 (the third stale chunk is gone)
+    children = sorted(
+        (r for r in rows if r["parent_drawer_id"] == drawer_id),
+        key=lambda r: r["chunk_index"],
+    )
+    assert [c["chunk_index"] for c in children] == [0, 1]
+    assert f"{drawer_id}_chunk_000002" not in {r["id"] for r in rows}

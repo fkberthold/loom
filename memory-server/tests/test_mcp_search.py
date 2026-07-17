@@ -168,6 +168,75 @@ def test_search_result_shape(seeded_corpus):
     assert isinstance(row["distance"], float)
 
 
+# ---------------------------------------------------------------------------
+# loom-rpsf.2 — search rollup (S1). A long (>800-char) drawer is stored
+# as a parent row + N child chunk rows. A semantic hit on ANY child must
+# roll up to the parent's canonical id (canonical_id = parent_drawer_id
+# or id) and appear exactly ONCE, best-distance-wins — search must never
+# surface a raw `_chunk_` fragment id or the same drawer twice.
+# ---------------------------------------------------------------------------
+
+ROLLUP_WING = f"loomtest_rollup_{os.urandom(4).hex()}"
+
+# A phrase distinctive enough to reliably be the nearest neighbor, placed
+# deep enough in the body that it lands in the SECOND chunk (offset > 800)
+# — so the hit is genuinely a child-chunk hit, not the parent row.
+ROLLUP_PHRASE = (
+    "The quintavium resonator hums in glissando whenever the "
+    "aurora-tuned flywheel crosses its ninth harmonic node."
+)
+
+
+@pytest.fixture(scope="module")
+def rollup_drawer(dolt_server_env):  # noqa: F811 - pytest fixture param
+    """Seed ONE long (>1600-char) drawer whose distinctive phrase lands
+    in the second chunk, so a search for that phrase hits a CHILD row
+    that must be rolled up to the parent id."""
+    # ~900 chars of filler, then the phrase => phrase starts past offset
+    # 800, i.e. inside chunk index 1 (the second 800-char slice).
+    filler = "Filler sentence about ordinary sedimentary geology. " * 18
+    assert len(filler) > 800  # phrase starts past offset 800 => chunk index 1
+    body = filler + " " + ROLLUP_PHRASE + " " + ("trailing padding. " * 10)
+    assert len(body) > 800  # > CHUNK_SIZE guarantees the drawer is chunked
+    parent_id = drawers_mod.add_drawer(
+        ROLLUP_WING, "resonators", "Quintavium field notes", body
+    )
+    return parent_id
+
+
+def test_search_rolls_chunk_hits_up_to_parent(rollup_drawer):
+    """search(<phrase in a child chunk>) returns the PARENT id, never a
+    `_chunk_` id, and never the same logical drawer twice."""
+    results = search(ROLLUP_PHRASE, wing=ROLLUP_WING, limit=10)
+    result_ids = [r["id"] for r in results]
+
+    # the parent id is surfaced ...
+    assert rollup_drawer in result_ids
+    # ... exactly once (deduped) ...
+    assert result_ids.count(rollup_drawer) == 1
+    # ... and no raw chunk-fragment id leaks through the rollup.
+    assert not any("_chunk_" in i for i in result_ids)
+    # top hit is the drawer we seeded (its chunk was the closest match)
+    assert results[0]["id"] == rollup_drawer
+
+
+def test_search_result_id_is_canonical_not_chunk(rollup_drawer):
+    """Every returned id must be a canonical (logical-drawer) id: no
+    result may carry a parent_drawer_id-derived chunk id."""
+    results = search(ROLLUP_PHRASE, wing=ROLLUP_WING, limit=10)
+    for r in results:
+        assert "_chunk_" not in r["id"]
+    # shape is preserved through the rollup
+    assert set(results[0].keys()) == {
+        "id",
+        "wing",
+        "room",
+        "title",
+        "snippet",
+        "distance",
+    }
+
+
 def test_search_registered_on_server():
     """mempalace_search is registered on the FastMCP server built by
     create_server(), alongside the drawer tools."""

@@ -48,10 +48,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from mcp_server.chunking import canonical_id
 from mcp_server.db import connect
 from mcp_server.embeddings import embed, vector_literal
 
 SNIPPET_LENGTH = 300
+
+# Over-fetch multiplier for the chunk-rollup pass (loom-rpsf.2). A long
+# drawer is stored as a parent + N child chunk rows, so a raw
+# nearest-neighbor scan can return several rows that all roll up to the
+# SAME logical drawer. To still hand back `limit` DISTINCT drawers after
+# dedup, fetch `limit * _ROLLUP_OVERFETCH` candidate rows before rolling
+# them up. 10x is generous at any realistic chunk fan-out (a drawer
+# would need >10x `limit` chunks ranked above the true limit-th drawer
+# to under-fill) while staying a bounded TopN at the DB.
+_ROLLUP_OVERFETCH = 10
 
 
 def _snippet(text: str) -> str:
@@ -117,26 +128,45 @@ def search(
         params.append(len(tag_filter))
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
+    # Over-fetch so the post-scan chunk rollup can still yield `limit`
+    # distinct logical drawers (see _ROLLUP_OVERFETCH).
+    fetch_limit = max(int(limit), 1) * _ROLLUP_OVERFETCH
+
     conn = connect()
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, wing, room, title, text, "
+                "SELECT id, wing, room, title, text, parent_drawer_id, "
                 f"VEC_DISTANCE(embedding, string_to_vector('{vec_literal}')) AS dist "
                 f"FROM drawers {where_clause} "
                 "ORDER BY dist ASC LIMIT %s",
-                [*params, int(limit)],
+                [*params, int(fetch_limit)],
             )
             rows = cur.fetchall()
     finally:
         conn.close()
 
-    results = []
+    # Chunk rollup + dedup (loom-rpsf.2): a hit on any child chunk rolls
+    # up to its logical drawer's canonical id (canonical_id =
+    # parent_drawer_id or id); each canonical drawer is returned at most
+    # ONCE, best-distance-wins. Rows arrive already sorted by ascending
+    # distance, so the FIRST time a canonical id is seen is its closest
+    # (best) match — later rows for the same drawer are dropped. Stop
+    # once `limit` distinct drawers are collected.
+    results: list[dict] = []
+    seen: set[str] = set()
     for row in rows:
+        cid = canonical_id(row.get("parent_drawer_id"), row["id"])
+        if cid in seen:
+            continue
+        seen.add(cid)
         text = row.get("text") or ""
         results.append(
             {
-                "id": row["id"],
+                # The canonical (logical-drawer) id, never a raw
+                # `_chunk_` fragment id — a child hit surfaces its
+                # parent so callers get a stable, get_drawer-able id.
+                "id": cid,
                 "wing": row["wing"],
                 "room": row["room"],
                 "title": row["title"],
@@ -152,6 +182,8 @@ def search(
                 "distance": float(row["dist"]),
             }
         )
+        if len(results) >= int(limit):
+            break
     return results
 
 
@@ -191,6 +223,11 @@ def check_duplicate(content: str, threshold: float = 0.9) -> dict:
                 "SELECT id, wing, room, title, text, "
                 f"VEC_DISTANCE(embedding, string_to_vector('{vec_literal}')) AS dist "
                 "FROM drawers "
+                # Dedup compares against LOGICAL drawers only, never the
+                # child chunk fragments a long drawer is split into
+                # (loom-rpsf.2) — a fragment is not itself a drawer, so
+                # it must not surface as a near-duplicate match.
+                "WHERE parent_drawer_id IS NULL "
                 "ORDER BY dist ASC LIMIT %s",
                 [_DUPLICATE_CANDIDATE_LIMIT],
             )
