@@ -249,3 +249,130 @@ def test_search_registered_on_server():
     # test rather than needing asyncio machinery.
     tool_names = {t.name for t in server._tool_manager.list_tools()}
     assert "mempalace_search" in tool_names
+
+
+# ---------------------------------------------------------------------------
+# loom-rpsf.4 — hybrid BM25 + RRF keyword lane (S2). An exact token a
+# drawer contains verbatim (a bead-id, error string, identifier) must
+# surface even when that drawer is SEMANTICALLY about something else and
+# the vector lane therefore ranks it low. An independent full-corpus BM25
+# lane surfaces it; the two lanes are fused by Reciprocal Rank Fusion.
+# ---------------------------------------------------------------------------
+
+from mcp_server.bm25 import tokenize  # noqa: E402 — grouped with its tests
+
+# The bead-id the RED spec queries for. It appears verbatim in exactly
+# one seeded drawer, whose body is otherwise about deep-sea geology — a
+# topic the vector lane places far from a bead-id-shaped query.
+BEAD_ID_QUERY = "loom-40ec.7"
+
+HYBRID_WING = f"loomtest_hybrid_{os.urandom(4).hex()}"
+HYBRID_ROOM = "identifiers"
+
+# Twelve short drawers whose bodies are ABOUT software/version-control —
+# semantically nearer a code-identifier query than deep-sea geology is —
+# but which contain NONE of the query's tokens (no `loom`, no `40ec`, no
+# digits) and none of the SHARED_MARKER vocabulary. So the BM25 lane
+# scores them exactly zero for BEAD_ID_QUERY, while the vector lane still
+# ranks them above the (marine) target. That gap is what makes the
+# scenario a genuine RED against a vector-only search.
+HYBRID_DISTRACTOR_BODIES = [
+    "Distributed version control tracks branches and merges across cloned repositories.",
+    "Continuous integration pipelines compile artifacts and publish container images.",
+    "The build orchestrator schedules parallel jobs onto ephemeral worker nodes.",
+    "A rebase replays local commits atop the upstream head to keep history linear.",
+    "Static analysis flags unused imports and shadowed variables before merge.",
+    "The dependency resolver pins transitive package versions in a lockfile.",
+    "Feature flags gate unfinished code paths behind runtime configuration toggles.",
+    "The scheduler drains a node before rolling out the next deployment revision.",
+    "Structured logging emits key value pairs consumed by the aggregation backend.",
+    "The formatter enforces import ordering and consistent whitespace conventions.",
+    "Containers mount a read only root filesystem with a writable overlay layer.",
+    "The message broker buffers events and replays them to lagging consumers.",
+]
+
+# The target: body semantically about marine geology (FAR from a
+# bead-id-shaped query) with the exact bead-id appended verbatim. Only
+# this drawer contains the query token, so BM25 surfaces it at rank 1
+# even though the vector lane ranks it low.
+HYBRID_TARGET_BODY = (
+    "Deep sea hydrothermal vents precipitate towering sulfide chimneys that "
+    "shelter tube worms and blind shrimp along the mid ocean spreading ridge. "
+    f"{BEAD_ID_QUERY}"
+)
+
+
+@pytest.fixture(scope="module")
+def hybrid_corpus(dolt_server_env):  # noqa: F811 - pytest fixture param
+    """Seed 12 software distractors + 1 marine-geology target that alone
+    contains the bead-id BEAD_ID_QUERY. The target is seeded LAST so it
+    also carries the latest filed_at (belt-and-suspenders for the recency
+    tie-break, though the RRF math already ranks it first)."""
+    distractor_ids = []
+    for i, body in enumerate(HYBRID_DISTRACTOR_BODIES):
+        distractor_ids.append(
+            drawers_mod.add_drawer(
+                HYBRID_WING, HYBRID_ROOM, f"Engineering note {chr(ord('a') + i)}", body
+            )
+        )
+    target_id = drawers_mod.add_drawer(
+        HYBRID_WING, HYBRID_ROOM, "Ridge survey field notes", HYBRID_TARGET_BODY
+    )
+    return {"target": target_id, "distractors": distractor_ids}
+
+
+def test_tokenizer_emits_bead_id_as_atomic_token():
+    """INVARIANT (loom-rpsf.4 RED): the tokenizer emits `loom-40ec.7` as
+    an ATOMIC token, distinct from `loom-40ec`. Both are present and are
+    different strings — the atomic bead-id is never silently truncated to
+    its parent id."""
+    toks = tokenize("see loom-40ec.7 in the drawer for the resonator finding")
+    assert "loom-40ec.7" in toks  # atomic token present
+    assert "loom-40ec" in toks  # the parent-id prefix is also emitted
+    assert "loom-40ec.7" != "loom-40ec"  # ... and they are distinct tokens
+    # the separator-split sub-parts are emitted too (keyword recall)
+    assert "loom" in toks
+    assert "40ec" in toks
+    assert "7" in toks
+    # a plain word stays a single token, not split into characters
+    assert "resonator" in toks
+
+
+def test_bm25_lane_surfaces_bead_id_in_unrelated_drawer(hybrid_corpus):
+    """The BM25 lane ranks the drawer that verbatim-contains the bead-id
+    at rank 1 — even though its body is semantically about deep-sea
+    geology. It is the sole corpus-wide match for the token, so it leads
+    the lane."""
+    from mcp_server.bm25 import get_index
+
+    ranked = get_index().ranked_canonicals(BEAD_ID_QUERY)
+    ranked_ids = [cid for cid, _ in ranked]
+    assert hybrid_corpus["target"] in ranked_ids
+    assert ranked_ids[0] == hybrid_corpus["target"]
+
+
+def test_hybrid_search_surfaces_bead_id_in_semantically_unrelated_drawer(hybrid_corpus):
+    """RED spec (loom-rpsf.4): query `loom-40ec.7` against a corpus where
+    one drawer contains that bead-id verbatim but is semantically about
+    something else. Hybrid search returns that drawer in the top-k — the
+    BM25 lane surfaces it though the vector lane ranks it low. A
+    vector-only search does NOT (the marine-geology target is not the
+    nearest neighbor of a bead-id query), which is what makes this RED
+    before the BM25 lane is fused in."""
+    results = search(BEAD_ID_QUERY, wing=HYBRID_WING, limit=5)
+    result_ids = [r["id"] for r in results]
+
+    assert hybrid_corpus["target"] in result_ids
+    # the bead-id match is the single best hybrid result: it is rank 1 in
+    # the BM25 lane AND present in the vector lane, so RRF ranks it above
+    # every distractor (which contributes to the vector lane only).
+    assert results[0]["id"] == hybrid_corpus["target"]
+    # result shape is preserved through fusion + rollup
+    assert set(results[0].keys()) == {
+        "id",
+        "wing",
+        "room",
+        "title",
+        "snippet",
+        "distance",
+    }

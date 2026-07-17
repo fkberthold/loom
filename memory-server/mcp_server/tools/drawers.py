@@ -34,6 +34,7 @@ from typing import Any
 
 import pymysql
 
+from mcp_server import bm25
 from mcp_server.chunking import plan_rows, should_chunk
 from mcp_server.db import connect
 from mcp_server.embeddings import embed, vector_literal
@@ -264,6 +265,10 @@ def add_drawer(
     finally:
         conn.close()
 
+    # Refresh the BM25 keyword lane (loom-rpsf.4, D5 "refreshed on write"):
+    # drop the cached full-corpus index so the next search rebuilds it with
+    # this new drawer included.
+    bm25.invalidate()
     return drawer_id
 
 
@@ -382,11 +387,9 @@ def update_drawer(drawer_id: str, content: str) -> bool:
 
     try:
         _attempt_update(drawer_id, wing, room, title, source_file, plan_emb)
-        return True
     except _OccConflict:
         try:
             _attempt_update(drawer_id, wing, room, title, source_file, plan_emb)
-            return True
         except _OccConflict as exc:
             raise ConcurrentModificationError(
                 f"concurrent modification detected for drawer "
@@ -394,6 +397,11 @@ def update_drawer(drawer_id: str, content: str) -> bool:
                 "Dolt serialization conflict — refusing to retry "
                 "indefinitely"
             ) from exc
+
+    # Refresh the BM25 keyword lane (loom-rpsf.4, D5 "refreshed on write")
+    # once the re-chunk-and-write committed.
+    bm25.invalidate()
+    return True
 
 
 def list_drawers(
@@ -478,6 +486,9 @@ def delete_drawer(drawer_id: str) -> dict:
             "chunks_deleted": 0,
         }
 
+    # Refresh the BM25 keyword lane (loom-rpsf.4, D5 "refreshed on write")
+    # so the deleted drawer stops surfacing in keyword results.
+    bm25.invalidate()
     return {
         "success": True,
         "drawer_id": drawer_id,
@@ -515,6 +526,9 @@ def delete_by_source(source_file: str, dry_run: bool = True) -> dict:
     finally:
         conn.close()
 
+    # Refresh the BM25 keyword lane (loom-rpsf.4, D5 "refreshed on write")
+    # after the bulk delete.
+    bm25.invalidate()
     return {
         "matched_count": matched_count,
         "sample": sample,

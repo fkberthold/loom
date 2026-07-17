@@ -48,11 +48,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from mcp_server import bm25
 from mcp_server.chunking import canonical_id
 from mcp_server.db import connect
 from mcp_server.embeddings import embed, vector_literal
 
 SNIPPET_LENGTH = 300
+
+# Reciprocal Rank Fusion constant (loom-rpsf.4, D5). RRF fuses the two
+# lanes as score(d) = Σ_lane 1/(RRF_K + rank_lane(d)), rank 1-based. The
+# k=60 default is the value from Cormack et al.'s original RRF paper; a
+# larger k flattens the contribution of top ranks, a smaller k sharpens
+# it. 60 is the well-established default and is what D5 specifies.
+RRF_K = 60
 
 # Over-fetch multiplier for the chunk-rollup pass (loom-rpsf.2). A long
 # drawer is stored as a parent + N child chunk rows, so a raw
@@ -82,33 +90,21 @@ def _snippet(text: str) -> str:
     return text[:SNIPPET_LENGTH]
 
 
-def search(
-    query: str,
-    wing: str | None = None,
-    room: str | None = None,
-    tag_filter: list[str] | None = None,
-    limit: int = 10,
-) -> list[dict]:
-    """Semantic search over `drawers`. Embeds `query`, then runs an
-    ORDER BY VEC_DISTANCE ... LIMIT query, optionally scoped by
-    `wing` and/or `room` (both optional, AND-joined when both given
-    — mirrors list_drawers()'s conditional-WHERE-building pattern in
-    tools/drawers.py). Returns a list of
-    {id, wing, room, title, snippet, distance} dicts ordered by
-    ascending distance (closest match first).
-
-    `tag_filter` (optional): when a non-empty list of tags is given,
-    restricts results to drawers carrying ALL of those tags (AND
-    semantics — a drawer must match every tag in the list, not just
-    one). Implemented as a subquery condition against `drawer_tags`
-    appended to the same `conditions`/`params` lists wing/room use:
-    `id IN (SELECT drawer_id FROM drawer_tags WHERE tag IN (...)
-    GROUP BY drawer_id HAVING COUNT(DISTINCT tag) = len(tag_filter))`.
-    `None` or an empty list leaves results unaffected (purely
-    additive parameter).
+def _vector_ranked(
+    vec_literal: str,
+    wing: str | None,
+    room: str | None,
+    tag_filter: list[str] | None,
+    limit: int,
+) -> list[str]:
+    """Vector lane: the existing VEC_DISTANCE nearest-neighbor scan,
+    scoped by wing/room/tag_filter exactly as before, rolled up to
+    canonical (logical-drawer) ids. Returns the canonical ids in
+    ascending-distance order, deduped (S1 rollup, loom-rpsf.2) — a chunk
+    hit surfaces its parent, best distance first. This is the vector lane
+    of the hybrid fusion; distances for display are recomputed
+    authoritatively in _build_results.
     """
-    vec_literal = vector_literal(embed(query))
-
     conditions: list[str] = []
     params: list[Any] = []
     if wing is not None:
@@ -128,15 +124,15 @@ def search(
         params.append(len(tag_filter))
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-    # Over-fetch so the post-scan chunk rollup can still yield `limit`
-    # distinct logical drawers (see _ROLLUP_OVERFETCH).
+    # Over-fetch so the chunk rollup can still yield `limit` distinct
+    # logical drawers (see _ROLLUP_OVERFETCH).
     fetch_limit = max(int(limit), 1) * _ROLLUP_OVERFETCH
 
     conn = connect()
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, wing, room, title, text, parent_drawer_id, "
+                "SELECT id, parent_drawer_id, "
                 f"VEC_DISTANCE(embedding, string_to_vector('{vec_literal}')) AS dist "
                 f"FROM drawers {where_clause} "
                 "ORDER BY dist ASC LIMIT %s",
@@ -146,45 +142,186 @@ def search(
     finally:
         conn.close()
 
-    # Chunk rollup + dedup (loom-rpsf.2): a hit on any child chunk rolls
-    # up to its logical drawer's canonical id (canonical_id =
-    # parent_drawer_id or id); each canonical drawer is returned at most
-    # ONCE, best-distance-wins. Rows arrive already sorted by ascending
-    # distance, so the FIRST time a canonical id is seen is its closest
-    # (best) match — later rows for the same drawer are dropped. Stop
-    # once `limit` distinct drawers are collected.
-    results: list[dict] = []
+    ranked: list[str] = []
     seen: set[str] = set()
     for row in rows:
         cid = canonical_id(row.get("parent_drawer_id"), row["id"])
         if cid in seen:
             continue
         seen.add(cid)
+        ranked.append(cid)
+    return ranked
+
+
+def _canonicals_with_tags(tag_filter: list[str]) -> set[str]:
+    """The set of logical-drawer ids carrying ALL of `tag_filter` — the
+    BM25-lane equivalent of the vector lane's `tag_filter` subquery, used
+    to scope BM25 hits by tag (AND semantics)."""
+    placeholders = ", ".join(["%s"] * len(tag_filter))
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT drawer_id FROM drawer_tags "
+                f"WHERE tag IN ({placeholders}) "
+                "GROUP BY drawer_id HAVING COUNT(DISTINCT tag) = %s",
+                [*tag_filter, len(tag_filter)],
+            )
+            return {row["drawer_id"] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def _bm25_ranked(
+    index: bm25.Bm25Index,
+    query: str,
+    wing: str | None,
+    room: str | None,
+    tag_filter: list[str] | None,
+) -> list[str]:
+    """BM25 lane: the full-corpus keyword ranking (loom-rpsf.4), scoped to
+    the SAME wing/room/tag_filter as the vector lane so the two lanes fuse
+    over a comparable candidate space. The index is full-corpus (D5), so
+    scoping is applied here, after ranking, via the per-drawer metadata.
+    Returns canonical ids in descending BM25-score order.
+    """
+    allowed_by_tag = _canonicals_with_tags(tag_filter) if tag_filter else None
+    ranked: list[str] = []
+    for cid, _score in index.ranked_canonicals(query):
+        meta = index.meta.get(cid)
+        if meta is None:
+            continue
+        if wing is not None and meta.wing != wing:
+            continue
+        if room is not None and meta.room != room:
+            continue
+        if allowed_by_tag is not None and cid not in allowed_by_tag:
+            continue
+        ranked.append(cid)
+    return ranked
+
+
+def _recency_sort_key(meta: bm25.DrawerMeta | None) -> float:
+    """Sort key placing NEWER drawers first under Python's ascending sort:
+    the negated POSIX timestamp (newer => more negative => sorts earlier).
+    A missing/NULL filed_at sorts last (float('inf'))."""
+    if meta is None or meta.filed_at is None:
+        return float("inf")
+    return -meta.filed_at.timestamp()
+
+
+def _build_results(vec_literal: str, canonicals: list[str]) -> list[dict]:
+    """Build the {id, wing, room, title, snippet, distance} result dicts
+    for the fused top-`limit` canonical drawer ids, in the given order.
+
+    Display fields and the `distance` are read authoritatively from the
+    live DB (not the cached BM25 metadata) in one query: for each drawer
+    the logical-drawer row (id == canonical) supplies wing/room/title/
+    text, and the MINIMUM VEC_DISTANCE across all of that drawer's rows
+    (its best chunk or its title/body) supplies `distance` — so a
+    BM25-surfaced drawer that never appeared in the vector over-fetch
+    still gets a real distance.
+    """
+    if not canonicals:
+        return []
+    placeholders = ", ".join(["%s"] * len(canonicals))
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, wing, room, title, text, parent_drawer_id, "
+                f"VEC_DISTANCE(embedding, string_to_vector('{vec_literal}')) AS dist "
+                f"FROM drawers WHERE id IN ({placeholders}) "
+                f"OR parent_drawer_id IN ({placeholders})",
+                [*canonicals, *canonicals],
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    display: dict[str, dict] = {}
+    best_dist: dict[str, float] = {}
+    for row in rows:
+        cid = canonical_id(row.get("parent_drawer_id"), row["id"])
+        dist = float(row["dist"])
+        if cid not in best_dist or dist < best_dist[cid]:
+            best_dist[cid] = dist
+        if row["id"] == cid:  # the logical-drawer row supplies display fields
+            display[cid] = row
+
+    results: list[dict] = []
+    for cid in canonicals:
+        row = display.get(cid)
+        if row is None:  # drawer vanished between fusion and this fetch (rare)
+            continue
         text = row.get("text") or ""
         results.append(
             {
-                # The canonical (logical-drawer) id, never a raw
-                # `_chunk_` fragment id — a child hit surfaces its
-                # parent so callers get a stable, get_drawer-able id.
+                # The canonical (logical-drawer) id, never a raw `_chunk_`
+                # fragment id — a child hit surfaces its parent so callers
+                # get a stable, get_drawer-able id.
                 "id": cid,
                 "wing": row["wing"],
                 "room": row["room"],
                 "title": row["title"],
                 "snippet": _snippet(text),
-                # Explicit float() cast: VEC_DISTANCE's return type as
-                # surfaced by pymysql is not guaranteed to already be
-                # a native float (could come back as Decimal
-                # depending on driver/server numeric-type mapping),
-                # and MCP tool results get JSON-serialized -- a bare
-                # Decimal is not JSON-native. Mirrors the defensive
-                # posture of tools/drawers.py's _jsonify() for
-                # datetime fields.
-                "distance": float(row["dist"]),
+                # Explicit float() cast for the same JSON-serialization
+                # reason as the pre-hybrid code: VEC_DISTANCE may come back
+                # as Decimal depending on the driver's numeric-type mapping.
+                "distance": float(best_dist.get(cid, 0.0)),
             }
         )
-        if len(results) >= int(limit):
-            break
     return results
+
+
+def search(
+    query: str,
+    wing: str | None = None,
+    room: str | None = None,
+    tag_filter: list[str] | None = None,
+    limit: int = 10,
+) -> list[dict]:
+    """Hybrid search over `drawers` (loom-rpsf.4): fuses a semantic
+    (vector) lane and a keyword (BM25) lane by Reciprocal Rank Fusion, so
+    an exact token a drawer contains verbatim — a bead-id, error string,
+    identifier — surfaces even when that drawer is semantically about
+    something else and the vector lane ranks it low.
+
+    Both lanes are scoped by `wing`/`room`/`tag_filter` (all optional;
+    wing+room AND-joined; tag_filter requires ALL listed tags), rolled up
+    to canonical (logical-drawer) ids (S1 rollup, loom-rpsf.2 — a chunk
+    hit surfaces its parent, deduped), and fused as
+    score(d) = Σ_lane 1/(RRF_K + rank_lane(d)) (rank 1-based). Ties break
+    on recency (filed_at, newest first) then id. Returns up to `limit`
+    {id, wing, room, title, snippet, distance} dicts in descending fused
+    score. `distance` is the drawer's best vector distance (see
+    _build_results); with the BM25 lane added, results are no longer
+    ordered by ascending distance.
+    """
+    limit = max(int(limit), 1)
+    vec_literal = vector_literal(embed(query))
+
+    vector_lane = _vector_ranked(vec_literal, wing, room, tag_filter, limit)
+    index = bm25.get_index()
+    bm25_lane = _bm25_ranked(index, query, wing, room, tag_filter)
+
+    # Reciprocal Rank Fusion: each lane contributes 1/(RRF_K + rank) for
+    # every canonical drawer it ranks (rank 1-based). A drawer that ranks
+    # in BOTH lanes accumulates both contributions.
+    fused: dict[str, float] = {}
+    for rank, cid in enumerate(vector_lane, start=1):
+        fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank)
+    for rank, cid in enumerate(bm25_lane, start=1):
+        fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank)
+    if not fused:
+        return []
+
+    meta = index.meta
+    ordered = sorted(
+        fused,
+        key=lambda cid: (-fused[cid], _recency_sort_key(meta.get(cid)), cid),
+    )
+    return _build_results(vec_literal, ordered[:limit])
 
 
 
