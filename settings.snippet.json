@@ -69,7 +69,8 @@
         "hooks": [
           {"type": "command", "command": "bash $HOME/.claude/hooks/workflow-mode-onboarding.sh"},
           {"type": "command", "command": "bash $HOME/.claude/hooks/bd-prime-wrapper.sh"},
-          {"type": "command", "command": "bash $HOME/.claude/hooks/pytest-tempdir-prune.sh"}
+          {"type": "command", "command": "bash $HOME/.claude/hooks/pytest-tempdir-prune.sh"},
+          {"type": "command", "command": "bash $HOME/.claude/hooks/loom-drift-nudge.sh"}
         ]
       }
     ]

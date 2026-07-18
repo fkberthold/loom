@@ -166,6 +166,7 @@ nav:
           - edit-after-failure-guard: reference/hooks/edit-after-failure-guard.md
           - edit-write-pwd-guard: reference/edit-write-pwd-guard.md
           - git-push-bd-sync: reference/hooks/git-push-bd-sync.md
+          - loom-drift-nudge: reference/hooks/loom-drift-nudge.md
           - post-rewrite: reference/hooks/post-rewrite.md
           - pre-push-mkdocs-strict: reference/hooks/pre-push-mkdocs-strict.md
           - pytest-tempdir-prune: reference/pytest-tempdir-prune.md

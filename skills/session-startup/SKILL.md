@@ -23,7 +23,8 @@ override):
   in-progress RESUME header (step 1a) + since-last-session digest (step 1b,
   only fires on >3-day gap) + CI health (step 1c) + active-design-cycle scan
   (step 1d) + active-explorations scan (step 1e) + constitution fingerprint
-  (step 1f) + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
+  (step 1f) + convention-drift nudge surfacing (step 1g)
+  + `bd list --status=in_progress` + reconcile + pick. Skip palace status/KG-stats/diary-deep-dive (steps 3-4)
   unless the user asks. Tell the user: "workflow mode is light; abbreviated
   startup."
 - **off** — skip the skill entirely. Acknowledge: "workflow mode is off;
@@ -95,6 +96,8 @@ it before running the rest of this skill.
      If the project is NOT loom-managed (no `.claude/workflow.json`), stay silent — don't nudge a project that hasn't opted into loom.
 
    This step is **INFO + soft-nudge only** — it never blocks, never claims, never edits. Tolerance: if the file is unreadable or the front-matter doesn't parse, emit `(constitution unreadable — skipped)` and continue. **Never fail the skill on this step.** Stays in `light` mode too (cheap single-file read + one line); `off` mode skips it along with the rest of the skill.
+
+1g. **Convention-drift nudge (loom-ig3p.3).** A SessionStart hook, `hooks/loom-drift-nudge.sh`, already ran before this skill's steps and may have printed a one-line stderr nudge — this step is just "surface it if it fired," parallel to 1f's constitution fingerprint but for loom's own shipped conventions rather than the project's local tooling profile. The hook compares the project's stamped hash (`<project>/.claude/.loom-sync`, written by `scripts/loom-sync-stamp` at the last `/audit-project` sync) against loom's CURRENT `scripts/loom-convention-manifest` hash; a mismatch means the project's `templates/`-derived scaffolds (docs substrate, design-doc drawers, exploration drawers, `.claude/project-constitution.md`) may have drifted from what loom ships today. If the hook's `[loom-drift-nudge] INFO: ...` line appears in this session's startup output, surface it to the user as a single line and mention `/audit-project --apply-drift` as the fix; do not re-derive or re-check the drift yourself. **Silent when the hook didn't fire** — no stamp (project never synced, or not loom-managed) or a matching hash both produce no output, so there is nothing to surface. **Never fail the skill on this step.**
 2. **Check in-progress.** Run `bd list --status=in_progress`. Anything there outranks the ready queue — finish what was started.
 3. **Prime palace.** Call `mempalace_status` and `mempalace_kg_stats`. Note wing/room shape; flag anything weird (zero drawers, zero current facts).
 4. **Recover recent context.** Three sub-steps:
