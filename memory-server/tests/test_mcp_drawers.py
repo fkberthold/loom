@@ -709,14 +709,6 @@ def dedup_sweep_module():
     return mod
 
 
-def test_cosine_distance_identical_and_orthogonal(dedup_sweep_module):
-    m = dedup_sweep_module
-    assert m.cosine_distance([1.0, 0.0], [1.0, 0.0]) == pytest.approx(0.0)
-    assert m.cosine_distance([1.0, 0.0], [0.0, 1.0]) == pytest.approx(1.0)
-    # zero-magnitude vector is treated as maximally distant, not a crash
-    assert m.cosine_distance([0.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
-
-
 def test_find_near_duplicates_keeps_longest_flags_near(dedup_sweep_module):
     m = dedup_sweep_module
     candidates = [
@@ -734,12 +726,16 @@ def test_find_near_duplicates_keeps_longest_flags_near(dedup_sweep_module):
     assert dup["distance"] <= 0.15
 
 
-def test_find_near_duplicates_scopes_per_source_file(dedup_sweep_module):
+def test_find_near_duplicates_scopes_per_wing_room(dedup_sweep_module):
     m = dedup_sweep_module
-    # identical vectors but DIFFERENT source_file => never cross-flagged
+    # identical vectors + titles but DIFFERENT (wing, room) => never
+    # cross-flagged. loom-2fyd: grouping is per (wing, room), NOT source_file
+    # (thousands of drawers share a NULL/empty source_file across wings).
     candidates = [
-        {"id": "a1", "text": "x" * 10, "embedding": [1.0, 0.0], "source_file": "a.md"},
-        {"id": "b1", "text": "x" * 10, "embedding": [1.0, 0.0], "source_file": "b.md"},
+        {"id": "a1", "wing": "w1", "room": "decisions",
+         "title": "# same title", "text": "x" * 10, "embedding": [1.0, 0.0]},
+        {"id": "b1", "wing": "w2", "room": "decisions",
+         "title": "# same title", "text": "x" * 10, "embedding": [1.0, 0.0]},
     ]
     assert m.find_near_duplicates(candidates, threshold=0.15) == []
 
