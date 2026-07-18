@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+# loom-drift-resolve — reusable per-item review-queue engine that
+# `/audit-project --apply-drift` drives (loom-ig3p.4; design drawer
+# drawer_loom_decisions_4d3918198c51bb65ceaebf90 / D2).
+#
+# THE PROBLEM this solves. D2 locked "remediation REUSES /audit-project
+# (--check=drift + --apply-drift), not a new /loom-sync" — the existing
+# --apply-onboarding / --apply-trivial flags already own a per-item,
+# human-reviewed apply flow (skills/audit-project/SKILL.md Step 3.5),
+# and --apply-drift mirrors that shape instead of inventing a new one.
+# This script IS that shape, factored into a standalone, generic engine:
+# given a list of (target, source) file pairs and a decision per item,
+# apply ONLY the approved ones — never batch-apply, never auto-apply.
+#
+# NAMING NOTE: the loom-ig3p.4 bead brief named this script
+# `loom-audit-resolve`, but that name is ALREADY TAKEN by loom-6ah's
+# unrelated `--root`/`--wing`/primitive-autodetect resolution prelude
+# (scripts/loom-audit-resolve — the /audit-project Step 1 helper, 15/15
+# tests, merged 8caac6c). This engine is named `loom-drift-resolve`
+# instead to avoid clobbering that merged, in-use script.
+#
+# NEVER-AUTO-APPLY INVARIANT (the bead's RED spec): an item with NO
+# decision recorded for it (its target-path key is absent from the
+# decisions source entirely) is treated as `skip` — nothing is ever
+# applied without an EXPLICIT `approve`. Given zero decisions at all,
+# every item in the queue is skipped and NOTHING on disk changes.
+#
+# CONTRACT.
+#   Usage:
+#     loom-drift-resolve --items <items-file> [--decisions <decisions-file>]
+#
+#   --items <file>       Required. One item per line:
+#                           <target-path>\t<source-path>
+#                         Blank lines and lines starting with `#` are
+#                         ignored. Every non-blank/non-comment line MUST
+#                         have exactly two tab-separated fields — a
+#                         malformed items file is a usage error (exit 2,
+#                         no items processed, no writes at all).
+#
+#   --decisions <file>   One decision per line:
+#                           <target-path>=<approve|skip|quit>
+#                         Blank lines and `#` comments ignored. A
+#                         target-path with no matching line here (or in
+#                         LOOM_AUDIT_RESOLVE_DECISIONS, or interactively)
+#                         defaults to `skip`.
+#
+#         When --decisions is omitted, the env var
+#         LOOM_AUDIT_RESOLVE_DECISIONS (a path to the same file format)
+#         is used if set. When NEITHER is given, decisions are read
+#         INTERACTIVELY: for each item the engine prints a diff preview
+#         + prompt to stderr and reads one line (approve[a]/skip[s]/
+#         quit[q]) from stdin. This keeps the engine's core queue logic
+#         unit-testable WITHOUT a TTY — tests always drive it via
+#         --decisions or the env var fixture — while still supporting
+#         a real interactive review session.
+#
+#   Processing order: items are walked in FILE order (source order in
+#   --items). On `approve`: the target is written with the source's
+#   content (parent dirs created as needed) — [APPLY]. On `skip` (or an
+#   unrecognized decision value, or no decision at all): the target is
+#   left untouched — [SKIP]. On `quit`: processing STOPS immediately;
+#   every remaining item (even one recorded `approve` further down the
+#   decisions file) is left unresolved — [QUIT], then one [SKIP] line
+#   per remaining item. A source file that doesn't exist for an
+#   `approve` item fails just that item ([FAIL], no write) without
+#   aborting the rest of the queue.
+#
+#   Exit code: 2 on a usage error (missing/unreadable --items, malformed
+#   items line) — no items are processed. Otherwise 0 normally, or 1 if
+#   any item [FAIL]ed while applying.
+#
+# Run:  scripts/loom-drift-resolve --items <file> [--decisions <file>]
+#       bash lib/tests/loom-drift-resolve.test.sh
+
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: loom-drift-resolve --items <items-file> [--decisions <decisions-file>]
+
+  --items <file>       required. Lines of <target-path>\t<source-path>.
+  --decisions <file>   optional. Lines of <target-path>=<approve|skip|quit>.
+                        Falls back to $LOOM_AUDIT_RESOLVE_DECISIONS, then
+                        to interactive stdin prompts.
+
+Never-auto-apply: an item with no decision recorded is skipped. Nothing
+is written to disk without an explicit `approve`.
+EOF
+}
+
+items_file=""
+decisions_file=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --items=*) items_file="${1#--items=}" ;;
+    --items)   shift; items_file="${1:-}" ;;
+    --decisions=*) decisions_file="${1#--decisions=}" ;;
+    --decisions)   shift; decisions_file="${1:-}" ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      echo "loom-drift-resolve: unrecognized argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$items_file" ]; then
+  echo "loom-drift-resolve: --items <file> is required" >&2
+  usage >&2
+  exit 2
+fi
+if [ ! -f "$items_file" ]; then
+  echo "loom-drift-resolve: --items file not found: $items_file" >&2
+  exit 2
+fi
+
+if [ -z "$decisions_file" ]; then
+  decisions_file="${LOOM_AUDIT_RESOLVE_DECISIONS:-}"
+fi
+interactive=0
+if [ -z "$decisions_file" ]; then
+  interactive=1
+fi
+if [ -n "$decisions_file" ] && [ ! -f "$decisions_file" ]; then
+  echo "loom-drift-resolve: --decisions file not found: $decisions_file" >&2
+  exit 2
+fi
+
+# ---- parse + validate --items (fail loud, no partial processing) ------
+targets=()
+sources=()
+lineno=0
+while IFS= read -r raw || [ -n "$raw" ]; do
+  lineno=$((lineno + 1))
+  line="$raw"
+  # strip trailing CR just in case
+  line="${line%$'\r'}"
+  [ -z "$line" ] && continue
+  case "$line" in \#*) continue ;; esac
+
+  target="${line%%$'\t'*}"
+  rest="${line#*$'\t'}"
+  if [ "$target" = "$line" ] || [ -z "$target" ] || [ -z "$rest" ] || [ "$rest" = "$line" ]; then
+    echo "loom-drift-resolve: malformed --items line $lineno (want <target>\\t<source>): $raw" >&2
+    exit 2
+  fi
+  source_path="$rest"
+
+  targets+=("$target")
+  sources+=("$source_path")
+done < "$items_file"
+
+n="${#targets[@]}"
+if [ "$n" -eq 0 ]; then
+  echo "loom-drift-resolve: no items in $items_file (nothing to resolve)"
+  exit 0
+fi
+
+# ---- load decisions (target-path -> decision) --------------------------
+declare -A decision_of
+declare -A decision_seen
+if [ -n "$decisions_file" ]; then
+  dlineno=0
+  while IFS= read -r raw || [ -n "$raw" ]; do
+    dlineno=$((dlineno + 1))
+    dline="${raw%$'\r'}"
+    [ -z "$dline" ] && continue
+    case "$dline" in \#*) continue ;; esac
+    key="${dline%%=*}"
+    val="${dline#*=}"
+    if [ "$key" = "$dline" ] || [ -z "$key" ]; then
+      echo "loom-drift-resolve: malformed --decisions line $dlineno (want <target>=<decision>): $raw" >&2
+      exit 2
+    fi
+    decision_of["$key"]="$val"
+    decision_seen["$key"]=1
+  done < "$decisions_file"
+fi
+
+# diff_preview <target> <source> — best-effort human-readable preview,
+# printed to stdout ahead of the item's resolution line.
+diff_preview() {
+  local target="$1" source="$2"
+  if [ ! -e "$target" ]; then
+    echo "    (new file — target does not yet exist)"
+    return 0
+  fi
+  if command -v diff >/dev/null 2>&1; then
+    local d
+    d="$(diff -u "$target" "$source" 2>/dev/null)"
+    if [ -z "$d" ]; then
+      echo "    (no content difference)"
+    else
+      printf '%s\n' "$d" | sed 's/^/    /'
+    fi
+  fi
+}
+
+applied=0
+skipped=0
+failed=0
+quit_at=""
+
+i=0
+while [ "$i" -lt "$n" ]; do
+  target="${targets[$i]}"
+  source_path="${sources[$i]}"
+
+  decision="skip"
+  had_decision=0
+  if [ -n "${decision_seen[$target]:-}" ]; then
+    decision="${decision_of[$target]}"
+    had_decision=1
+  elif [ "$interactive" -eq 1 ]; then
+    diff_preview "$target" "$source_path"
+    printf 'Item: %s (queued from %s). Apply? (approve/skip/quit): ' "$target" "$source_path" >&2
+    if IFS= read -r ans; then
+      case "$ans" in
+        a|approve) decision="approve"; had_decision=1 ;;
+        q|quit)    decision="quit"; had_decision=1 ;;
+        *)         decision="skip"; had_decision=1 ;;
+      esac
+    fi
+  else
+    diff_preview "$target" "$source_path"
+  fi
+
+  case "$decision" in
+    quit)
+      remaining=$((n - i))
+      echo "[QUIT] $target (quit requested — $remaining item(s) left unresolved)"
+      quit_at="$i"
+      break
+      ;;
+    approve)
+      if [ ! -e "$source_path" ]; then
+        echo "[FAIL] $target (source missing: $source_path)"
+        failed=$((failed + 1))
+      else
+        parent_dir="$(dirname "$target")"
+        if mkdir -p "$parent_dir" && cp "$source_path" "$target"; then
+          echo "[APPLY] $target <- $source_path"
+          applied=$((applied + 1))
+        else
+          echo "[FAIL] $target (write failed)"
+          failed=$((failed + 1))
+        fi
+      fi
+      ;;
+    skip|*)
+      if [ "$had_decision" -eq 1 ] && [ "$decision" != "skip" ]; then
+        echo "[SKIP] $target (unrecognized decision '$decision' — treated as skip)"
+      elif [ "$had_decision" -eq 1 ]; then
+        echo "[SKIP] $target (explicit skip)"
+      else
+        echo "[SKIP] $target (no decision recorded — never-auto-apply)"
+      fi
+      skipped=$((skipped + 1))
+      ;;
+  esac
+
+  i=$((i + 1))
+done
+
+# Items left unresolved after a quit — report + count as skipped.
+if [ -n "$quit_at" ]; then
+  j=$((quit_at + 1))
+  while [ "$j" -lt "$n" ]; do
+    echo "[SKIP] ${targets[$j]} (queue quit before this item was reached)"
+    skipped=$((skipped + 1))
+    j=$((j + 1))
+  done
+fi
+
+echo "resolved: $applied applied, $skipped skipped, $failed failed"
+
+[ "$failed" -eq 0 ] || exit 1
+exit 0
