@@ -426,6 +426,57 @@ loud.
 If `--wing` was explicitly passed, skip Step 1b entirely (the user
 made the call deliberately).
 
+### Step 1c — stamp `<root>/.claude/.loom-sync` (loom-ig3p.2)
+
+**Runs on every `/audit-project` invocation, regardless of which
+`--check=` mode was requested** — this is the "sync" half of the D1
+downstream convention-drift detector (design drawer
+`drawer_loom_decisions_4d3918198c51bb65ceaebf90`). Running
+`/audit-project` at all against a project IS the sync event; the
+stamp records that it happened and against which of loom's
+convention hashes. The complementary "detect" half (loom-ig3p.3)
+later compares this stamp against loom's CURRENT hash to notice
+drift — so the stamp must be written unconditionally, not only under
+`--apply-onboarding` (a narrow `--check=docs`-only run should still
+record that the project was looked at).
+
+Two script calls, both against `<loom>` (this loom checkout — the
+same `<loom>` root mechanism Check 2 and Check 6 use), never against
+`<root>` (the project being audited):
+
+```bash
+_hash="$(bash <loom>/scripts/loom-convention-manifest)"
+bash <loom>/scripts/loom-sync-stamp "<root>" "$_hash"
+```
+
+`scripts/loom-convention-manifest` (loom-ig3p.1) computes loom's
+CURRENT hash from `<loom>/templates/`. `scripts/loom-sync-stamp`
+(loom-ig3p.2, `loom_write_sync_stamp` unit — see
+`lib/tests/loom-sync-stamp.test.sh`) writes
+`<root>/.claude/.loom-sync` as a small key=value file:
+
+```
+hash=<the computed hash>
+date=<YYYY-MM-DD, today, UTC>
+```
+
+The call OVERWRITES any prior stamp (this run's hash + date is now
+the record) and creates `<root>/.claude/` if it doesn't already
+exist. No guest-mode gate applies here (unlike the `[AUTOFIX:...]`
+recipes in Step 3.5) — the stamp is a small, idempotent bookkeeping
+write, not a structural project change, and skipping it under guest
+mode would silently defeat the drift detector for every guest-mode
+audit. Log one line to the report:
+
+```
+[SYNC] stamped <root>/.claude/.loom-sync (hash=<hash>, date=<date>)
+```
+
+This mirrors install.sh's own analogous stamp of
+`<loom>/.claude/.loom-sync` (loom dogfoods itself as "the target
+project" from install.sh's perspective — see install.sh's "Stamp
+loom's own `<loom_root>/.claude/.loom-sync`" step).
+
 ### Step 2 — dispatch project-onboarder (unless `--check=docs`)
 
 Call the `project-onboarder` subagent with the absolute project
@@ -2020,7 +2071,12 @@ One line per drift item, prefix-tagged. Concrete examples:
 
 - **Does not write to disk without user approval** (except for
   `--apply-trivial` / `--apply-onboarding` items where the user
-  has pre-authorized the AUTOFIX-tagged class by passing the flag).
+  has pre-authorized the AUTOFIX-tagged class by passing the flag,
+  and except for the Step 1c `<root>/.claude/.loom-sync` stamp —
+  loom-ig3p.2 — which is an unconditional, idempotent bookkeeping
+  write on every run, not a structural project change, and is
+  logged as `[SYNC]` in the report rather than gated behind an
+  apply flag).
 - **Does not run `bd init`** (interactive — requires the user to
   acknowledge the workspace prompt). Even with `--apply-onboarding`,
   item 2 MISS stays in the per-item queue.
