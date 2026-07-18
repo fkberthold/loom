@@ -98,6 +98,29 @@ audit. This is a deliberately user-pulled workflow.
   (`references/project-constitution.schema.json`,
   `templates/project-constitution.md`,
   `docs/reference/project-constitution.md`).
+- `--check=drift` — run ONLY the downstream convention-drift deep-diff
+  (Step 3.3 below): compare the project's stamped
+  `loom-convention-manifest` hash (captured in Step 1c-pre, BEFORE
+  Step 1c's unconditional re-stamp) against loom's CURRENT hash, and
+  — on a mismatch or a missing stamp — enumerate exactly WHICH files
+  under loom's `templates/` tree changed since the project's last
+  sync. This is the "deep diff" the D1 O(1) hash-only session-startup
+  nudge (loom-ig3p.3) cannot afford to do on every session start; run
+  it on demand when the nudge (or a human) says the hash moved. Like
+  `--check=constitution` and `--check=tree-sitter`, this mode is NOT
+  folded into the default `--check=all` — it runs neither the
+  onboarding scan nor the docs check. D2 of the design cycle
+  (`drawer_loom_decisions_4d3918198c51bb65ceaebf90`): remediation
+  REUSES `/audit-project`, not a new `/loom-sync`. (loom-ig3p.4.)
+- `--apply-drift` — for each file `--check=drift` reports as drifted,
+  queue it for **per-item human review** via `scripts/loom-drift-
+  resolve`, mirroring `--apply-onboarding`'s per-item AUTOFIX gate.
+  **Never batch-applies, never auto-applies** — an item with no
+  explicit approval is left untouched, same invariant
+  `scripts/loom-drift-resolve`'s never-auto-apply behavior enforces
+  mechanically (see "Step 3.5 — --apply-drift" below for the exact
+  item-construction + apply procedure). Implies `--check=drift` if no
+  other `--check=` was given. (loom-ig3p.4.)
 - `--apply-trivial` — auto-apply doc-drift items the skill has tagged
   `[DOC FIX][TRIVIAL]`: cardinality count corrections (the loom-469
   class — single-numeral substitution at a known file:line) and dead
@@ -425,6 +448,27 @@ loud.
 
 If `--wing` was explicitly passed, skip Step 1b entirely (the user
 made the call deliberately).
+
+### Step 1c-pre — capture the prior sync stamp (loom-ig3p.4)
+
+**Runs immediately before Step 1c, on every invocation.** Step 1c
+below unconditionally OVERWRITES `<root>/.claude/.loom-sync` with
+this run's hash — so any step that wants to compare the PRIOR stamp
+against loom's current hash (Step 3.3's `--check=drift`) MUST read it
+here, first, or the value is gone. This is a pure read, purely
+additive to Step 1c — it does not change Step 1c's own behavior.
+
+```bash
+prior_hash=""
+prior_date=""
+if [ -f "<root>/.claude/.loom-sync" ]; then
+  prior_hash="$(sed -n 's/^hash=//p' "<root>/.claude/.loom-sync" | head -1)"
+  prior_date="$(sed -n 's/^date=//p' "<root>/.claude/.loom-sync" | head -1)"
+fi
+```
+
+An absent file leaves both empty — not an error; Step 3.3 treats an
+empty `$prior_hash` as "never synced" (full drift).
 
 ### Step 1c — stamp `<root>/.claude/.loom-sync` (loom-ig3p.2)
 
@@ -1140,15 +1184,92 @@ one with sub-config like `pymdownx.emoji`'s `emoji_index` /
 `emoji_generator` lines — is not a safe one-numeral substitution, so
 it stays in the per-item human-approval queue (Step 4).
 
-### Step 3.5 — apply tagged items (only when --apply-trivial / --apply-onboarding set)
+### Step 3.3 — convention drift detection (`--check=drift`; loom-ig3p.4)
 
-If neither flag is set, skip this step entirely; every item flows to
-the per-item approval queue in Step 4.
+**Only runs when `--check=drift` or `--apply-drift` was passed** —
+like `--check=constitution` and `--check=tree-sitter`, this mode is
+NOT part of the default `--check=all` and does not run the onboarding
+scan or the docs-drift check. `--apply-drift` implies `--check=drift`
+when no other `--check=` flag was given.
+
+This is D1's "deep diff" half (design drawer
+`drawer_loom_decisions_4d3918198c51bb65ceaebf90`): the session-startup
+detector nudge (loom-ig3p.3) only affords an O(1) hash-equality check;
+THIS step, run on demand, says exactly WHICH of loom's convention
+files moved.
+
+1. Compute loom's CURRENT manifest hash, against `<loom>` (never
+   `<root>`) — the same `<loom>` root mechanism Step 1c uses:
+
+   ```bash
+   current_hash="$(bash <loom>/scripts/loom-convention-manifest)"
+   ```
+
+2. Compare against `$prior_hash` / `$prior_date` captured in
+   Step 1c-pre (BEFORE Step 1c's unconditional re-stamp overwrote the
+   file):
+
+   - **`$prior_hash` empty** (no stamp — project never synced): emit
+
+     ```
+     [DRIFT] no prior .loom-sync stamp found — this project has never
+     been synced against loom's convention set; treating the ENTIRE
+     manifest as drifted
+     ```
+
+     and list every path from `bash <loom>/scripts/loom-convention-
+     manifest --list` as a drift item (each `templates/<relpath>`).
+
+   - **`$prior_hash` == `$current_hash`**: emit `no convention drift
+     detected — stamp matches loom's current convention hash` and
+     stop; the drifted set is empty.
+
+   - **`$prior_hash` != `$current_hash`**: run, inside `<loom>`:
+
+     ```bash
+     git -C <loom> log --since="$prior_date" --name-only \
+       --pretty=format: -- templates/ | sort -u
+     ```
+
+     Each non-empty `templates/<relpath>` line this prints is one
+     drift item. (If `$prior_date` is itself empty — a malformed or
+     hand-edited stamp — fall back to the "no prior stamp" branch
+     above rather than passing an empty `--since` to `git log`.)
+
+3. For every drift item, emit one report line:
+
+   ```
+   [DRIFT] templates/<relpath> changed since <prior_date>
+   ```
+
+   Accumulate these into a `## Convention drift detection` report
+   section (empty section, or the single "no convention drift
+   detected" line, when the drifted set is empty).
+
+**Scope note (v1, intentional — not a gap).** The drift SET is loom's
+own template files that changed, not a live diff against the
+project's actual scaffolded copies (`docs/**`, `.claude/project-
+constitution.md`, …) — those are produced from `templates/**` WITH
+per-file variable substitution (`/docs-scaffold`) or their own
+dedicated capture-diff flow (`--check=constitution`, Step 7), so a
+byte-for-byte diff against the substituted destination would be
+unreliable and duplicate work either flow already owns. Building a
+general cross-project template-reconciliation engine was explicitly
+ruled out of scope by the design cycle (YAGNI, per the design drawer's
+"Question / Scope" section). `--apply-drift` (Step 3.5 below) applies
+against a project-local MIRROR of the changed loom templates, not the
+live scaffolded files — see that section for the exact target path
+and the human-reconciliation handoff.
+
+### Step 3.5 — apply tagged items (only when --apply-trivial / --apply-onboarding / --apply-drift set)
+
+If none of the three flags is set, skip this step entirely; every
+item flows to the per-item approval queue in Step 4.
 
 When at least one apply flag is set, walk the report top-to-bottom and
 process items as follows. Order: onboarding items first (they may
 create `.beads/`, `.claude/`, etc. that downstream items reference),
-then doc-drift items.
+then convention-drift items, then doc-drift items.
 
 #### --apply-onboarding: walk the project-onboarder report
 
@@ -1401,6 +1522,65 @@ For each item NOT carrying an `[AUTOFIX:<id>]` tag, leave it in the
 queue for Step 4. Emit one summary line per skipped item: `--apply-
 onboarding: skipping item N (no AUTOFIX tag — requires human review)`.
 
+#### --apply-drift: drive `scripts/loom-drift-resolve` over the drift report (loom-ig3p.4)
+
+Mirrors `--apply-onboarding`'s shape — a per-item human-reviewed apply
+— but the mechanics are delegated to a standalone engine instead of
+inline per-recipe logic, because the drift queue is uniform (every
+item is "sync one file from loom's current template") rather than a
+grab-bag of distinct recipes.
+
+Skip this subsection entirely if Step 3.3 found no drift (empty `##
+Convention drift detection` section, or the "no convention drift
+detected" line).
+
+1. **Build the items file.** For each `[DRIFT] templates/<relpath>
+   changed since <date>` line from Step 3.3, add ONE line to a
+   temporary items file (`<target>\t<source>`):
+
+   ```
+   <root>/.claude/loom-templates/<relpath>	<loom>/templates/<relpath>
+   ```
+
+   `<root>/.claude/loom-templates/<relpath>` is a project-local,
+   READ-ONLY-BY-CONVENTION **mirror** of the loom template the
+   project was scaffolded from — it is NOT the project's live
+   customized file (`docs/<relpath-under-diataxis>`, `.claude/
+   project-constitution.md`, …), which may carry per-project variable
+   substitution or human edits this engine does not attempt to
+   reconcile (the YAGNI scope note in Step 3.3). The mirror exists so
+   a human can `diff` it against their real file and fold in
+   whichever hunks apply — composing with, never fighting,
+   `/docs-scaffold`'s own per-file substitution+approval flow and
+   `--check=constitution`'s dedicated field-level diff.
+
+2. **Drive the engine:**
+
+   ```bash
+   bash <loom>/scripts/loom-drift-resolve --items <items-file>
+   ```
+
+   With no `--decisions` flag and no `LOOM_AUDIT_RESOLVE_DECISIONS`
+   env var set, the engine prompts **interactively, per item** —
+   printing a diff preview then asking `Apply? (approve/skip/quit)`
+   — which satisfies the same loom-xcw conversational-pause invariant
+   Step 4 already honors: STOP after each prompt and wait for a
+   user-typed reply; never treat `--dangerously-skip-permissions` as
+   an answer. Test/CI callers drive it non-interactively via
+   `--decisions <file>` or the env var (see
+   `lib/tests/loom-drift-resolve.test.sh`).
+
+3. **Never-auto-apply, by construction.** An item the user does not
+   explicitly `approve` (skip, quit, or simply never reached because
+   an earlier item was `quit`) is left completely untouched — this is
+   enforced by `scripts/loom-drift-resolve` itself, not by SKILL.md
+   prose discipline, so it holds even outside an agent-driven session
+   (e.g. a human running the script by hand).
+
+4. Fold the engine's `[APPLY]` / `[SKIP]` / `[FAIL]` / `[QUIT]`
+   output verbatim into the `## Auto-applied` section (below) under a
+   `--apply-drift` subheading.
+
 #### --apply-trivial: walk the docs-drift section
 
 For each line tagged `[DOC FIX][TRIVIAL]`, apply the suggested
@@ -1443,6 +1623,11 @@ Print a `## Auto-applied` section listing every change made:
   - backed up to settings.json.pre-loom.bak
   - merged env block: CLAUDE_CODE_ENABLE_TASKS=false (added),
     CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 (added)
+
+--apply-drift @ <root>/.claude/loom-templates/
+  [APPLY] <root>/.claude/loom-templates/diataxis/mkdocs.yml.template <- <loom>/templates/diataxis/mkdocs.yml.template
+  [SKIP] <root>/.claude/loom-templates/design-doc/DESIGN-DOC.md.template (explicit skip)
+  resolved: 1 applied, 1 skipped, 0 failed
 
 [DOC FIX][TRIVIAL] cardinality @ README.md:42
   - s/(105 dirs)/(106 dirs)/
@@ -1505,12 +1690,17 @@ explicit or when no basename-variant has more drawers>
 ## Docs drift detection
 <list of [DOC FIX] lines, if run; "no drift detected" otherwise>
 
+## Convention drift detection
+<list of [DRIFT] lines from Step 3.3, if --check=drift / --apply-drift
+ran; "no convention drift detected" otherwise; omitted when neither
+flag was passed>
+
 ## Auto-applied
 <output of Step 3.5, if --apply-trivial and/or --apply-onboarding
-fired and any items applied; omitted otherwise>
+and/or --apply-drift fired and any items applied; omitted otherwise>
 
 ## Summary
-PASS: <N> · WARN: <N> · MISS: <N> · [DOC FIX]: <N>
+PASS: <N> · WARN: <N> · MISS: <N> · [DOC FIX]: <N> · [DRIFT]: <N>
 auto-applied: <K> · skipped (untagged): <S>
 Top 3 gaps to fix first: <ordered short list>
 ```
