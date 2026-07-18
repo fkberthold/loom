@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# loom-convention-manifest — enumerate loom's convention-bearing files
+# and compute a deterministic hash over their content (loom-ig3p.1).
+#
+# THE PROBLEM this is the foundation for. A downstream loom-managed
+# project's per-project priming (its CLAUDE.md, .claude/rules/, recipe
+# routing) is expected to track loom's CURRENT shipped conventions, but
+# nothing detects when it has drifted. Design cycle D1 (design drawer
+# drawer_loom_decisions_4d3918198c51bb65ceaebf90) generalizes loom-1lj's
+# recorded-vs-current staleness pattern: a downstream project gets a
+# STAMPED loom-convention-manifest-hash at sync time; a later detector
+# (loom-ig3p.3) compares that stamp against loom's CURRENT hash, and a
+# mismatch (or a missing stamp) is drift. THIS script is only the
+# foundation half — it enumerates the manifest file-set and emits the
+# CURRENT hash; the stamping (loom-ig3p.2) and the detector nudge
+# (loom-ig3p.3) are separate beads in the same epic (loom-ig3p).
+#
+# FILE-SET DECISION (recorded here, per the loom-ig3p.1 bead brief).
+# The manifest is loom's OWN canonical shipped convention SOURCES — the
+# concrete artifacts a downstream project's priming is built from and
+# expected to track — NOT loom's own dogfooded CLAUDE.md/rules (loom is
+# a convention *publisher* here, not a convention *consumer* of itself).
+# Per the design drawer's D1 grounding: "loom ships NO canonical
+# downstream priming template (templates/ has diataxis/design-doc/
+# exploration/constitution only) ... hashing loom's convention set ...
+# is the feasible, precedent-faithful shape." That maps to the ENTIRE
+# templates/ tree (see CONVENTION_PATHS below) — every file under it is
+# a scaffold source that either seeds a downstream project's docs/
+# tree, design-doc drawers, exploration drawers, or its
+# .claude/project-constitution.md, per docs/reference/installed-files.md's
+# "Installed files" -> templates/ inventory.
+#
+# EXCLUDED (deliberately, not an oversight):
+#   - skills/ and hooks/ — globally symlinked into ~/.claude/, so a
+#     downstream project always sees loom's CURRENT copy live; they
+#     can never "drift" the way a copied/scaffolded file can.
+#   - loom's OWN .claude/project-constitution.md (this repo's dogfooded
+#     copy) — that file already has its own independent staleness nudge
+#     (loom-1lj, tooling-manifest-mtime-skew); folding it into THIS
+#     manifest would double-count the same signal under two different
+#     mechanisms.
+#
+# CONTRACT.
+#   Usage:
+#     scripts/loom-convention-manifest              # print the hash
+#     scripts/loom-convention-manifest --list        # print the sorted
+#                                                     # repo-relative
+#                                                     # file list
+#     scripts/loom-convention-manifest --root <dir>  # resolve
+#                                                     # CONVENTION_PATHS
+#                                                     # under <dir>
+#                                                     # instead of this
+#                                                     # script's own
+#                                                     # repo root (tests
+#                                                     # point this at an
+#                                                     # isolated temp
+#                                                     # fixture so real
+#                                                     # repo files are
+#                                                     # never mutated)
+#
+#   Determinism. The file SET is a fixed, explicit array of convention
+#   roots (CONVENTION_PATHS) resolved + recursed with `find`, then
+#   SORTED lexically before anything is hashed — this removes
+#   filesystem-iteration-order and mtime as sources of nondeterminism.
+#   Each file is hashed independently (sha256), the sorted
+#   "<relpath>  <sha256>" pairs are concatenated, and THAT stream is
+#   hashed once more to produce the single manifest hash. A content
+#   change to any listed file changes its own line, which changes the
+#   composite hash; a change to a file outside CONVENTION_PATHS is never
+#   read, so it cannot affect the hash.
+#
+# Run:  scripts/loom-convention-manifest
+#       bash lib/tests/loom-convention-manifest.test.sh
+
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: loom-convention-manifest [--root <dir>] [--list]
+
+  (no flags)     print the manifest hash (sha256 hex) to stdout
+  --list         print the sorted repo-relative manifest file list
+  --root <dir>   resolve the manifest paths under <dir> instead of
+                 this script's own repo root
+EOF
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+ROOT="$DEFAULT_ROOT"
+MODE="hash"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --root=*) ROOT="${1#--root=}" ;;
+    --root)   shift; ROOT="${1:-}" ;;
+    --list)   MODE="list" ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      echo "loom-convention-manifest: unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
+  echo "loom-convention-manifest: --root not a directory: '$ROOT'" >&2
+  exit 2
+fi
+ROOT="$(cd "$ROOT" && pwd)"
+
+# --- the manifest file-set (see FILE-SET DECISION above) --------------
+# A fixed, explicit, enumerable set of convention roots — each entry is
+# either a file or a directory (recursed) resolved relative to $ROOT.
+CONVENTION_PATHS=(
+  "templates"
+)
+
+# list_manifest_files — print the sorted, deduped, repo-relative file
+# list the manifest covers. A configured path that doesn't exist under
+# $ROOT is silently skipped (not this script's job to validate repo
+# shape — a missing convention root just yields fewer/no manifest
+# entries, deterministically).
+list_manifest_files() {
+  local p abs f
+  local -a files=()
+  for p in "${CONVENTION_PATHS[@]}"; do
+    abs="$ROOT/$p"
+    if [ -d "$abs" ]; then
+      while IFS= read -r f; do
+        files+=("${f#"$ROOT"/}")
+      done < <(find "$abs" -type f)
+    elif [ -f "$abs" ]; then
+      files+=("$p")
+    fi
+  done
+  if [ "${#files[@]}" -gt 0 ]; then
+    printf '%s\n' "${files[@]}" | sort -u
+  fi
+}
+
+# sha256_of <path> — print a hex sha256 digest of the file's content.
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  else
+    echo "loom-convention-manifest: neither sha256sum nor shasum found on PATH" >&2
+    exit 3
+  fi
+}
+
+# sha256_of_stdin — print a hex sha256 digest of stdin.
+sha256_of_stdin() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | cut -d' ' -f1
+  else
+    shasum -a 256 | cut -d' ' -f1
+  fi
+}
+
+case "$MODE" in
+  list)
+    list_manifest_files
+    ;;
+  hash)
+    composite=""
+    while IFS= read -r relpath; do
+      [ -n "$relpath" ] || continue
+      digest="$(sha256_of "$ROOT/$relpath")"
+      composite="${composite}${relpath}  ${digest}"$'\n'
+    done < <(list_manifest_files)
+    printf '%s' "$composite" | sha256_of_stdin
+    ;;
+esac
