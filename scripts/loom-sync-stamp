@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# loom-sync-stamp — write a managed project's .claude/.loom-sync,
+# recording loom's convention-manifest hash (+ a date) as of the last
+# sync (loom-ig3p.2; design drawer
+# drawer_loom_decisions_4d3918198c51bb65ceaebf90 / D1).
+#
+# THE PROBLEM this is the "stamp" half of. scripts/loom-convention-
+# manifest (loom-ig3p.1) computes loom's CURRENT convention hash. That
+# alone is only half the drift-detector — nothing records what hash a
+# given project last synced against. THIS script writes that record.
+# A later detector (loom-ig3p.3) reads the stamp back and compares it
+# against loom's CURRENT hash: a mismatch (or a missing stamp) is
+# drift.
+#
+# TWO CALLERS, TWO TARGETS (both write via this same unit):
+#   - install.sh stamps LOOM'S OWN `<loom-root>/.claude/.loom-sync` —
+#     mirroring the existing "loom dogfoods its own project-local
+#     .claude/ state" pattern already used for
+#     `<loom-root>/.claude/settings.json` and
+#     `<loom-root>/.claude/project-constitution.md` (see install.sh's
+#     "Project env-block merge into <loom_root>/.claude/settings.json"
+#     step) — loom is "the target project" from install.sh's own
+#     perspective.
+#   - The audit-project skill stamps a DOWNSTREAM/managed project's
+#     `<root>/.claude/.loom-sync` during a sync/resync run (see
+#     skills/audit-project/SKILL.md).
+#
+# In both cases the manifest hash to stamp is computed by the CALLER
+# (via `scripts/loom-convention-manifest`, always run against the
+# loom checkout — never against the target being stamped) and passed
+# in as an argument; this unit only WRITES the stamp. That keeps the
+# write side effect-free to compute (safe to call from a `source`d
+# context) and trivially unit-testable without wiring up manifest
+# fixtures too — see lib/tests/loom-sync-stamp.test.sh.
+#
+# CONTRACT.
+#   Function form (source this file to get the function without any
+#   side effects — no stamp is written just by sourcing):
+#     source scripts/loom-sync-stamp
+#     loom_write_sync_stamp <target-dir> <manifest-hash> [date]
+#
+#   CLI form (invoke directly; same behavior, for callers that shell
+#   out — e.g. install.sh, or prose-driven skill steps):
+#     scripts/loom-sync-stamp <target-dir> <manifest-hash> [date]
+#
+#   <target-dir>     — project root whose .claude/.loom-sync gets
+#                       written. Created (mkdir -p) if <target-dir>/
+#                       .claude doesn't exist yet.
+#   <manifest-hash>   — the hash to stamp (required; typically the
+#                       stdout of `scripts/loom-convention-manifest`
+#                       run against the loom checkout doing the
+#                       stamping).
+#   [date]            — optional; defaults to today (UTC,
+#                       YYYY-MM-DD). Overridable for deterministic
+#                       testing and for a caller that wants a
+#                       specific sync date recorded.
+#
+#   Output file (<target-dir>/.claude/.loom-sync) — a tiny key=value
+#   file, OVERWRITTEN (not appended) on every call:
+#     hash=<manifest hash>
+#     date=<YYYY-MM-DD>
+#
+# Run:  scripts/loom-sync-stamp <target-dir> <manifest-hash> [date]
+#       bash lib/tests/loom-sync-stamp.test.sh
+
+set -uo pipefail
+
+# loom_write_sync_stamp <target-dir> <manifest-hash> [date]
+#
+# Writes <target-dir>/.claude/.loom-sync. Returns non-zero (with a
+# stderr message, no partial write) when a required argument is
+# missing, so a caller can never mistake a validation failure for a
+# successful stamp.
+loom_write_sync_stamp() {
+  local target_dir="${1:-}"
+  local manifest_hash="${2:-}"
+  local stamp_date="${3:-}"
+
+  if [ -z "$target_dir" ]; then
+    echo "loom_write_sync_stamp: <target-dir> is required" >&2
+    return 2
+  fi
+  if [ -z "$manifest_hash" ]; then
+    echo "loom_write_sync_stamp: <manifest-hash> is required" >&2
+    return 2
+  fi
+  if [ -z "$stamp_date" ]; then
+    stamp_date="$(date -u +%Y-%m-%d)"
+  fi
+
+  local claude_dir="$target_dir/.claude"
+  if ! mkdir -p "$claude_dir"; then
+    echo "loom_write_sync_stamp: could not create $claude_dir" >&2
+    return 1
+  fi
+
+  {
+    printf 'hash=%s\n' "$manifest_hash"
+    printf 'date=%s\n' "$stamp_date"
+  } > "$claude_dir/.loom-sync"
+}
+
+# Direct-invocation guard (mirrors the loom-ld4 sourced-vs-executed
+# pattern): only run the CLI form when this file is EXECUTED, not
+# when it's `source`d. Sourcing defines the function above with zero
+# side effects — the property lib/tests/loom-sync-stamp.test.sh
+# relies on, and the same shape install.sh can use to call the
+# function in-process instead of shelling out.
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  loom_write_sync_stamp "$@"
+  exit $?
+fi

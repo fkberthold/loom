@@ -482,6 +482,33 @@ PYEOF
   fi
 fi
 
+# Stamp loom's own <loom_root>/.claude/.loom-sync (loom-ig3p.2). Same
+# "loom dogfoods its own project-local .claude/ state" pattern as the
+# env-block merge just above — loom IS "the target project" from
+# install.sh's perspective (a genuine downstream/managed project's
+# .claude/.loom-sync is stamped by /audit-project instead; see
+# skills/audit-project/SKILL.md). Records loom's CURRENT convention-
+# manifest hash (scripts/loom-convention-manifest, loom-ig3p.1) so a
+# later detector (loom-ig3p.3) can compare a stamped hash against
+# loom's current one to notice drift. Write logic lives in
+# scripts/loom-sync-stamp (loom_write_sync_stamp), kept as a tiny
+# standalone unit so it's independently testable without invoking
+# install.sh end-to-end — see lib/tests/loom-sync-stamp.test.sh.
+log ""
+log "Stamping $PROJECT_SETTINGS_DIR/.loom-sync..."
+if [ "$DRY_RUN" = "1" ]; then
+  log "  WOULD: stamp $PROJECT_SETTINGS_DIR/.loom-sync with loom's current convention-manifest hash"
+else
+  _loom_sync_hash="$("$LOOM_ROOT/scripts/loom-convention-manifest")"
+  if [ -n "$_loom_sync_hash" ]; then
+    "$LOOM_ROOT/scripts/loom-sync-stamp" "$LOOM_ROOT" "$_loom_sync_hash"
+    log "  stamped $PROJECT_SETTINGS_DIR/.loom-sync (hash=$_loom_sync_hash)"
+  else
+    log "  WARN: scripts/loom-convention-manifest produced no hash — skipping .loom-sync stamp"
+  fi
+  unset _loom_sync_hash
+fi
+
 # Wire the bd-merge-driver in loom's own .git/config (loom-4um).
 # Merge drivers are stored in git config (not in the tree), so the
 # repo's .gitattributes references `merge=bd-export` but nothing
