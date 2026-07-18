@@ -47,6 +47,7 @@ catalogue pages are listed separately above).
 | [Design-doc template](design-doc-template.md) | `templates/design-doc/` — the L2 design-doc drawer scaffold a cycle precipitates into |
 | [upstream-a-bead](upstream-a-bead.md) | The upstream-contribution recipe (`--issue-only` / `--issue+pr` lanes) |
 | [upstream:loom label](upstream-loom-label.md) | The `upstream:loom` bead-label convention + `/check-loom-upstream` sweep |
+| [Downstream convention-drift detector](convention-drift-detector.md) | Manifest hash, sync stamp, SessionStart nudge, `/audit-project --check=drift` / `--apply-drift`, and the correctness gates (loom-ig3p) |
 
 Per-hook, per-skill, per-command, and per-subagent reference pages
 live under their respective subsections in the nav (and the full

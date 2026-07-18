@@ -91,6 +91,7 @@ nav:
       - Adopt a brownfield project: how-to/adopt-a-brownfield-project.md
       - Contribute a fix upstream: how-to/contribute-upstream.md
       - Recover from a dispatch crash: how-to/recover-from-dispatch-crash.md
+      - Resync a managed project's conventions: how-to/resync-managed-project.md
       - Common scenarios:
           - how-to/common-scenarios/index.md
           - New bug: how-to/common-scenarios/new-bug.md
@@ -188,6 +189,7 @@ nav:
           - Path-scoped rules: reference/path-scoped-rules.md
           - upstream:loom label: reference/upstream-loom-label.md
           - DOCS-SCAFFOLD-FIXME sentinels: reference/docs-scaffold-fixme.md
+          - Downstream convention-drift detector: reference/convention-drift-detector.md
       - Schemas & internals:
           - workflow.json schema: reference/workflow-json.md
           - Project invariants: reference/project-invariants.md

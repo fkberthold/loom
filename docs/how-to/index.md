@@ -58,12 +58,28 @@ matches what you are about to do.
 - [Scaffold a managed project's docs](./scaffold-managed-project-docs.md)
   — copy loom's Diataxis skeleton into a managed project with
   per-file approval; opt-out marker; post-scaffold audit.
+- [Author a project constitution](./author-project-constitution.md) —
+  pin the project's tooling profile so hooks and dispatched workers
+  stop guessing package manager, shell, and canonical commands.
+
+## Keep a managed project's conventions in sync
+
+- [Resync a managed project's conventions](./resync-managed-project.md)
+  — see exactly which of loom's shipped templates moved since your
+  last sync, and review each drifted file into a local mirror one at
+  a time.
 
 ## Drive a fix into someone else's repo
 
 - [Contribute a fix upstream](./contribute-upstream.md) — the
   two-bead lifecycle (work-bead closes fast on PR file; watch-bead
   closes slow on upstream merge) via the `upstream-a-bead` recipe.
+
+## Recover from a crash
+
+- [Recover from a dispatch crash](./recover-from-dispatch-crash.md) —
+  the API-health-pause heuristic, probe-before-resume backoff, and the
+  resume-from-WIP recipe for a dispatched worker that died mid-flight.
 
 ## Common scenarios
 
