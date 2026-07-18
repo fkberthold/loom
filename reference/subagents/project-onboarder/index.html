@@ -1,0 +1,5554 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Workflow infrastructure for Claude Code — beads + MemPalace + superpowers + beadpowers woven into one disciplined developer workflow.">
+      
+      
+      
+        <link rel="canonical" href="https://fkberthold.github.io/loom/reference/subagents/project-onboarder/">
+      
+      
+        <link rel="prev" href="../kg-relationship-extractor/">
+      
+      
+        <link rel="next" href="../all-subagents/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>project-onboarder - loom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#project-onboarder" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="loom" class="md-header__button md-logo" aria-label="loom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            loom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              project-onboarder
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fkberthold/loom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fkberthold/loom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../how-to/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  How-to
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../explanation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="loom" class="md-nav__button md-logo" aria-label="loom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    loom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fkberthold/loom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fkberthold/loom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/bug-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bug walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/feature-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/design-cycle-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design-cycle walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install loom
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/open-a-session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/open-a-design-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a design cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/claim-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claim a bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/run-dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run the dispatch-middle pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/finish-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finish a bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/stop-a-session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stop a session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/bypass-workflow-ceremony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bypass workflow ceremony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/guest-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use guest mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/where-to-update-what/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where to update what
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/scaffold-managed-project-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaffold a managed project's docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/author-project-constitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Author a project constitution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/adopt-a-brownfield-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adopt a brownfield project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/contribute-upstream/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribute a fix upstream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/recover-from-dispatch-crash/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recover from a dispatch crash
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/resync-managed-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resync a managed project's conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../how-to/common-scenarios/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common scenarios
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_18" id="__nav_3_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common scenarios
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/new-bug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New bug
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/parallel-bugs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parallel bugs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/exploratory-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exploratory work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/find-prior-art/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Find prior art
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/debug-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debug workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/tweak-a-hook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tweak a hook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/add-path-rule/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a path-scoped rule
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installed-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installed files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../skills/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Skills
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/audit-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    audit-project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/bead-lifecycle-shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bead-lifecycle-shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/bugfix-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bugfix-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/cleanup-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cleanup-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design-a-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    design-a-cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-middle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/docs-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docs-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/docs-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docs-scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    explore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/feature-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    feature-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-adopt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-adopt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-mine-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/refactor-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    refactor-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/research-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    research-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/session-startup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    session-startup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../upstream-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skills/all-skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All skills (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../slash-commands/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slash commands
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Slash commands
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/audit-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /audit-project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/bugfix-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /bugfix-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/check-loom-upstream/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /check-loom-upstream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/check-upstream-prs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /check-upstream-prs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/cleanup-orphans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /cleanup-orphans
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design-a-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    design-a-cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-middle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/docs-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /docs-scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    explore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/lineage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /lineage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-adopt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-adopt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/loom-guest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /loom-guest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-mine-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/loom-upstream-gc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /loom-upstream-gc
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/research-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /research-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../upstream-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/working-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /working-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/wrap-up/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /wrap-up
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/all-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All commands (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Subagents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_5" id="__nav_4_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Subagents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bug-family-researcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bug-family-researcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drawer-author/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    drawer-author
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kg-relationship-extractor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    kg-relationship-extractor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project-onboarder
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project-onboarder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#scope-onboarding-scan-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope: onboarding scan only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scan-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scan recipe
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autofix-tags-on-suggested-fix-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AUTOFIX tags on suggested-fix lines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#do-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do NOT
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../all-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All subagents (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../hooks/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hooks
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_6" id="__nav_4_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/bd-claim-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-claim-research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/bd-close-capture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-close-capture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/bd-preflight-docs-strict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-preflight-docs-strict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-prime-wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-prime-wrapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-remember-guest-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-remember-guest-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-worktree-preseed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-worktree-preseed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../constitution-enforce-hook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constitution-enforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/context-budget-sensor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    context-budget-sensor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cwd-drift-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cwd-drift-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/dispatch-nudge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-nudge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/edit-after-failure-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edit-after-failure-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../edit-write-pwd-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edit-write-pwd-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/git-push-bd-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    git-push-bd-sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/loom-drift-nudge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-drift-nudge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/post-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    post-rewrite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/pre-push-mkdocs-strict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pre-push-mkdocs-strict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pytest-tempdir-prune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pytest-tempdir-prune
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/skill-redirect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    skill-redirect
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/workflow-mode-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    workflow-mode-onboarding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/worktree-bg-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    worktree-bg-inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/all-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All hooks (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_7" id="__nav_4_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helper scripts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Helper scripts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../helper-scripts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helper scripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-print-deploy-hint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-print-deploy-hint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-rebase-worktree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-rebase-worktree
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-subagent-lean/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-subagent-lean
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-worktree-python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-worktree-python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Templates & conventions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Templates & conventions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design-doc-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design-doc template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-constitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project constitution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../script-convention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    script/ convention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../path-scoped-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path-scoped rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../upstream-loom-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream:loom label
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs-scaffold-fixme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DOCS-SCAFFOLD-FIXME sentinels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../convention-drift-detector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Downstream convention-drift detector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas & internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Schemas & internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    workflow.json schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-state-integrity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-state integrity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-env-vars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loom env vars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decision-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_10" id="__nav_4_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External tools & Claude Code harness
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    External tools & Claude Code harness
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mempalace-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemPalace MCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../claude-code-hook-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code hook layering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../claude-code-hook-semantics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code hook semantics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../explanation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Explanation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/mental-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mental model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/recipe-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipe family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/workflow-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/gate-dont-advise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate, don't advise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/provenance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provenance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#scope-onboarding-scan-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope: onboarding scan only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scan-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scan recipe
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autofix-tags-on-suggested-fix-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AUTOFIX tags on suggested-fix lines
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#do-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do NOT
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/fkberthold/loom/edit/main/docs/reference/subagents/project-onboarder.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="project-onboarder">project-onboarder<a class="headerlink" href="#project-onboarder" title="Permanent link">&para;</a></h1>
+<!-- GENERATED by scripts/loom-docs-gen — DO NOT EDIT. Edit the source primitive, then rerun the generator. -->
+
+<!-- BEGIN INCLUDE ../../../agents/project-onboarder.md -->
+<hr />
+<p>name: project-onboarder
+description: |
+  Use when starting work on a fresh or partially-set-up project to surface gaps in the workflow infrastructure (git hygiene, beads init, bd hooks, workflow.json, MemPalace wing, CLAUDE.md, .claude/rules/, .claude/agents/+commands/, bd memories). Returns a structured PASS/WARN/MISS checklist for the main agent to drive interactive fixes against. Read-only — never writes. Triggered by /audit-project and the audit-project skill.
+model: inherit</p>
+<hr />
+<p>You scan the current project for <strong>workflow-infrastructure gaps</strong> and return a structured checklist. The main agent drives interactive fixes against your report; you do not propose code, do not write to disk, and do not modify beads or MemPalace state.</p>
+<h3 id="scope-onboarding-scan-only">Scope: onboarding scan only<a class="headerlink" href="#scope-onboarding-scan-only" title="Permanent link">&para;</a></h3>
+<p>You own the <strong>onboarding scan</strong> half of <code>/audit-project</code> — the items below. The other half — <strong>docs drift detection</strong> (cardinality, citation resolution, behavior claims, inclusion-glob coverage, explanation-doc consistency) — lives in the <code>audit-project</code> skill itself. Do not extend this subagent with docs-drift logic; the skill's docs-check step is the extension point.</p>
+<p>Boundary: this subagent answers "is the project's workflow infrastructure wired up?". The skill's docs check answers "do the project's docs match reality?". Both feed one combined report; implementations stay separate.</p>
+<h3 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h3>
+<p>From the prompt: absolute path to project root; optionally the project short name. If the short name isn't given, infer from the root's basename.</p>
+<h3 id="scan-recipe">Scan recipe<a class="headerlink" href="#scan-recipe" title="Permanent link">&para;</a></h3>
+<p>Each item produces one report line (<code>PASS</code> / <code>WARN</code> / <code>MISS</code> plus one-sentence rationale and, when relevant, a one-line suggested fix).</p>
+<ol>
+<li><strong>Git repo + branch hygiene</strong></li>
+<li><code>git -C &lt;root&gt; rev-parse --is-inside-work-tree</code>; <code>branch --show-current</code>; <code>status --porcelain</code> (count uncommitted).</li>
+<li>
+<p>PASS = repo + named branch + clean. WARN = dirty tree or detached HEAD. MISS = not a git repo.</p>
+</li>
+<li>
+<p><strong><code>.beads/</code> initialized</strong></p>
+</li>
+<li>Check <code>&lt;root&gt;/.beads/</code> exists and contains a <code>*.db</code> (or jsonl).</li>
+<li>
+<p>PASS = present. MISS = absent (suggest <code>bd init</code>).</p>
+</li>
+<li>
+<p><strong>bd hooks installed</strong></p>
+</li>
+<li>Resolve the active hooks directory first (bd's canonical install puts hooks in <code>.beads/hooks/</code> and sets <code>core.hooksPath</code>):
+     <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">hooks_dir</span><span class="o">=</span><span class="k">$(</span>git<span class="w"> </span>-C<span class="w"> </span>&lt;root&gt;<span class="w"> </span>config<span class="w"> </span>--get<span class="w"> </span>core.hooksPath<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="k">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$hooks_dir</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">hooks_dir</span><span class="o">=</span><span class="s2">&quot;.git/hooks&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">case</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$hooks_dir</span><span class="s2">&quot;</span><span class="w"> </span><span class="k">in</span><span class="w"> </span>/*<span class="o">)</span><span class="w"> </span><span class="p">;;</span><span class="w"> </span>*<span class="o">)</span><span class="w"> </span><span class="nv">hooks_dir</span><span class="o">=</span><span class="s2">&quot;&lt;root&gt;/</span><span class="nv">$hooks_dir</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">;;</span><span class="w"> </span><span class="k">esac</span>
+</code></pre></div></li>
+<li>Check <code>$hooks_dir/pre-commit</code> exists. Optionally confirm it references <code>bd</code>.</li>
+<li>PASS = exists. MISS = absent. Suggest two-step remediation: <code>bd hooks install</code> then absorb the export queue with <code>git add .beads/issues.jsonl &amp;&amp; git commit -m "bd: post-install export sync"</code> (loom-cka — without the absorbing commit, the user's first logical commit silently picks up export churn).</li>
+<li>
+<p><strong>Tag the MISS suggested-fix line with <code>[AUTOFIX:bd-hooks]</code></strong> for the audit-project skill's <code>--apply-onboarding</code> flag (loom-a29).</p>
+</li>
+<li>
+<p><strong><code>workflow.json</code> exists with mode set</strong></p>
+</li>
+<li>Read <code>&lt;root&gt;/.claude/workflow.json</code>. Parse JSON. Report <code>.mode</code>.</li>
+<li>PASS = file + valid JSON + mode in {full, light, off}. WARN = malformed/unrecognised. MISS = absent. Suggest writing <code>{"v":1, "mode":"full"}</code>.</li>
+<li>
+<p><strong>Tag MISS suggested-fix line with <code>[AUTOFIX:workflow-json]</code></strong>.</p>
+</li>
+<li>
+<p><strong>MemPalace wing for project</strong></p>
+</li>
+<li><code>mempalace_list_wings</code> — check whether the project's short name appears verbatim (per audit-project Step 1, short name == filesystem basename without case-folding or <code>_</code>↔<code>-</code> substitution).</li>
+<li>Also <code>mempalace_status</code> for <code>palace_path</code>; include resolved palace in the report.</li>
+<li>
+<p>PASS = wing exists. WARN = palace exists, no project-named wing. MISS = MCP unreachable or no palace.</p>
+</li>
+<li>
+<p><strong>CLAUDE.md present + ≤200 lines</strong></p>
+</li>
+<li>
+<p>PASS = present + ≤200 lines. WARN = &gt;200. MISS = absent.</p>
+</li>
+<li>
+<p><strong><code>.claude/rules/</code> scaffolded for detected directories</strong></p>
+</li>
+<li><code>&lt;root&gt;/tests/</code> with <code>*.py</code> → expect <code>tests.md</code>. <code>&lt;root&gt;/engine/</code> or <code>&lt;root&gt;/src/</code> → expect <code>engine.md</code>. <code>&lt;root&gt;/prompts/</code> → expect <code>prompts.md</code>.</li>
+<li>Each detected dir: PASS (rules file present) or MISS (suggest scaffold).</li>
+<li>
+<p><strong>MISS is a SUGGESTION only — never an AUTOFIX (loom-d50).</strong> Report the gap as a MISS and suggest the skill SCAFFOLD an empty <code>[HUMAN AUTHOR]</code> stub rules file (mirroring the constitution prose-body stub) — but <strong>never draft or propose the rule CONTENT</strong>. <code>.claude/rules/&lt;x&gt;.md</code> text encodes project conventions, which a human authors; the audit must NEVER auto-draft or auto-apply authored rule content. Do NOT tag this line <code>[AUTOFIX:...]</code> — it stays a human-authored MISS, scaffold-stub-or-suggest only. Lineage: the loom-wxo liza_base trial (2026-05-04) where the audit silently drafted+applied <code>.claude/rules/tests.md</code> content; loom-d50 pins the scaffold-stub-or-suggest-only contract.</p>
+</li>
+<li>
+<p><strong>Diataxis-shaped docs (informational)</strong></p>
+</li>
+<li><code>&lt;root&gt;/docs/.no-diataxis</code> present → INFO ("project opts out"). Marker wins even if quadrants exist.</li>
+<li>Else, <code>&lt;root&gt;/docs/{tutorials,how-to,reference,explanation}/</code> all present, each with <code>index.md</code> → PASS.</li>
+<li>Else, <code>&lt;root&gt;/docs/</code> exists but lacks quadrants → INFO ("not Diataxis-shaped — <code>/docs-scaffold</code> if desired").</li>
+<li>Else (no <code>&lt;root&gt;/docs/</code>) → INFO ("no docs/ — <code>/docs-scaffold</code> to start").</li>
+<li>INFO/PASS only — never WARN/MISS. Diataxis is recommendation, not requirement.</li>
+<li>
+<p>Report whether <code>&lt;root&gt;/scripts/loom-docs-catalogue</code> and/or
+     <code>&lt;root&gt;/scripts/loom-docs-gen</code> are present (read-only detection
+     for loom-wj26.3). When they are, the skill's docs-drift Check 4
+     (inclusion-glob symmetric coverage) <strong>delegates</strong> to
+     <code>scripts/loom-docs-catalogue --check</code> (index tables) +
+     <code>scripts/loom-docs-gen --check</code> (per-item nav pages + nav block)
+     instead of re-deriving the coverage by grep — so surface their
+     presence here as the signal that the mechanized path applies.
+     Engine lineage: loom-wjuo (catalogue), loom-itph (gen). Absent →
+     INFO ("no loom-docs engines — Check 4 uses the generic grep
+     fallback"). This is detection only; the delegation itself runs in
+     the skill, not this read-only subagent.</p>
+</li>
+<li>
+<p><strong><code>.claude/agents/</code> and <code>.claude/commands/</code> (informational)</strong></p>
+</li>
+<li>
+<p>Report present/absent. No verdict — informational only.</p>
+</li>
+<li>
+<p><strong><code>bd memories &lt;project-keyword&gt;</code> has ≥1 tribal fact</strong></p>
+<ul>
+<li><code>bd memories &lt;project-short-name&gt;</code> (try close variants if hyphenated). Count matches.</li>
+<li>PASS = ≥1. MISS = none (suggest <code>bd remember "&lt;one-line fact&gt;"</code>).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>.gitignore</code> includes loom per-session ephemera (informational)</strong></p>
+<ul>
+<li>Read <code>&lt;root&gt;/.gitignore</code>. Check for BOTH entries:</li>
+<li><code>.claude/worktrees/</code> — the path where <code>Agent</code> + <code>isolation: "worktree"</code> creates per-subagent worktrees; never meant to be tracked (loom-tag).</li>
+<li><code>.claude/workflow-state.json</code> — per-session ephemeral state written at every session start by loom's statusline / <code>workflow-state</code> helper; both customer trials (loom-b6o tla-puzzles, loom-wxo liza_base) handled this manually before loom-tat folded the line into the recipe.</li>
+<li>PASS = both present. INFO = either or both absent. Suggest one-line append for each missing entry (independently idempotent).</li>
+<li><strong>Tag the INFO suggested-fix line with <code>[AUTOFIX:gitignore-worktrees]</code></strong>. Idempotent per line — apply step re-checks each candidate before writing.</li>
+<li>INFO/PASS only. Lineage: <code>drawer_loom_decisions_df73c725b47dd67832935e3a</code> (loom-tag, Agent isolation:worktree path-resolution finding); loom-tat (2026-05-15, folded workflow-state.json line into the recipe).</li>
+</ul>
+</li>
+<li>
+<p><strong>Claude Code hook command duplicates</strong></p>
+<ul>
+<li>Shell out: <code>bash &lt;loom-root&gt;/scripts/find-hook-dups.sh &lt;root&gt;</code>. The script enumerates (event, matcher, command) tuples in <code>&lt;root&gt;/.claude/settings.json</code> AND <code>~/.claude/settings.json</code>, then compares each tuple against the hook blocks of every plugin manifest under <code>~/.claude/plugins/cache/*/*/*/{,.claude-plugin/}plugin.json</code>. Exact-tuple match → emits one <code>WARN</code> (project layer) or <code>INFO</code> (user layer) line per duplicate.</li>
+<li>PASS = script stdout empty. WARN = ≥1 <code>WARN</code> line (project-level dup; recommend dropping the entry from the project <code>.claude/settings.json</code> — the plugin's registration is canonical and fires regardless). INFO = ≥1 <code>INFO</code> line only (user-level dup; advisory, machine-specific config — recommend dropping from <code>~/.claude/settings.json</code>).</li>
+<li>Embed each output line verbatim in the report so the user can identify both registration sites.</li>
+<li><strong>Tag each project-level WARN suggested-fix line with BOTH item-12 AUTOFIX recipes</strong> (loom-jnn). The DEFAULT offer is <code>[AUTOFIX:dedup-hook-skip-worktree]</code> (per-user, reversible — <code>git update-index --skip-worktree</code> the tracked <code>.claude/settings.json</code>, strip the dup hook locally, log the recovery snippet). The opt-in alternative is <code>[AUTOFIX:dedup-hook-commit]</code> (removes the dup from the tracked file + commits — gated behind an explicit y/N confirmation the skill drives, because it changes shared content). Detection is unchanged: <code>find-hook-dups.sh</code> remains the canonical detector; loom-jnn only added the resolution paths. User-level INFO dups are NOT tagged (machine-specific <code>~/.claude/settings.json</code> edits are out of the audit's write scope). The raw content-aware JSON-stanza removal stays content-aware — the skill performs it inside each recipe, not via a blind deterministic substitution.</li>
+<li>Lineage: surfaced by loom-nsb research (<code>drawer_loom_decisions_3eec30046461f0766ac92eec</code>, 2026-05-09); live example fixed via loom-sd5 (liza_base bd-prime SessionStart duplicate, 2026-05-15); preventive scan added by loom-ann (2026-05-15); resolution AUTOFIX paths added by loom-jnn (empty-array overrides verified inert in e2e-api-tests 2026-05-27 — hook layering is additive across all four layers; see <code>docs/reference/claude-code-hook-layering.md</code>).</li>
+</ul>
+</li>
+<li>
+<p><strong>Language and preflight template match</strong></p>
+<ul>
+<li>Probe the project's primary language via canonical markers (the helper is conceptually <code>detect_project_language()</code>, performed inline by reading the filesystem — no script call):</li>
+<li><code>python</code> → <code>&lt;root&gt;/pyproject.toml</code> OR <code>&lt;root&gt;/setup.py</code> OR <code>&lt;root&gt;/setup.cfg</code> OR <code>&lt;root&gt;/requirements*.txt</code></li>
+<li><code>go</code> → <code>&lt;root&gt;/go.mod</code></li>
+<li><code>rust</code> → <code>&lt;root&gt;/Cargo.toml</code></li>
+<li><code>node</code> → <code>&lt;root&gt;/package.json</code> (and NOT also <code>pyproject.toml</code> — that tie-breaks to polyglot)</li>
+<li><code>shell</code> → <code>&lt;root&gt;/scripts/</code> directory AND <code>*.sh</code> files present, with no other language markers</li>
+<li><code>unknown</code> → none of the above OR polyglot (multiple language markers; <strong>never guess</strong>)</li>
+<li>Read <code>&lt;root&gt;/.beads/preflight.template</code> (or <code>&lt;root&gt;/.beads/config.yaml</code>'s <code>preflight.template</code> field) to see the bd preflight shape. If absent, it's the bd-default Go-shaped template.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PROMPT = language=<code>unknown</code> AND preflight.template is unset or bd-default → the audit-project skill prompts the user <code>(python|go|rust|node|shell|skip)</code>; on a non-skip answer it writes the chosen template; on <code>skip</code> it memoizes silence in <code>.claude/loom-audit-state.json</code>.</li>
+<li>WARN = language ∈ {<code>python</code>, <code>rust</code>, <code>node</code>, <code>shell</code>} AND preflight.template starts with <code>go</code> (or is the bd-default Go-shaped template) → the audit-project skill offers a y/N/skip diff preview that replaces the template with a language-appropriate one.</li>
+<li>PASS = language is determinable AND preflight.template matches; OR a skip memo for <code>preflight-language-match</code> exists in <code>.claude/loom-audit-state.json</code>.</li>
+<li><strong>No AUTOFIX tag</strong> — the fix requires either an interactive language pick (PROMPT) or a y/N/skip diff preview (WARN). The skill drives the prompt loop and writes; the onboarder only reports.</li>
+<li>Lineage: loom-r6g (2026-05-21). Surfaced when /audit-project against fresh ~/repos/mforth (Python, solo) passed all checks while leaving a Go-shaped preflight template on a Python project.</li>
+</ul>
+</li>
+<li>
+<p><strong>CLAUDE.md solo-workspace bd dolt push guard</strong></p>
+<ul>
+<li>Probe solo-workspace status (conceptually <code>is_solo_workspace()</code>, performed inline by shelling out): run <code>bd dolt remote list --json</code> from <code>&lt;root&gt;</code>. Outcomes:</li>
+<li><code>[]</code> → solo (no Dolt remote configured) → TRUE</li>
+<li>Non-empty list with a <code>"name"</code> field → has-remote → FALSE</li>
+<li>Command errors (old bd, missing dolt, etc.) → <strong>degrade-safe</strong> TRUE (treat as solo; better to nudge a false-positive than miss the real one)</li>
+<li>When solo, read <code>&lt;root&gt;/CLAUDE.md</code>. Search for <code>bd dolt push</code> lines that are NOT wrapped in the canonical loom-hsb guard:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">if</span><span class="w"> </span>bd<span class="w"> </span>dolt<span class="w"> </span>remote<span class="w"> </span>list<span class="w"> </span>--json<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s1">&#39;&quot;name&quot;&#39;</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>bd<span class="w"> </span>dolt<span class="w"> </span>push
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">else</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;(solo bd workspace; no Dolt remote — skipping bd dolt push)&quot;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">fi</span>
+</code></pre></div>
+  A <code>bd dolt push</code> line counts as <strong>unguarded</strong> when no <code>if bd dolt remote list</code> appears in the preceding ~5 lines of the same fenced code block (the audit-project skill's regex anchors on this proximity).</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = no <code>CLAUDE.md</code>, or no <code>BEADS INTEGRATION</code> block at all, or the block already uses the loom-hsb guard, or a skip memo for <code>claude-md-solo-aware</code> exists in <code>.claude/loom-audit-state.json</code>, or <code>is_solo_workspace()</code> returned FALSE.</li>
+<li>WARN = solo workspace AND CLAUDE.md contains unguarded <code>bd dolt push</code> → the audit-project skill offers a y/N/skip diff preview that rewrites the canonical block to loom-hsb guard shape. If the surrounding block has been hand-edited beyond pattern recognition, the fix refuses with a one-line pointer to loom's own CLAUDE.md as the reference shape.</li>
+<li><strong>No AUTOFIX tag</strong> — content-aware: only the canonical <code>bd init</code>-generated block shape is mechanically rewritable; hand-edited variants need user review.</li>
+<li>Lineage: loom-r6g (2026-05-21). Same trial as item 13 (fresh ~/repos/mforth audit); loom-hsb shipped the guard in loom's own CLAUDE.md (2026-05-04) but downstream projects don't inherit it. Sibling: bd init's CLAUDE.md template generation is upstream-only (filed separately).</li>
+</ul>
+</li>
+<li>
+<p><strong>Upstream:loom label suggestion</strong></p>
+<ul>
+<li>Cross-tracker dependency hygiene. Enumerate the project's open beads via <code>bd list --status=open --json</code>. For each, test the description against the canonical loom-keyword regex:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>(^|[^a-zA-Z0-9_])(loom-hook|loom-script|loom-[a-z0-9]+)|hooks/|scripts/loom-
+</code></pre></div>
+  The word-boundary anchor on <code>loom-</code> prefix prevents substring false-positives (<code>heirloom-data</code>, <code>gloomy-baz</code>). The five canonical signals are bare tokens <code>loom-hook</code> / <code>loom-script</code>, path prefixes <code>hooks/</code> / <code>scripts/loom-</code>, and direct bead-ID references <code>loom-&lt;id&gt;</code>.</li>
+<li>For each matching bead, check whether it already carries the <code>upstream:loom</code> label (run <code>bd label list &lt;id&gt;</code> or read the label field from the json). A matching bead lacking the label is a candidate for the suggestion.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = no matching beads, or every matching bead already carries <code>upstream:loom</code>, or a skip memo for <code>upstream-loom-label-suggest</code> exists in <code>.claude/loom-audit-state.json</code>.</li>
+<li>INFO = ≥1 matching bead lacks the label → the audit-project skill offers a y/N/skip gate per bead. On <code>y</code>, the skill runs <code>bd label add &lt;id&gt; upstream:loom</code>. On <code>N</code>, the row stays in the queue. On <code>skip</code>, the skill writes the state-file memo so the same row does not re-prompt.</li>
+<li><strong>No AUTOFIX tag</strong> — informational-only and suggest-only. The regex catches both real workaround beads AND beads that mention loom in passing without being a workaround; the per-bead y/N/skip gate is essential. The skill never applies the label without explicit per-item user approval.</li>
+<li>Embed each matching bead's ID + one-line description snippet in the report so the user can verify the suggestion against the actual bead text.</li>
+<li>Lineage: loom-z3m.11 (2026-05-23). Surfaced by lingering HAW bead <code>7iz</code> that mirrored what loom-x4m fixed; cleared by inspection only because someone happened to remember the pairing. Companion infrastructure: the <code>upstream:loom</code> label reference doc (<code>docs/reference/upstream-loom-label.md</code>) and the <code>/check-loom-upstream</code> slash command (read-only sweep that pairs labeled beads against recently-closed loom beads).</li>
+</ul>
+</li>
+<li>
+<p><strong>Loom env block in project <code>.claude/settings.json</code></strong></p>
+<ul>
+<li>The Claude Code harness ships two competing defaults that loom rules actively counter:</li>
+<li><code>CLAUDE_CODE_ENABLE_TASKS=false</code> — silences the harness's TaskCreate / TodoWrite nudges (upstream #26038, #45986). Loom rules require bd, not Tasks.</li>
+<li><code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code> — disables the auto-spawned <code>MEMORY.md</code> surrogate (upstream #23544, #23750). Loom rules require <code>bd remember</code> + MemPalace, not <code>MEMORY.md</code>.</li>
+<li>Read <code>&lt;root&gt;/.claude/settings.json</code>. Parse JSON. Inspect <code>.env.CLAUDE_CODE_ENABLE_TASKS</code> and <code>.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY</code>.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = both keys present with canonical values (<code>"false"</code> and <code>"1"</code>), OR a skip memo for <code>loom-env-block</code> exists in <code>.claude/loom-audit-state.json</code>.</li>
+<li>WARN = file exists but one or both keys are missing or carry non-canonical values.</li>
+<li>MISS = <code>&lt;root&gt;/.claude/settings.json</code> absent.</li>
+<li><strong>Tag the WARN/MISS suggested-fix line with <code>[AUTOFIX:loom-env-block]</code></strong> for the audit-project skill's <code>--apply-onboarding</code> flag. The fix is a deep-merge that overwrites the two loom keys with canonical values and preserves every other key in the file (writing <code>.claude/settings.json.pre-loom.bak</code> on first overwrite). Idempotent.</li>
+<li>Lineage: loom-7ro (2026-05-27). loom's own <code>install.sh</code> performs the same merge against <code>&lt;loom_root&gt;/.claude/settings.json</code>; this item propagates the same defaults into downstream loom-managed projects via <code>/audit-project --apply-onboarding</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong><code>~/.loom/upstream/</code> orphan-clone scan (informational)</strong></p>
+<ul>
+<li>The upstream-a-bead recipe (loom-k2g) caches per-repo clones under <code>~/.loom/upstream/&lt;owner&gt;/&lt;repo&gt;/</code>. A clone is "orphan" when no open <code>upstream:watch</code> bead references it — the recipe finished, the watch-bead closed (or never spawned), and the clone is taking disk for no live workflow.</li>
+<li>Procedure: list <code>~/.loom/upstream/*/*/</code> directories. For each, parse the corresponding <code>&lt;owner&gt;/&lt;repo&gt;</code> pair. Cross-check against open <code>upstream:watch</code> beads (<code>bd list --label=upstream:watch --json</code>); each watch-bead carries a PR URL in its description from which <code>&lt;owner&gt;/&lt;repo&gt;</code> can be derived (<code>https://github.com/&lt;owner&gt;/&lt;repo&gt;/pull/&lt;N&gt;</code>). A clone with no matching open watch-bead is an orphan candidate.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = no <code>~/.loom/upstream/</code> directory exists, OR every clone has a matching open <code>upstream:watch</code> bead.</li>
+<li>INFO = ≥1 orphan clone detected.</li>
+<li><strong>Tag the INFO suggested-fix line with <code>[AUTOFIX:loom-upstream-gc-handoff]</code></strong> for the audit-project skill's <code>--apply-onboarding</code> flag. The fix is a handoff: the skill prints <code>run /loom-upstream-gc to review and prune orphan clones interactively</code> — the actual prune is interactive (per-clone y/N gate inside <code>/loom-upstream-gc</code>) and lives in the slash command, not in the AUTOFIX recipe. The handoff tag exists so <code>--apply-onboarding</code> can mark the row as queued-for-user rather than silently leaving it in the per-item queue.</li>
+<li>Embed the list of orphan clone paths in the report so the user can verify before invoking <code>/loom-upstream-gc</code>.</li>
+<li>Lineage: loom-k2g (2026-05-27). Companion infrastructure: <code>/loom-upstream-gc</code> slash command (loom-k2g.4); upstream-a-bead recipe (loom-k2g.1); upstream cache governance (loom-k2g.2).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>gh auth status</code> — GitHub CLI authentication</strong></p>
+<ul>
+<li>The upstream-a-bead recipe (loom-k2g) and other upstream-flow primitives shell out to <code>gh</code> for issue/PR creation, fork detection, and canonical-owner checks. An unauthenticated <code>gh</code> causes every upstream recipe step to fail with an opaque error.</li>
+<li>Procedure: run <code>gh auth status</code> (no flags). Check the exit code.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = <code>gh auth status</code> exits 0 (authenticated against at least one host).</li>
+<li>WARN = <code>gh auth status</code> exits non-zero (not authenticated, or <code>gh</code> binary missing).</li>
+<li><strong>Tag the WARN suggested-fix line with <code>[AUTOFIX:gh-auth-prompt]</code></strong> for the audit-project skill's <code>--apply-onboarding</code> flag. The fix is a handoff: the skill prints <code>run \</code>gh auth login` interactively to authenticate<code>— the actual login is an interactive OAuth/token flow that cannot run inside the audit, and lives in</code>gh<code>itself. The handoff tag exists so</code>--apply-onboarding` can mark the row as queued-for-user rather than silently leaving it in the per-item queue.</li>
+<li>Embed the <code>gh auth status</code> stderr in the report so the user sees the specific failure mode (missing binary vs expired token vs no host configured).</li>
+<li>Lineage: loom-k2g (2026-05-27). Surfaced during the upstream-a-bead design — every upstream recipe step assumes <code>gh</code> is authenticated, so the audit must catch the unauthenticated case before the user trips it mid-recipe.</li>
+</ul>
+</li>
+<li>
+<p><strong>Unmined decision history (informational)</strong></p>
+<ul>
+<li>A brownfield project starts with an empty MemPalace but a rich decision record already sitting in its git/PR history. This line surfaces how much is unmined; it never mines (mining is billable — opted into via <code>/audit-project --mine-history</code> or <code>/loom-mine-history</code> directly).</li>
+<li>Procedure: shell out to <code>bash &lt;loom-root&gt;/scripts/loom-mine-history --dry-run --root &lt;root&gt;</code> (zero spend — the engine's <code>--dry-run</code> stops at the cost-preview before any LLM call). Parse its <code>cost-preview: N harvested -&gt; M gated -&gt; ...</code> line for the gated count <code>M</code>.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = <code>M</code> is 0 (no unmined decision-shaped history — nothing to capture).</li>
+<li>INFO = <code>M ≥ 1</code> → report <code>M units of unmined decision history in git/PRs — run \</code>/loom-mine-history` (or `/audit-project --mine-history`) to capture`.</li>
+<li><strong>No AUTOFIX tag</strong> — mining is an explicit, billable LLM action gated by <code>/loom-mine-history</code>'s own two-pass cost preview; it must never be auto-applied by <code>--apply-onboarding</code>. INFO/PASS only, never WARN/MISS.</li>
+<li>Degrade-safe: if <code>scripts/loom-mine-history</code> is absent or the dry-run errors (e.g. not a git repo), emit INFO <code>(decision-history probe skipped)</code> and continue — never fail the checklist on this line.</li>
+<li>Lineage: loom-bn7.5 (2026-06-03); engine loom-bn7.1, entry loom-bn7.4. Mirrors item 8's informational, opt-in-fix shape.</li>
+</ul>
+</li>
+<li>
+<p><strong>Project-constitution tooling fingerprint (only under <code>--check=constitution</code>)</strong></p>
+<ul>
+<li>Runs ONLY when the audit was invoked with <code>--check=constitution</code> (the loom-6f8 Constitution-epic capture half, loom-1iz). Skip this item entirely on <code>--check=onboarding|docs|all</code> runs.</li>
+<li><strong>Read-only — you report the detected fingerprint; the <code>audit-project</code> skill (Step 7) owns the per-field confirmation, the UNSTAGED write to <code>&lt;root&gt;/.claude/project-constitution.md</code>, the MemPalace mirror, and the KG-triple emission.</strong> Do not write the file, do not author prose, do not call any <code>mempalace_*</code> write.</li>
+<li>Detect each front-matter field from filesystem markers under <code>&lt;root&gt;</code>, in this resolution order (these are the loom-1iz heuristics — emit empty when undetected, never guess):</li>
+<li><strong><code>shell</code></strong> — <code>&lt;root&gt;/devbox.json</code> → <code>shell.enter: "devbox shell"</code>, <code>run_prefix: "devbox run"</code>. Else <code>&lt;root&gt;/flake.nix</code> → <code>shell.enter: "nix-shell"</code>, <code>run_prefix: "nix-shell --run"</code>. Else both empty. <code>devbox.json</code> wins over <code>flake.nix</code> when both exist.</li>
+<li><strong><code>package_manager</code></strong> — first decisive lockfile/manifest wins: <code>pnpm-lock.yaml</code> → <code>pnpm</code>; <code>yarn.lock</code> → <code>yarn</code>; <code>package-lock.json</code> → <code>npm</code>; <code>uv.lock</code> → <code>uv</code>; <code>poetry.lock</code> → <code>poetry</code>; <code>Cargo.toml</code> → <code>cargo</code>; <code>go.mod</code> → <code>go</code>; none → <code>none</code>.</li>
+<li><strong><code>language.runtime</code></strong> — <code>Cargo.toml</code> → <code>rust</code>; <code>go.mod</code> → <code>go</code>; <code>pyproject.toml</code>/<code>setup.py</code>/<code>setup.cfg</code>/<code>requirements*.txt</code> → <code>python</code>; <code>package.json</code> (with non-<code>none</code> pkg) → <code>node</code>; <code>scripts/</code> dir with <code>*.sh</code> and no other marker → <code>bash</code>; else <code>unknown</code> (never guess on polyglot). <code>language.version</code> stays empty (a human pin, not a filesystem signal).</li>
+<li><strong><code>canonical_commands</code></strong> — <code>Makefile</code> <code>build:</code>/<code>test:</code>/<code>lint:</code> targets → <code>make build</code>/<code>make test</code>/<code>make lint</code>; an executable <code>scripts/&lt;verb&gt;</code> fills any verb the Makefile does not cover (<code>scripts/build</code>→build, <code>scripts/test</code>→test, <code>scripts/lint</code>→lint, <code>scripts/gen</code>→gen, <code>scripts/server</code>→dev). Makefile target wins over the script for the same verb. Uncovered verbs stay empty.</li>
+<li><strong><code>forbidden</code></strong> / <strong><code>bypass_patterns</code></strong> — NOT auto-detected (a human lock-in judgment); reported as empty lists for the human to fill.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = <code>&lt;root&gt;/.claude/project-constitution.md</code> already exists AND the freshly-detected fingerprint matches its captured front-matter (no drift).</li>
+<li>INFO = no constitution file yet → report the detected draft fingerprint so the skill can run the Step 7c per-field capture.</li>
+<li>INFO (drift) = file exists but ≥1 front-matter field differs from the detected value → report each drifted field (captured-vs-detected) so the skill's Step 7f drift loop can confirm/skip per field WITHOUT overwriting the prose body.</li>
+<li><strong>No AUTOFIX tag</strong> — the capture is a per-field interactive confirmation the skill drives (loom-xcw, one field at a time), and the prose body is a human-authored <code>[HUMAN AUTHOR]</code> MISS, never an agent draft (loom-d50). You report the fingerprint; the skill writes.</li>
+<li>Embed the detected <code>field=value</code> fingerprint lines in the report so the user can sanity-check the detection against the actual tree before confirming.</li>
+<li>Lineage: loom-1iz (capture flow), parent epic loom-6f8; schema/sample/reference shipped by loom-vin. Design drawer: <code>drawer_loom_decisions_76ec9140c47ff768735358c0</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong><code>.deploy</code> wrap-up deploy-hint set</strong></p>
+<ul>
+<li>The <code>.deploy</code> field in <code>&lt;root&gt;/.claude/workflow.json</code> (loom-0k0) is the shell command <code>/wrap-up</code> section 6 surfaces as <code>Next step (project deploy): &lt;cmd&gt;</code> after a bead closes. Optional, but undiscoverable until a user reads the wrap-up source — this check surfaces the field so the user can set it (or explicitly opt out) during onboarding.</li>
+<li>Probe the field's THREE-state lifecycle (conceptually <code>workflow_config_deploy_state()</code> from <code>lib/workflow-config.sh</code>, performed by reading <code>&lt;root&gt;/.claude/workflow.json</code>):</li>
+<li><strong>set</strong> — <code>.deploy</code> is a non-empty string → there is a live deploy hint.</li>
+<li><strong>empty</strong> — <code>.deploy</code> is present with value <code>""</code> (or <code>null</code>) → the user explicitly opted out; "chose nothing", do NOT re-prompt.</li>
+<li><strong>absent</strong> — the <code>.deploy</code> KEY is not present → "never decided".
+  The absent-vs-empty distinction is the crux: an empty string means the user deliberately declined, an absent key means they never saw the prompt.</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = state is <code>set</code> OR <code>empty</code> (the user has decided — a command, or an explicit opt-out), OR a skip memo for <code>workflow-deploy-hint</code> exists in <code>.claude/loom-audit-state.json</code>.</li>
+<li>MISS = <code>&lt;root&gt;/.claude/workflow.json</code> exists AND <code>.deploy</code> is <code>absent</code> → the audit-project skill prompts the user for a command (or a blank opt-out) and writes it via <code>workflow_config_deploy_set</code>.</li>
+<li>N/A = <code>&lt;root&gt;/.claude/workflow.json</code> doesn't exist → item 4 already covers the missing-config case; report <code>N/A</code> with a one-line pointer to item 4.</li>
+<li><strong>No AUTOFIX tag</strong> — the fix requires the user to supply the command (or an explicit blank opt-out); there is no deterministic value to write. The skill drives the prompt loop and the write; the onboarder only reports the verdict. Out of scope (loom-1tq): auto-detecting the command from <code>Makefile</code>/<code>scripts/</code>/<code>package.json</code>, and validating that the command exists.</li>
+<li>Lineage: loom-1tq (2026-06-08), parent finding <code>drawer_loom_decisions_9fb2868e288751d22c6dd7ec</code> (loom-0k0). Mirrors item 13's PROMPT-on-MISS shape and the <code>.guest</code>-block discovery+onboarding pattern (loom-4re). The wrap-up read path is <code>~/.claude/scripts/loom-print-deploy-hint</code> → <code>workflow_resolve_deploy</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>tree-sitter grammar <code>tree-sitter.json</code> presence (ABI-15 compat)</strong></p>
+<ul>
+<li>Catches a silent, drift-created gap in projects that ship a tree-sitter grammar. tree-sitter 0.25+ (current default ABI 15) wants a <code>tree-sitter.json</code> sibling to <code>grammar.js</code>; without it, <code>tree-sitter generate</code> prints <code>Warning: No tree-sitter.json file found in your grammar, this file is required to generate with ABI 15. Using ABI version 14 instead.</code> and quietly falls back to ABI 14. A tree-sitter upgrade in nixpkgs/homebrew silently degrades old grammar repos.</li>
+<li>Procedure: find any directory under <code>&lt;root&gt;</code> containing a <code>grammar.js</code> file (the <code>grammar.js</code> marker drives detection — <strong>NOT</strong> the directory name; typical is <code>tree-sitter-*</code>, but a few projects use other naming):
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>find<span class="w"> </span>&lt;root&gt;<span class="w"> </span>-type<span class="w"> </span>f<span class="w"> </span>-name<span class="w"> </span><span class="s1">&#39;grammar.js&#39;</span>
+</code></pre></div>
+  For each grammar directory, check whether <code>tree-sitter.json</code> is a sibling (<code>&lt;grammar-dir&gt;/tree-sitter.json</code>).</li>
+<li><strong>Verdict matrix:</strong></li>
+<li>PASS = no <code>grammar.js</code> anywhere (nothing to check), OR every grammar directory already carries a sibling <code>tree-sitter.json</code>.</li>
+<li>WARN = ≥1 grammar directory has <code>grammar.js</code> but NO sibling <code>tree-sitter.json</code> → the audit-project skill (Step 8) renders the gap with the ABI-15 rationale + the recipe-only fix.</li>
+<li>Embed each WARN grammar directory path in the report so the user can identify which grammar to fix.</li>
+<li><strong>No AUTOFIX tag</strong> — the fix is <strong>recipe-only</strong> and is <strong>NEVER auto-run</strong>. The recipe is <code>cd &lt;grammar-dir&gt; &amp;&amp; tree-sitter init -p .</code> (scaffolds <code>tree-sitter.json</code> from the existing <code>package.json</code> <code>[tree-sitter]</code> block / interactively), OR hand-write <code>tree-sitter.json</code> mirroring <code>package.json</code>'s <code>[tree-sitter]</code> block. <code>tree-sitter init</code> requires a TTY (it is interactive) so it cannot run inside the audit — same interactive-handoff posture as item 18's <code>gh auth login</code>. Out of scope: validating the <code>tree-sitter.json</code> schema beyond presence (<code>tree-sitter generate</code> itself does that).</li>
+<li>Lineage: loom-qvs (surfaced 2026-05-24 by mforth; downstream fix mforth commit 216f482, which hand-wrote <code>tree-sitter.json</code> mirroring the existing <code>package.json</code> <code>[tree-sitter]</code> block). Runs on <code>--check=onboarding|all</code>, and in isolation under <code>--check=tree-sitter</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong><code>script/</code> convention recognition + gap surfacing</strong></p>
+<ul>
+<li>The loom <strong><code>script/</code> convention</strong> (GitHub "scripts to rule them all" lineage, locked in the loom-adm <code>script/</code>-convention decision drawer; canonical skeleton shipped by loom-oxs.1 at <code>templates/scripts/</code>) is a fixed set of 8 normalized entry-point scripts every loom-managed repo carries: <code>bootstrap</code> <code>setup</code> <code>update</code> <code>server</code> <code>test</code> <code>lint</code> <code>cibuild</code> <code>deploy</code>. A contributor, an automated agent, or CI can <code>script/setup</code> and <code>script/test</code> <em>any</em> loom-managed project without learning its bespoke tooling. This check recognizes the convention, surfaces missing/half-wired canonical scripts as per-script verdicts, and feeds the skill's scaffold + <code>.deploy</code>-migration offers.</li>
+<li><strong>Directory recognizer — BOTH names accepted.</strong> A project "has the <code>script/</code> convention" iff it carries a <code>script/</code> (singular, the canonical GitHub spelling and the loom default) OR a <code>scripts/</code> (plural, tolerated for projects that already use that name) directory. Probe <code>&lt;root&gt;/script/</code> first, then <code>&lt;root&gt;/scripts/</code>; the first present dir is the recognized convention dir. EITHER name is accepted — new projects should prefer singular <code>script/</code>, but the recognizer treats both equivalently. Neither present → the convention is not recognized for this project (no canonical scripts to compare against).</li>
+<li><strong>Per-script gap classifier.</strong> For each of the 8 canonical scripts <code>&lt;s&gt;</code> under the recognized dir <code>&lt;d&gt;</code>:</li>
+<li><strong>PASS</strong> = <code>&lt;d&gt;/&lt;s&gt;</code> exists AND is executable AND is wired (NOT the unedited <code>exit 2</code> "not implemented" stub <code>templates/scripts/</code> ships — a stub that still prints "not implemented" counts as not-ready, NOT as PASS, so a half-wired project never looks healthy).</li>
+<li><strong>WARN</strong> = <code>&lt;d&gt;/&lt;s&gt;</code> exists but is non-executable, OR is still the unedited <code>exit 2</code> stub (present-but-not-ready).</li>
+<li><strong>MISS</strong> = <code>&lt;d&gt;/&lt;s&gt;</code> is absent.
+  Render one verdict line per canonical script (or a compact roll-up naming the PASS/WARN/MISS sets). When NO <code>script/</code> or <code>scripts/</code> dir exists at all, render a single INFO line ("no <code>script/</code> convention dir — <code>/audit-project</code> can scaffold the canonical 8-script skeleton from <code>templates/scripts/</code>") rather than 8 MISS lines.</li>
+<li><strong>Scaffold offer (read-only here; the skill drives the write).</strong> When ≥1 canonical script is MISS (or the whole dir is absent), point the suggested-fix line at the skill's scaffold offer: the skill OFFERS to copy the missing scripts from <code>templates/scripts/</code> into the project's <code>script/</code> dir (per-file y/N, never silent). You only REPORT the gap and name <code>templates/scripts/</code> as the scaffold source; the <code>audit-project</code> skill (Step 9) owns the interactive offer + the copy.</li>
+<li><strong><code>.deploy</code> → <code>canonical_commands.deploy</code> migration candidacy.</strong> Read <code>&lt;root&gt;/.claude/workflow.json</code>'s <code>.deploy</code> (the loom-0k0 wrap-up deploy hint) and <code>&lt;root&gt;/.claude/project-constitution.md</code>'s <code>canonical_commands.deploy</code> (the loom-oxs.3 schema field). When <code>.deploy</code> is a non-empty string AND <code>canonical_commands.deploy</code> is empty/unset, report a MIGRATE candidacy — the audit-project skill (Step 9) OFFERS to copy the <code>.deploy</code> value into <code>canonical_commands.deploy</code> so <code>script/deploy</code> (the executable home for the deploy step) and the constitution's declarative pointer agree. When both are set, or <code>.deploy</code> is empty, it is a NOOP (nothing to migrate). The migration is suggest-only; the skill never writes without per-item approval.</li>
+<li><strong>Verdict matrix (roll-up):</strong></li>
+<li>PASS = the <code>script/</code>-convention dir exists AND all 8 canonical scripts are PASS AND no <code>.deploy</code> migration is pending, OR a skip memo for <code>script-convention</code> exists in <code>.claude/loom-audit-state.json</code>.</li>
+<li>WARN = the dir exists but ≥1 canonical script is WARN/MISS, OR a <code>.deploy</code> migration is pending.</li>
+<li>INFO = no <code>script/</code> or <code>scripts/</code> dir at all (scaffold-the-whole-skeleton offer).</li>
+<li><strong>No AUTOFIX tag</strong> — both fixes are interactive offers the skill drives (per-file scaffold y/N; per-candidate <code>.deploy</code> migration y/N/skip), not deterministic one-command remediations. The skill owns the prompt loop and the writes; the onboarder only reports the verdict. The <code>script-convention</code> skip memo (written by the skill on a <code>skip</code> answer) suppresses the row on future runs.</li>
+<li>Embed the recognized dir name (<code>script</code> or <code>scripts</code>) and the per-script PASS/WARN/MISS roll-up in the report so the user can see exactly which scripts need wiring.</li>
+<li>Lineage: loom-oxs.4 (2026-06-09), umbrella epic loom-oxs (the <code>script/</code> convention). Canonical skeleton: loom-oxs.1 (<code>templates/scripts/</code>). Resolver: loom-oxs.2 (<code>lib/loom-script-resolve.sh</code>, <code>loom_resolve_command</code>). <code>canonical_commands.deploy</code> schema field: loom-oxs.3. Design: the loom-adm <code>script/</code>-convention decision drawer.</li>
+</ul>
+</li>
+</ol>
+<h3 id="output-format">Output format<a class="headerlink" href="#output-format" title="Permanent link">&para;</a></h3>
+<p>Cap at 250 lines; one blank line between items.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gh"># Project audit: &lt;project-short-name&gt;</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Resolved palace: <span class="sb">`&lt;path&gt;`</span> (from mempalace_status)
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>Resolved branch: <span class="sb">`&lt;branch&gt;`</span> · uncommitted: <span class="sb">`&lt;count&gt;`</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="gu">## Checklist</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">1.</span> <span class="gs">**Git repo + branch hygiene**</span> — &lt;PASS|WARN|MISS&gt;
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">   </span><span class="k">-</span><span class="w"> </span>&lt;one-sentence rationale&gt;
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">   </span><span class="k">-</span><span class="w"> </span>Suggested fix (if not PASS): &lt;one-line&gt;
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>(... continue through item 23; item 20 only under --check=constitution ...)
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="gu">## Summary</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>PASS: N · WARN: N · MISS: N
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>Top 3 gaps to fix first (most blocking → least): &lt;ordered short list&gt;
+</code></pre></div>
+<h4 id="autofix-tags-on-suggested-fix-lines">AUTOFIX tags on suggested-fix lines<a class="headerlink" href="#autofix-tags-on-suggested-fix-lines" title="Permanent link">&para;</a></h4>
+<p>For deterministic one-command remediations (items 3, 4, 11, 16), interactive-handoff items (17, 18), and the item-12 duplicate-hook resolution paths (loom-jnn), append <code>[AUTOFIX:&lt;recipe-id&gt;]</code> to the suggested-fix line so the <code>audit-project</code> skill's <code>--apply-onboarding</code> flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 <code>bd init</code>, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:</p>
+<ul>
+<li><code>bd-hooks</code> — item 3 MISS, runs <code>bd hooks install</code> + the absorbing commit two-step (loom-cka).</li>
+<li><code>workflow-json</code> — item 4 MISS, writes <code>{"v":1,"mode":"full"}</code> to <code>&lt;root&gt;/.claude/workflow.json</code>.</li>
+<li><code>gitignore-worktrees</code> — item 11 INFO, appends <code>.claude/worktrees/</code> AND <code>.claude/workflow-state.json</code> to <code>&lt;root&gt;/.gitignore</code> (independently idempotent per line; loom-tat folded the second line in 2026-05-15).</li>
+<li><code>loom-env-block</code> — item 16 WARN/MISS, deep-merges the canonical loom env block (<code>CLAUDE_CODE_ENABLE_TASKS=false</code>, <code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code>) into <code>&lt;root&gt;/.claude/settings.json</code>, overwriting only those two keys and preserving every other key. Writes <code>.claude/settings.json.pre-loom.bak</code> on first overwrite. Idempotent (loom-7ro).</li>
+<li><code>loom-upstream-gc-handoff</code> — item 17 INFO, handoff to <code>/loom-upstream-gc</code> for interactive orphan-clone prune. Recipe prints the handoff message rather than pruning directly — actual removal is per-clone y/N gated inside the slash command (loom-k2g).</li>
+<li><code>gh-auth-prompt</code> — item 18 WARN, handoff to interactive <code>gh auth login</code>. Recipe prints the login instruction rather than attempting the OAuth flow inside the audit (loom-k2g).</li>
+<li><code>dedup-hook-skip-worktree</code> — item 12 WARN, the DEFAULT duplicate-hook resolution. Per-user, reversible: <code>git update-index --skip-worktree</code> the tracked <code>.claude/settings.json</code>, strip the dup hook locally, log the recovery snippet to <code>.claude/loom-audit-state.json</code>. Never touches shared content (loom-jnn).</li>
+<li><code>dedup-hook-commit</code> — item 12 WARN, the opt-in duplicate-hook resolution. Removes the dup from the tracked <code>.claude/settings.json</code> and commits — gated behind an explicit y/N confirmation the skill drives (it changes shared content, so the binary apply shape doesn't fit). Never auto-applies without the typed <code>y</code> (loom-jnn).</li>
+</ul>
+<p>Example shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>   - Suggested fix: run `bd hooks install`, then absorb the export
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>     queue with `git add .beads/issues.jsonl &amp;&amp; git commit -m &quot;bd:
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>     post-install export sync&quot;` (loom-cka). [AUTOFIX:bd-hooks]
+</code></pre></div>
+<p>Skill parses with literal-substring match — keep on a single line, single-bracketed, exactly <code>[AUTOFIX:&lt;id&gt;]</code>.</p>
+<h3 id="do-not">Do NOT<a class="headerlink" href="#do-not" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Run <code>bd init</code>, <code>bd hooks install</code>, <code>mempalace_*</code> writes, or any file write. Read-only.</li>
+<li>Propose template content for missing files. Main agent owns templates.</li>
+<li>Draft or propose <code>.claude/rules/&lt;x&gt;.md</code> CONTENT for item 7 (loom-d50). Rule text encodes project conventions — the human authors it. Report the gap as a MISS suggesting an empty <code>[HUMAN AUTHOR]</code> stub scaffold; never author the rule content and never tag it <code>[AUTOFIX:...]</code>.</li>
+<li>Run pytest or any project test suite.</li>
+<li>Exceed 250 lines of output.</li>
+</ul>
+<!-- END INCLUDE -->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.action.edit"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,6647 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Workflow infrastructure for Claude Code — beads + MemPalace + superpowers + beadpowers woven into one disciplined developer workflow.">
+      
+      
+      
+        <link rel="canonical" href="https://fkberthold.github.io/loom/reference/skills/bead-lifecycle-shell/">
+      
+      
+        <link rel="prev" href="../audit-project/">
+      
+      
+        <link rel="next" href="../bugfix-a-bead/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>bead-lifecycle-shell - loom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#bead-lifecycle-shell" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="loom" class="md-header__button md-logo" aria-label="loom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            loom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              bead-lifecycle-shell
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fkberthold/loom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fkberthold/loom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../how-to/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  How-to
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../explanation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="loom" class="md-nav__button md-logo" aria-label="loom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    loom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fkberthold/loom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fkberthold/loom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/bug-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bug walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/feature-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/design-cycle-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design-cycle walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install loom
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/open-a-session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/open-a-design-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a design cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/claim-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claim a bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/run-dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run the dispatch-middle pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/finish-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finish a bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/stop-a-session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stop a session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/bypass-workflow-ceremony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bypass workflow ceremony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/guest-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use guest mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/where-to-update-what/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where to update what
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/scaffold-managed-project-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaffold a managed project's docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/author-project-constitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Author a project constitution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/adopt-a-brownfield-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adopt a brownfield project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/contribute-upstream/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribute a fix upstream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/recover-from-dispatch-crash/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recover from a dispatch crash
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/resync-managed-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resync a managed project's conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../how-to/common-scenarios/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common scenarios
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_18" id="__nav_3_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common scenarios
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/new-bug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New bug
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/parallel-bugs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parallel bugs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/exploratory-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exploratory work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/find-prior-art/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Find prior art
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/debug-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debug workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/tweak-a-hook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tweak a hook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/common-scenarios/add-path-rule/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a path-scoped rule
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installed-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installed files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Skills
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../audit-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    audit-project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bead-lifecycle-shell
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bead-lifecycle-shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bead-lifecycle-shell-cross-activity-scaffolding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bead Lifecycle Shell — Cross-Activity Scaffolding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bead Lifecycle Shell — Cross-Activity Scaffolding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skip-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skip when
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-modes-v15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow modes (v1.5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-updates-mandatory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage updates (MANDATORY)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-lifecycle-visual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The lifecycle (visual)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-a-pre-middle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase A — PRE-MIDDLE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase A — PRE-MIDDLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-search-mempalace-for-the-bug-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A1. Search MemPalace for the bug family
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-claim-and-optionally-isolate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2. Claim and (optionally) isolate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a25-seam-scan-parallelizable-siblings-loom-z3m5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2.5 Seam scan — parallelizable siblings? (loom-z3m.5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variable-middle-return-to-the-activity-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VARIABLE MIDDLE — return to the activity recipe
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="VARIABLE MIDDLE — return to the activity recipe">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dispatch-discipline-central-orchestrates-a-pipeline-loom-6bv1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dispatch discipline — central orchestrates a pipeline (loom-6bv1)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dispatch discipline — central orchestrates a pipeline (loom-6bv1)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#brief-templates-delegated-to-dispatch-middle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brief templates — delegated to /dispatch-middle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-dispatch-decision-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-dispatch decision rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-ownership-who-runs-what" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase ownership (who runs what)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mid-recipe-branchpoint-new-failure-mode-tdd-detour-loom-z3m6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mid-recipe branchpoint — NEW failure mode → TDD detour (loom-z3m.6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-b-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase B — VERIFICATION
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase B — VERIFICATION">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b1-verification-before-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B1. Verification before completion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-c-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase C — INTEGRATION
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase C — INTEGRATION">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#c1-per-task-code-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C1. (Per task) Code review
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c2-commit-on-the-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C2. Commit on the branch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c3-finish-the-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C3. Finish the branch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-d-closeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase D — CLOSEOUT
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase D — CLOSEOUT">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-bd-preflight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1. bd preflight
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d1b-docs-serving-check-full-diataxis-projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1b. Docs SERVING check (full-Diataxis projects)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-close-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2. Close + push
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-capture-the-decision-in-mempalace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3. Capture the decision in MemPalace
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-activity-recipes-reference-the-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How activity recipes reference the shell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decision-parallel-vs-sequential" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision: parallel vs sequential
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision: parallel vs sequential">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#across-bead-when-2-beads-are-unblocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Across-bead — when 2+ beads are unblocked
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#within-bead-when-m-steps-are-independent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Within-bead — when M-steps are independent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure-modes-concrete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure modes (concrete)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#related-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related infrastructure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bugfix-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bugfix-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cleanup-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cleanup-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design-a-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    design-a-cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-middle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docs-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docs-scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    explore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feature-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    feature-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-adopt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-adopt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-mine-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../refactor-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    refactor-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../research-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    research-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../session-startup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    session-startup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../upstream-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../all-skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All skills (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../slash-commands/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slash commands
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Slash commands
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/audit-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /audit-project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/bugfix-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /bugfix-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/check-loom-upstream/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /check-loom-upstream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/check-upstream-prs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /check-upstream-prs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/cleanup-orphans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /cleanup-orphans
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design-a-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    design-a-cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-middle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/docs-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /docs-scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    explore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/lineage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /lineage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-adopt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-adopt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/loom-guest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /loom-guest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-mine-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/loom-upstream-gc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /loom-upstream-gc
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/research-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /research-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../upstream-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/working-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /working-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/wrap-up/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /wrap-up
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slash-commands/all-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All commands (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../subagents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Subagents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_5" id="__nav_4_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Subagents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../subagents/bug-family-researcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bug-family-researcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../subagents/drawer-author/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    drawer-author
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../subagents/kg-relationship-extractor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    kg-relationship-extractor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../subagents/project-onboarder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project-onboarder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../subagents/all-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All subagents (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../hooks/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hooks
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_6" id="__nav_4_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/bd-claim-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-claim-research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/bd-close-capture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-close-capture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/bd-preflight-docs-strict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-preflight-docs-strict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-prime-wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-prime-wrapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-remember-guest-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-remember-guest-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-worktree-preseed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-worktree-preseed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../constitution-enforce-hook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constitution-enforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/context-budget-sensor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    context-budget-sensor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cwd-drift-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cwd-drift-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/dispatch-nudge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-nudge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/edit-after-failure-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edit-after-failure-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../edit-write-pwd-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edit-write-pwd-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/git-push-bd-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    git-push-bd-sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/loom-drift-nudge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-drift-nudge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/post-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    post-rewrite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/pre-push-mkdocs-strict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pre-push-mkdocs-strict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pytest-tempdir-prune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pytest-tempdir-prune
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/skill-redirect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    skill-redirect
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/workflow-mode-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    workflow-mode-onboarding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/worktree-bg-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    worktree-bg-inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hooks/all-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All hooks (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_7" id="__nav_4_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helper scripts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Helper scripts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../helper-scripts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helper scripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-print-deploy-hint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-print-deploy-hint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-rebase-worktree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-rebase-worktree
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-subagent-lean/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-subagent-lean
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-worktree-python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-worktree-python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Templates & conventions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Templates & conventions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design-doc-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design-doc template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-constitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project constitution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../script-convention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    script/ convention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../path-scoped-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path-scoped rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../upstream-loom-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream:loom label
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs-scaffold-fixme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DOCS-SCAFFOLD-FIXME sentinels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../convention-drift-detector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Downstream convention-drift detector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas & internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Schemas & internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    workflow.json schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-state-integrity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-state integrity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../loom-env-vars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loom env vars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decision-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_10" id="__nav_4_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External tools & Claude Code harness
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    External tools & Claude Code harness
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bd-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mempalace-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemPalace MCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../claude-code-hook-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code hook layering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../claude-code-hook-semantics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code hook semantics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../explanation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Explanation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/mental-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mental model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/recipe-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipe family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/workflow-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/gate-dont-advise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate, don't advise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../explanation/provenance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provenance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bead-lifecycle-shell-cross-activity-scaffolding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bead Lifecycle Shell — Cross-Activity Scaffolding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bead Lifecycle Shell — Cross-Activity Scaffolding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#skip-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skip when
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-modes-v15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow modes (v1.5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-updates-mandatory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage updates (MANDATORY)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-lifecycle-visual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The lifecycle (visual)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-a-pre-middle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase A — PRE-MIDDLE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase A — PRE-MIDDLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-search-mempalace-for-the-bug-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A1. Search MemPalace for the bug family
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-claim-and-optionally-isolate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2. Claim and (optionally) isolate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a25-seam-scan-parallelizable-siblings-loom-z3m5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2.5 Seam scan — parallelizable siblings? (loom-z3m.5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variable-middle-return-to-the-activity-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VARIABLE MIDDLE — return to the activity recipe
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="VARIABLE MIDDLE — return to the activity recipe">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dispatch-discipline-central-orchestrates-a-pipeline-loom-6bv1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dispatch discipline — central orchestrates a pipeline (loom-6bv1)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dispatch discipline — central orchestrates a pipeline (loom-6bv1)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#brief-templates-delegated-to-dispatch-middle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brief templates — delegated to /dispatch-middle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-dispatch-decision-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-dispatch decision rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-ownership-who-runs-what" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase ownership (who runs what)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mid-recipe-branchpoint-new-failure-mode-tdd-detour-loom-z3m6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mid-recipe branchpoint — NEW failure mode → TDD detour (loom-z3m.6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-b-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase B — VERIFICATION
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase B — VERIFICATION">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b1-verification-before-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B1. Verification before completion
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-c-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase C — INTEGRATION
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase C — INTEGRATION">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#c1-per-task-code-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C1. (Per task) Code review
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c2-commit-on-the-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C2. Commit on the branch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c3-finish-the-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C3. Finish the branch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-d-closeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase D — CLOSEOUT
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase D — CLOSEOUT">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-bd-preflight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1. bd preflight
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d1b-docs-serving-check-full-diataxis-projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1b. Docs SERVING check (full-Diataxis projects)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-close-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2. Close + push
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-capture-the-decision-in-mempalace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3. Capture the decision in MemPalace
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-activity-recipes-reference-the-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How activity recipes reference the shell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decision-parallel-vs-sequential" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision: parallel vs sequential
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision: parallel vs sequential">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#across-bead-when-2-beads-are-unblocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Across-bead — when 2+ beads are unblocked
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#within-bead-when-m-steps-are-independent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Within-bead — when M-steps are independent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure-modes-concrete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure modes (concrete)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#related-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related infrastructure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/fkberthold/loom/edit/main/docs/reference/skills/bead-lifecycle-shell.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="bead-lifecycle-shell">bead-lifecycle-shell<a class="headerlink" href="#bead-lifecycle-shell" title="Permanent link">&para;</a></h1>
+<!-- GENERATED by scripts/loom-docs-gen — DO NOT EDIT. Edit the source primitive, then rerun the generator. -->
+
+<!-- BEGIN INCLUDE ../../../skills/bead-lifecycle-shell/SKILL.md -->
+<hr />
+<p>name: bead-lifecycle-shell
+description: Cross-activity lifecycle scaffolding for working a beads issue from claim to merged. Owns MemPalace bug-family search, claim, optional worktree, verification, commit, finishing-a-development-branch, preflight + close + push, and decision drawer + KG triples + diary capture. Each activity recipe (bugfix-a-bead, feature-a-bead, refactor-a-bead, research-a-bead, etc.) references the lettered phases below and supplies its own VARIABLE MIDDLE between phase B and phase C. Internal building block — invoked indirectly via an activity recipe, not directly by the user.</p>
+<hr />
+<h2 id="bead-lifecycle-shell-cross-activity-scaffolding">Bead Lifecycle Shell — Cross-Activity Scaffolding<a class="headerlink" href="#bead-lifecycle-shell-cross-activity-scaffolding" title="Permanent link">&para;</a></h2>
+<p>The lifecycle steps that surround any bead work — search, claim,
+isolate, verify, commit, close, capture — are the same regardless of
+what activity sits in the middle. This skill owns those steps. Each
+activity recipe (bugfix / feature / refactor / research / cleanup /
+docs) references the phases here and only specifies its own VARIABLE
+MIDDLE between phase B and phase C.</p>
+<p>The shell is an internal building block — activity recipes call into
+it by reference; the user (and the router) never invoke it directly.
+Triggering: an activity recipe (or the <code>/working-a-bead</code> router that
+picks one) cites this skill in its body and instructs you to follow
+specific phases. If the Skill tool ever surfaces the shell directly
+(via auto-discovery against the description), decline — start at an
+activity recipe instead and let it cite the shell phases by letter.</p>
+<h3 id="when-to-use">When to use<a class="headerlink" href="#when-to-use" title="Permanent link">&para;</a></h3>
+<p>You are reading this because an activity recipe pointed you here. Run
+the cited phase(s) verbatim, write the mandated stage transitions,
+then return to the activity recipe to execute the variable middle.</p>
+<h3 id="skip-when">Skip when<a class="headerlink" href="#skip-when" title="Permanent link">&para;</a></h3>
+<p>An activity recipe MAY skip phase A2 (worktree) for trivial fixes (≤ 1
+line, well-understood) or for user-global edits where there is no
+project worktree to create (the jnd / bmi precedent). Activity recipes
+MUST NOT skip phases A1 (MemPalace search) or D (capture); skipping
+those breaks the cross-session memory loop the workflow is designed
+around.</p>
+<p>The shell is not used for spikes or pure exploratory work — those
+should run <code>superpowers:brainstorming</code> (or <code>beadpowers:brainstorming</code>)
+until they yield a concrete bead.</p>
+<h3 id="workflow-modes-v15">Workflow modes (v1.5)<a class="headerlink" href="#workflow-modes-v15" title="Permanent link">&para;</a></h3>
+<p>The shell respects three workflow modes resolved from
+<code>&lt;project&gt;/.claude/workflow.json</code> <code>.mode</code> (env <code>CLAUDE_WORKFLOW_OFF=1</code>
+forces <code>off</code>). Check the resolved mode at the START of phase A via
+<code>~/.claude/scripts/workflow-state mode</code>:</p>
+<ul>
+<li><strong>full</strong> — run every phase as written.</li>
+<li><strong>light</strong> — emit a one-line warning (<code>workflow mode is light;
+  recipe ceremony reduced — TDD/review optional, drawer-capture still
+  recommended</code>), then continue. Phase D (capture) stays recommended,
+  not mandatory.</li>
+<li><strong>off</strong> — REFUSE. Print: <code>workflow mode is off; the recipe skill is
+  disabled for this project. Bypass via CLAUDE_WORKFLOW_OFF=0 env or
+  edit &lt;project&gt;/.claude/workflow.json. To work the bead anyway, drive
+  it manually.</code> Stop.</li>
+</ul>
+<p>The <code>bd-claim-research</code> hook auto-skips in light/off; the
+<code>bd-close-capture</code> hook never blocks in light/off. The status line
+suppresses output entirely in off.</p>
+<h3 id="stage-updates-mandatory">Stage updates (MANDATORY)<a class="headerlink" href="#stage-updates-mandatory" title="Permanent link">&para;</a></h3>
+<p>The shared state file at <code>&lt;project&gt;/.claude/workflow-state.json</code>
+exposes recipe progress to the status line and to future cold-start
+sessions. Stage writes are NOT optional in this shell — every phase
+boundary below MUST call:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>~/.claude/scripts/workflow-state<span class="w"> </span><span class="nb">set</span><span class="w"> </span><span class="nv">stage</span><span class="o">=</span>&lt;stage&gt;
+</code></pre></div>
+<p>Hooks reliably write <code>stage=claim</code> (on <code>bd update --claim</code>) and
+<code>stage=close</code> (on <code>bd close</code>). Every other stage transition is yours
+to write at the moment the phase boundary is crossed. The <code>updated</code>
+timestamp on the status line makes staleness visible: a stale stage
+is a sign the shell discipline broke down.</p>
+<p>Stage map:</p>
+<table>
+<thead>
+<tr>
+<th>Phase boundary</th>
+<th>Stage to write</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entering A1 (MemPalace search)</td>
+<td><code>research</code></td>
+</tr>
+<tr>
+<td>After A2 (claimed + isolated)</td>
+<td><code>claim</code> (hook-written; verify it stuck)</td>
+</tr>
+<tr>
+<td>Entering the activity's first verification step</td>
+<td><code>verify</code></td>
+</tr>
+<tr>
+<td>Entering C2 (commit)</td>
+<td><code>commit</code></td>
+</tr>
+<tr>
+<td>After D2 (closed + pushed)</td>
+<td><code>close</code> (hook-written; verify it stuck)</td>
+</tr>
+<tr>
+<td>Entering D3 (drawer + KG + diary)</td>
+<td><code>wrap-up</code></td>
+</tr>
+</tbody>
+</table>
+<p>Activity recipes add their own intermediate stages to this map (e.g.,
+<code>tdd-red</code>, <code>tdd-green</code>, <code>review</code>, <code>characterization</code>, <code>synthesizing</code>).
+Recipes are the source of truth for stages that name an activity-
+specific step; the shell only mandates the boundary stages above.</p>
+<p><strong>Failure mode:</strong> if the status line shows a stage that hasn't
+matched reality for &gt;10 minutes, the shell discipline broke. Read the
+current <code>workflow-state.json</code>, advance the stage to where work
+actually is, and continue.</p>
+<h3 id="the-lifecycle-visual">The lifecycle (visual)<a class="headerlink" href="#the-lifecycle-visual" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>                bead chosen (from session-startup or /working-a-bead)
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                            ↓
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>            ╔═══════════════════════════════════════╗
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>            ║ PHASE A — PRE-MIDDLE (shell owns)     ║
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>            ║   A1. MemPalace bug-family search     ║
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>            ║   A2. claim + (optional) worktree     ║
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>            ╚═══════════════════════════════════════╝
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                            ↓
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>            ┌───────────────────────────────────────┐
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>            │ VARIABLE MIDDLE (activity recipe owns)│
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            │   bugfix:   debug → RED → GREEN →     │
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>            │             bug-class → full-suite    │
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>            │   feature:  brainstorm → spec → TDD   │
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>            │             on new contract → wire    │
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>            │   refactor: characterization tests →  │
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>            │             restructure → preserve    │
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>            │   research: define → search →         │
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>            │             synthesize → file         │
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>            │   cleanup:  scope → remove → verify   │
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>            │   docs:     gap → draft → review      │
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>            └───────────────────────────────────────┘
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>                            ↓
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>            ╔═══════════════════════════════════════╗
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>            ║ PHASE B — VERIFICATION (shell owns)   ║
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>            ║   B1. verification-before-completion  ║
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>            ╚═══════════════════════════════════════╝
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>                            ↓
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>            ╔═══════════════════════════════════════╗
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>            ║ PHASE C — INTEGRATION (shell owns)    ║
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>            ║   C1. (per task) requesting-code-rev. ║
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>            ║   C2. commit on branch                ║
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>            ║   C3. finishing-a-development-branch  ║
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>            ╚═══════════════════════════════════════╝
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>                            ↓
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>            ╔═══════════════════════════════════════╗
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>            ║ PHASE D — CLOSEOUT (shell owns)       ║
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>            ║   D1. bd preflight                    ║
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>            ║   D2. bd close + dolt push + git push ║
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>            ║   D3. drawer + KG triples + diary     ║
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>            ╚═══════════════════════════════════════╝
+</code></pre></div>
+<h3 id="phase-a-pre-middle">Phase A — PRE-MIDDLE<a class="headerlink" href="#phase-a-pre-middle" title="Permanent link">&para;</a></h3>
+<p>Set stage <code>research</code> at the start of A1.</p>
+<h4 id="a1-search-mempalace-for-the-bug-family">A1. Search MemPalace for the bug family<a class="headerlink" href="#a1-search-mempalace-for-the-bug-family" title="Permanent link">&para;</a></h4>
+<p>BEFORE claiming, search for prior decision drawers that share the
+bead's shape. This is the step most often skipped — and the step that
+on 2026-05-02 caught the huu.15.2 lineage which reshaped the 0qw fix
+mid-design. Concrete query patterns by activity:</p>
+<ul>
+<li><strong>Bug:</strong> <code>mempalace_search "&lt;symptom&gt; &lt;area&gt;"</code> plus
+  <code>mempalace_kg_query("&lt;entity-name&gt;")</code> for any entity in the bead.
+  Look for sibling fixes; if one exists, restate the design in terms
+  of that lineage BEFORE writing tests or code.</li>
+<li><strong>Feature:</strong> search for prior architectural decisions in the same
+  area; the family is "design conventions for <area>" rather than
+  "previous bugs."</li>
+<li><strong>Refactor:</strong> search for the original decision that introduced the
+  shape being refactored — preserving its intent matters.</li>
+<li><strong>Research:</strong> search the palace first; the answer often already
+  exists. The <code>bug-family-researcher</code> subagent does this well.</li>
+<li><strong>Project tribal knowledge:</strong> <code>bd memories &lt;keyword&gt;</code> for one-line
+  facts that auto-inject at <code>bd prime</code> time.</li>
+</ul>
+<p>The PreToolUse hook on <code>bd update --claim</code> automatically dispatches
+the <code>bug-family-researcher</code> subagent (see
+<code>~/.claude/agents/bug-family-researcher.md</code>). If you have already done
+the search inline before claiming, the hook output is informational
+overlap — fine, not blocking.</p>
+<h4 id="a2-claim-and-optionally-isolate">A2. Claim and (optionally) isolate<a class="headerlink" href="#a2-claim-and-optionally-isolate" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>bd<span class="w"> </span>update<span class="w"> </span>&lt;id&gt;<span class="w"> </span>--claim
+</code></pre></div>
+<p>This fires the <code>bd-claim-research</code> hook and writes <code>stage=claim</code>.</p>
+<p>For project-side code changes, invoke
+<code>superpowers:using-git-worktrees</code> to create <code>.worktrees/&lt;bead&gt;</code> on
+<code>frank/&lt;bead&gt;</code> branch from <code>main</code>. One bead = one worktree = one
+branch.</p>
+<p><strong>Skip the worktree</strong> for:
+- Trivial fixes (≤ 1 line) where overhead exceeds value.
+- User-global edits (files under <code>~/.claude/</code>) — there is no project
+  worktree to create. The jnd / bmi precedent: commit user-global
+  changes from the project root or wherever convenient; only the bead
+  state changes appear in the project repo.</p>
+<p>If you skip A2, note the reason in the closing decision drawer.</p>
+<h4 id="a25-seam-scan-parallelizable-siblings-loom-z3m5">A2.5 Seam scan — parallelizable siblings? (loom-z3m.5)<a class="headerlink" href="#a25-seam-scan-parallelizable-siblings-loom-z3m5" title="Permanent link">&para;</a></h4>
+<p>After the claim resolves (and after the optional worktree is set
+up), run the seam scan as a one-line sanity check:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>~/.claude/scripts/loom-seam-scan<span class="w"> </span>&lt;claimed-bead-id&gt;
+</code></pre></div>
+<p>The script reads <code>bd ready --json</code>, finds sibling beads (same parent
+epic) whose extracted file-paths are disjoint from the claimed bead
+and from each other, writes the count to <code>workflow-state.json</code>
+under <code>parallel_candidates</code>, and emits one of:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Parallelizable: none.
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Parallelizable: N candidates (loom-foo, loom-bar).
+</code></pre></div>
+<p>The statusline picks the count up and shows <code>PAR:N</code> when <code>N &gt; 0</code>.
+<strong>When N &gt; 0, mandatorily invoke <code>superpowers:dispatching-parallel-
+agents</code> before the variable middle begins</strong> — the recipe's middle
+then runs once per dispatched bead in parallel. When N = 0, proceed
+sequentially through the variable middle as usual.</p>
+<p>The heuristic is conservative — it extracts path-shaped tokens
+(<code>*.md</code>, <code>*.sh</code>, <code>*.py</code>, etc.) from each bead's design + description
++ notes text because <code>bd show</code> exposes no structured file list. A
+bead that mentions only directories will look "disjoint" against
+everything; trust your judgment when reading the candidate list,
+the value of the scan is the ritualized prompt, not a hard gate.</p>
+<p>Skip the scan when phase A2 was skipped entirely (the trivial-fix
+and user-global precedents above). Document the skip in the closing
+drawer if it shaped the integration plan.</p>
+<h3 id="variable-middle-return-to-the-activity-recipe">VARIABLE MIDDLE — return to the activity recipe<a class="headerlink" href="#variable-middle-return-to-the-activity-recipe" title="Permanent link">&para;</a></h3>
+<p>Hand control back to the activity recipe that pointed you here. The
+recipe specifies the steps and stages between phase A and phase B.
+When the recipe finishes its middle, return here for phase B.</p>
+<h4 id="dispatch-discipline-central-orchestrates-a-pipeline-loom-6bv1">Dispatch discipline — central orchestrates a pipeline (loom-6bv1)<a class="headerlink" href="#dispatch-discipline-central-orchestrates-a-pipeline-loom-6bv1" title="Permanent link">&para;</a></h4>
+<p>Dispatch discipline (uniform across all recipes): the variable middle
+is dispatched, never typed in the central thread. <strong>The DEFAULT is
+<code>/dispatch-middle</code></strong> — it runs the middle as a pipeline of INDEPENDENT
+subagents, <strong>each in its OWN <code>isolation: "worktree"</code></strong> (the <code>Agent</code>
+tool auto-names them; there is no single shared worktree): the
+<strong>test-author THEN implementer (DIFFERENT agents)</strong>, with an optional
+verifier. The test-author writes the RED test and commits it; the
+implementer inherits that test as an ARTIFACT relayed over the
+content-bridge — the verbatim test content, never the author's
+reasoning, mind, or conversation — and makes it GREEN. Because the
+two roles are different agents, the test-author == code-author
+anti-pattern is solved by construction. <strong>Central writes NOTHING in
+the middle</strong> — no test, no
+line of code: it invokes <code>/dispatch-middle &lt;bead&gt;</code> once and hands back
+for integration. (This supersedes the old loom-yb5 model where one
+worker covered the full RED→GREEN in a single dispatch; the split into
+two independent agents is the v2 change.) Do NOT use
+Edit/Write/MultiEdit yourself between bead-claim and bead-close. While
+the pipeline runs: answer user questions, pre-stage the next bead, or
+revise the contract — but do NOT start parallel code-work in the
+central session. The pipeline returns; you integrate; you re-dispatch
+only on surprises.</p>
+<p><strong>The sharpened central/worker line.</strong> Central does ONLY three things:
+<strong>conversation</strong> (executive function + dialogue with the user),
+<strong>contract-lock</strong> (M1 = the genuine user dialogue that pins the bead's
+<code>RED:</code> line / spec / acceptance), and <strong>integration</strong> (verify + merge
++ close + capture — the cwd-sensitive, bd-authoritative steps only
+central can do safely). Everything in between — the <strong>RED-test +
+GREEN-code + research + review</strong> — is worker work, each agent briefed
+with ONLY its MINIMAL scoped slice of context (the locked contract for
+the test-author; the RED-test-as-file for the implementer). Central
+never writes a test or a line of code. See <code>dispatch-middle</code> for the
+pipeline mechanics, the two brief templates, and the context-scoping
+discipline.</p>
+<p><strong>Friction-inversion — why the default flipped (loom-5m94).</strong>
+loom-yb5 was a <em>push</em> (a nudge pressuring toward dispatch); central
+still defaulted to inline because dispatching used to mean
+write-a-brief + wait + verify + merge — high friction. <code>/dispatch-
+middle</code> is the <em>pull</em>: dispatch is now a <strong>single cheap command</strong> that
+runs the whole middle. With friction inverted, <strong>inline's only
+remaining justification is the mechanical threshold</strong> — and even when
+that threshold is met, <strong><code>/dispatch-middle</code> is still preferred</strong>;
+inline is the deliberate exception you reach for, not the comfortable
+default.</p>
+<p><strong>Inline is the explicit, justified EXCEPTION.</strong> Working the variable
+middle inline (central edits directly, no dispatch) is allowed
+<strong>without</strong> justification ONLY when ALL of these hold:</p>
+<ul>
+<li>the change is ≤ ~15 lines, AND</li>
+<li>it touches a single non-test file, AND</li>
+<li>it adds no new test.</li>
+</ul>
+<p>Pure docs/config/prose edits qualify. <strong>Anything with a RED→GREEN
+cycle defaults to <code>/dispatch-middle</code></strong> — no exception waved through on
+"feels trivial" or "contained," and even a change that clears the
+threshold above still prefers <code>/dispatch-middle</code> over inline. Going
+inline on a bead that fails any clause above is a deliberate override:
+record the reason (below) and own it.</p>
+<p><strong>Recording the choice.</strong> Central records the decision in
+<code>workflow-state</code>'s <code>dispatch</code> field (bead loom-0zr): <code>dispatch=worker</code>
+for the <code>/dispatch-middle</code> default, or <code>dispatch=inline:&lt;reason&gt;</code> for
+a justified exception. The dispatch-nudge hook (bead loom-h5s; updated
+in T3 to point at <code>/dispatch-middle</code>) reads this field and prompts when
+a bead with a RED→GREEN-shaped variable middle is about to be worked
+inline without a recorded <code>inline:&lt;reason&gt;</code>.</p>
+<p><strong>Model-tier nudge — test-author ≥ implementer (loom-0ahj.4, D5).</strong>
+When the middle splits into the test-author → implementer pipeline,
+the model TIER is a per-dispatch choice, and the two roles do not
+deserve the same tier. The test-author writes the SPEC — the RED test
+is the <em>ceiling</em> the implementer is gated against (F9, the
+imperfect-test ceiling, arXiv 2411.17501) — so it gets the stronger
+model; the implementer's narrower job (turn that fixed artifact GREEN
+with the minimal change) can run on a cheaper one. <strong>The INVARIANT:
+the test-author's model tier is ≥ the implementer's</strong> — the
+ceiling-setting role is never cheaper than the role gated beneath it
+(the <em>inverted</em> model-tier rule). This is a <strong>default NUDGE, not a
+gate</strong> (loom-yb5, nudge-not-block); pick concrete tiers to fit the
+bead, but keep author ≥ implementer when you split. Tier is chosen
+<strong>per-dispatch, not per-agent-type</strong> — the agent DEFINITION files stay
+<code>model:inherit</code>; central picks the tier on each <code>Agent</code> call. The
+payoff is <strong>validated via Move-3a telemetry</strong> (<code>scripts/loom-stage-
+spend</code>, loom-0ahj.3) — no separate A/B. <code>dispatch-middle</code> owns the
+full rationale, the per-step <code>model:</code> slots (Steps 2/3), and the two
+brief templates; the shell only states the nudge so recipes inherit
+it.</p>
+<p><strong>Dispatch mode — <code>run_in_background: true</code> is the DEFAULT (loom-li8h).</strong>
+Dispatch every pipeline agent with <strong><code>run_in_background: true</code> by
+default</strong>. A foreground dispatch holds central's turn idle until the
+agent returns — central sits and waits, which defeats lean-central. With
+background dispatch, central <strong>yields the turn</strong> on dispatch and
+<strong>resumes on the agent's completion event</strong>, free meanwhile to do the
+"Allowed while the pipeline runs" work below.
+<strong>Foreground is the explicit exception</strong>, reserved for the narrow case
+where the next step is <strong>immediate integration with nothing else
+interleavable</strong> (a single short dispatch central will merge + close the
+instant it lands, with no conversation/planning/staging to fill the
+gap). <code>dispatch-middle</code> owns the full rationale; the shell states the
+default so recipes inherit it.</p>
+<p><strong>Allowed while the pipeline runs (central session):</strong>
+- Answer the user's questions; explain in-flight decisions.
+- Pre-stage the next bead (read its description, surface prior art,
+  draft the next contract — but do not claim it yet).
+- Revise the in-flight contract if the user clarifies intent (capture
+  in a follow-up note for the re-dispatch, do not edit code).
+- Read-only investigation: <code>bd show</code>, <code>git log</code>, MemPalace search.</p>
+<p><strong>Forbidden while the pipeline runs (central session):</strong>
+- Edit, Write, or MultiEdit on any file in the worktree.
+- Parallel code-work on the same bead in the main repo.
+- Closing the bead, merging the branch, or pushing.
+- Starting a second pipeline on the same bead's variable middle.</p>
+<p><strong>Concurrency caution — never two full-suite loops in one repo at once.</strong>
+Backgrounding makes multiple agents in flight cheap, but <strong>never run two
+full-suite loops in the same repo at the same time</strong> — they race on
+shared git/bd state. During the loom-fx9m close detour (2026-06-08) a
+foreground-wait plus the harness auto-backgrounding a long loop produced
+two suite runs racing in one repo; <code>TaskStop</code>'ing the duplicate left
+<strong>orphan <code>bd-post-rewrite</code> grandchild processes</strong> (<code>TaskStop</code> reaps the
+targeted task but may not reap its grandchildren), which kept racing and
+returned a <strong>false <code>63/2</code> suite result</strong>. One suite loop per repo; after
+a <code>TaskStop</code>, confirm no orphan <code>bd-post-rewrite</code> processes survived
+before trusting any suite number.</p>
+<p><strong>MANDATORY — file the decision drawer FIRST as the crash-recovery
+surface (loom-417).</strong> When the variable middle is dispatched (the
+default), the decision drawer is <strong>recipe-mandatory BEFORE the
+dispatch, not deferred to D3</strong> — and its body must be detailed enough
+to <strong>rebuild the implementation from the drawer alone</strong>: the locked
+contract, the <code>RED:</code> spec, the chosen approach, and the file plan. The
+worktree filesystem and bd state are both volatile under an API 529
+overload burst — a mid-flight agent can die with its work stranded in
+an unmerged worktree, and a resume agent can die in ~4s with 0 tool
+uses before it writes anything. The drawer is <strong>the only
+crash-resilient artifact</strong>: it lives in MemPalace, outside the
+worktree and outside bd, so it survives every crash mode. Write it
+first, in prose rich enough that a fresh resume agent (or you, next
+session) can reconstruct the intended change without forensic
+archaeology on a half-finished worktree. This promotes the old
+"file the drawer first" convention to a recipe requirement; the
+drawer at D3 then becomes an <em>update</em> (verification-at-close,
+landing SHAs) of a drawer that already exists, not a from-scratch
+write. See the <strong><code>## API 529 / overload resilience</code></strong> section of
+<code>.claude/rules/dispatched-agents.md</code> for the full DETECT /
+health-probe-before-resume / resume-from-WIP /
+drawer-as-recovery-surface playbook, and the operator how-to
+<code>docs/how-to/recover-from-dispatch-crash.md</code>.</p>
+<h5 id="brief-templates-delegated-to-dispatch-middle">Brief templates — delegated to <code>/dispatch-middle</code><a class="headerlink" href="#brief-templates-delegated-to-dispatch-middle" title="Permanent link">&para;</a></h5>
+<p>The middle's brief templates live in <code>dispatch-middle</code>, not here:
+the <strong>test-author brief</strong> (locked contract + interface under test) and
+the <strong>implementer brief</strong> (RED-test file path + code area). Both
+carry the pre-flight smoke battery (<code>.claude/rules/dispatched-
+agents.md</code>) as the first bash call, run in their OWN auto-named
+<code>isolation: "worktree"</code> (one per agent — not a single shared tree),
+and instruct each agent to <strong>commit on its branch but not
+merge, push, or close — central handles integration</strong>. The shell does
+not duplicate the templates; recipes and central reference
+<code>/dispatch-middle</code> by name and let it own the template shape. Each
+brief gets ONLY its slice of context — no session-history dump.</p>
+<h5 id="re-dispatch-decision-rule">Re-dispatch decision rule<a class="headerlink" href="#re-dispatch-decision-rule" title="Permanent link">&para;</a></h5>
+<p>When the pipeline returns, central reviews the diff + the pipeline's
+summary (RED output, GREEN counts, commit SHAs, any stop-and-report
+flags), then chooses:</p>
+<ul>
+<li><strong>Clean</strong> — verification GREEN, diff matches scope, no surprises.
+  Advance to phase B (verification) and onward to C/D. No
+  re-dispatch.</li>
+<li><strong>Minor polish (≤ 3 lines)</strong> — typo, wording nit, missing
+  citation. Central edits in place. Do not re-run the pipeline for
+  ≤ 3 lines.</li>
+<li><strong>Substantive rework</strong> — wrong design, missed scope, new failure
+  mode surfaced. <strong>Re-brief</strong> a fresh test-author or implementer with
+  the corrected contract. Do not chain edits onto a returned agent's
+  session. If the implementer hit a stop-and-report (the test looked
+  wrong), central resolves the contract dispute — re-lock the contract
+  or re-brief the test-author — rather than letting the implementer
+  weaken the test.</li>
+</ul>
+<p>Central re-runs the activity's verification harness after the pipeline
+returns regardless of which branch above fires — trust-but-verify
+per <code>superpowers:verification-before-completion</code>. The pipeline's
+RED→GREEN counts in the summary are evidence to spot-check, not to
+take on faith.</p>
+<h5 id="phase-ownership-who-runs-what">Phase ownership (who runs what)<a class="headerlink" href="#phase-ownership-who-runs-what" title="Permanent link">&para;</a></h5>
+<ul>
+<li><strong>A1 (bug-family search):</strong> SUBAGENT — <code>bug-family-researcher</code>,
+  auto-dispatched by the <code>bd update --claim</code> PreToolUse hook.</li>
+<li><strong>A2 / A3 (claim + worktree):</strong> CENTRAL — short ceremony, no
+  dispatch needed.</li>
+<li><strong>B (variable middle):</strong> PIPELINE — the test-author→implementer
+  split run via <code>/dispatch-middle</code>, each agent in its OWN auto-named
+  isolation worktree (the RED test crosses between them over the
+  content-bridge, not a shared disk). Central does not Edit/Write
+  here; it invokes once and writes nothing.</li>
+<li><strong>C (commit + finish-branch):</strong> CENTRAL — the pipeline commits on
+  the branch; central reviews, runs phase B verification, then
+  drives <code>superpowers:finishing-a-development-branch</code> for
+  integration.</li>
+<li><strong>D (file outputs):</strong> CENTRAL files; drafting is SUBAGENT work —
+  <code>drawer-author</code> drafts the decision drawer, <code>kg-relationship-
+  extractor</code> drafts the KG triples, central reviews and files
+  through MemPalace MCP tools.</li>
+</ul>
+<h4 id="mid-recipe-branchpoint-new-failure-mode-tdd-detour-loom-z3m6">Mid-recipe branchpoint — NEW failure mode → TDD detour (loom-z3m.6)<a class="headerlink" href="#mid-recipe-branchpoint-new-failure-mode-tdd-detour-loom-z3m6" title="Permanent link">&para;</a></h4>
+<p>While the activity recipe owns the variable middle, the shell
+mandates one cross-cutting reflex inside it: <strong>when a bash tool call
+exits non-zero with a failure mode you have NOT yet seen in this
+bead, suspend the recipe's current step and invoke
+<code>superpowers:test-driven-development</code> BEFORE the next Edit / Write /
+MultiEdit on a non-test file.</strong></p>
+<p>"NEW" means: a test failure, build failure, lint failure, or
+exception surface that wasn't already represented by an existing
+failing test (or characterization test) in this bead. The first
+sighting of a failure mode is the moment to pin it with a RED test;
+each successive sighting then just re-runs the existing test. This
+applies inside ALL six activity middles — bug, feature, refactor,
+research, cleanup, docs — because the failure-then-quick-fix slip
+isn't recipe-specific.</p>
+<p>Concrete sequence at the branchpoint:</p>
+<ol>
+<li>Note the new failure (symptom + reproducer).</li>
+<li>Invoke <code>superpowers:test-driven-development</code>. Write the minimal
+   test that captures the symptom and confirm it goes RED.</li>
+<li>Resume the activity recipe's middle. The Edit that produces the
+   fix or the design change goes GREEN against the just-written
+   test.</li>
+<li>If the failure was actually unrelated to the current bead's
+   scope (e.g. a pre-existing flake the work surfaced incidentally),
+   file a follow-up bead and bypass the guard for this edit. Do not
+   let scope-creep absorb unrelated failures.</li>
+</ol>
+<p><strong>Mechanical backstop.</strong> The <code>hooks/edit-after-failure-guard.sh</code>
+PreToolUse hook (loom-z3m.6) intercepts Edit/Write/MultiEdit when a
+recent Bash tool_result contained test-failure markers AND no test
+file has been touched since. It refuses with a TDD reminder; bypass
+via <code>LOOM_EDIT_AFTER_FAILURE_GUARD_SKIP=1</code> in the rare case where
+the failure is unrelated. The hook is convention-aligned, not
+convention-creating — the branchpoint above is the rule it
+enforces. See
+<a href="../../hooks/edit-after-failure-guard/"><code>docs/reference/hooks/edit-after-failure-guard.md</code></a>.</p>
+<p><strong>Activity-recipe note.</strong> Activity recipes do not need to restate
+this branchpoint in their own bodies; the shell owns it. Recipes
+MAY add activity-specific extensions (e.g. <code>bugfix-a-bead</code> already
+has a "RED before GREEN" prescription in its variable middle —
+that's compatible; the branchpoint just extends the same discipline
+to mid-recipe surprises).</p>
+<h3 id="phase-b-verification">Phase B — VERIFICATION<a class="headerlink" href="#phase-b-verification" title="Permanent link">&para;</a></h3>
+<p>Set stage <code>verify</code> at the start of B1.</p>
+<h4 id="b1-verification-before-completion">B1. Verification before completion<a class="headerlink" href="#b1-verification-before-completion" title="Permanent link">&para;</a></h4>
+<p>Invoke <code>superpowers:verification-before-completion</code>. Re-run the
+activity's verification harness from a clean shell, confirm exact
+counts (test pass/fail counts, lint output, manual smoke results),
+and check <code>git diff --stat</code> matches intended scope. State results
+with evidence in user-facing output BEFORE moving to phase C.</p>
+<p><strong>Doc-surface audit.</strong> After the diff-scope check, walk the docs
+site quickly using the diff itself as the worklist. The published
+site under <code>docs/</code> (Diataxis-shaped, MkDocs Material) pulls primitive
+bodies in via include globs, so most edits propagate automatically.
+What remains manual is the chrome around those includes and the
+prose pages that aren't auto-generated:</p>
+<ol>
+<li><strong>Did the diff touch any primitive</strong> (<code>skills/&lt;name&gt;/SKILL.md</code>,
+   <code>commands/&lt;name&gt;.md</code>, <code>agents/&lt;name&gt;.md</code>, <code>hooks/&lt;name&gt;.sh</code>)? If
+   yes: the docs site auto-picks up the body via include glob —
+   inspect the <em>chrome</em> only. That's the intro paragraph above the
+   include directive on the relevant <code>docs/reference/</code> page, any
+   "shipped in bead X" / version label that should be bumped, and
+   cross-links from Tutorials / How-to / Explanation pages that
+   point at the primitive. Usually 2 lines of text touched, often
+   zero. If nothing needs editing, say so explicitly so the audit
+   leaves a footprint.</li>
+<li><strong>New primitive added or removed?</strong> Auto-handled by the include
+   glob; nothing manual on the reference side. (Removals: see
+   <code>cleanup-a-bead</code> M2 — the orphan-reference grep covers <code>docs/</code>
+   so dead in-doc cross-links to the removed primitive don't
+   linger.)</li>
+<li><strong>Did the diff change user-visible behavior described in
+   non-reference docs</strong> (Tutorials / How-to / Explanation)? If yes,
+   the prose on those pages doesn't update itself. Decide:
+   in-scope to fix here, or follow-up bead? Default is
+   <strong>file-later</strong> — open a <code>docs-a-bead</code>-shaped follow-up via
+   <code>bd create</code> and keep this bead focused on the behavior change.
+   In-scope-here is appropriate only when the doc edit is a
+   one-or-two-line factual correction directly downstream of the
+   code edit; otherwise the bead grows mid-flight.</li>
+</ol>
+<p>State the audit result (which of 1/2/3 applied, what was edited or
+deferred) before advancing to phase C. The audit is cheap when run
+incrementally and expensive to retrofit — running it at every B1
+keeps the docs site aligned without ever needing a "great
+documentation sweep" bead.</p>
+<p>If verification fails, do not advance the stage — return to the
+variable middle and address the failure. The shell will not paper
+over a red verification.</p>
+<h3 id="phase-c-integration">Phase C — INTEGRATION<a class="headerlink" href="#phase-c-integration" title="Permanent link">&para;</a></h3>
+<h4 id="c1-per-task-code-review">C1. (Per task) Code review<a class="headerlink" href="#c1-per-task-code-review" title="Permanent link">&para;</a></h4>
+<p>If the activity middle contained multiple discrete tasks, invoke
+<code>superpowers:requesting-code-review</code> after each task — not at
+end-of-implementation. For single-task work, run code review once
+here.</p>
+<h4 id="c2-commit-on-the-branch">C2. Commit on the branch<a class="headerlink" href="#c2-commit-on-the-branch" title="Permanent link">&para;</a></h4>
+<p>Set stage <code>commit</code> before the commit lands.</p>
+<p>Descriptive subject + body that names symptom (or feature scope),
+root cause (or design choice), fix (or implementation summary), test
+counts, family lineage if applicable. Co-author trailer per project
+convention.</p>
+<p><strong>Worktree commits — bd hook bypass.</strong> When committing from inside
+a worktree (<code>.worktrees/&lt;bead&gt;/</code>), use:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>-c<span class="w"> </span>core.hooksPath<span class="o">=</span>/dev/null<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s1">&#39;...&#39;</span>
+</code></pre></div>
+<p>The bd pre-commit hook misbehaves from worktrees (loom-22h /
+loom-bm2): it exports <code>issues.jsonl</code> to the worktree root instead
+of the canonical <code>.beads/issues.jsonl</code>, defeating <code>.gitignore</code> and
+amend-based cleanup (the hook re-stages on every commit). Bypassing
+the hook here is safe because the canonical <code>.beads/issues.jsonl</code>
+is regenerated from bd's database on the next main-repo commit
+(typically the post-merge <code>&lt;bead&gt;: bead closed (post-merge state)</code>
+commit). Skip this bypass when committing from the main repo path
+— the hook works correctly there and the canonical export is
+desired.</p>
+<h4 id="c3-finish-the-branch">C3. Finish the branch<a class="headerlink" href="#c3-finish-the-branch" title="Permanent link">&para;</a></h4>
+<p>Invoke <code>superpowers:finishing-a-development-branch</code>. Presents the
+four options (merge locally / push &amp; PR / keep branch / discard) and
+handles cleanup correctly per option.</p>
+<p>For batched multi-bead sessions: merge sequentially in dependency
+order, run verification once after all merges, fix any cross-branch
+collateral in a single follow-up commit.</p>
+<h3 id="phase-d-closeout">Phase D — CLOSEOUT<a class="headerlink" href="#phase-d-closeout" title="Permanent link">&para;</a></h3>
+<h4 id="d1-bd-preflight">D1. bd preflight<a class="headerlink" href="#d1-bd-preflight" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>bd<span class="w"> </span>preflight
+</code></pre></div>
+<p>PR-readiness checks (lint, stale, orphans). Address any output before
+closing.</p>
+<p><strong>For docs-bearing projects (mkdocs.yml present):</strong> the
+<code>bd-preflight-docs-strict</code> PreToolUse hook (loom-cya) auto-fires on
+both <code>bd preflight</code> and <code>bd close</code> and refuses (<code>exit 2</code> in full
+mode) if the branch's diff vs <code>main</code> touches docs-relevant paths
+(<code>docs/</code>, <code>mkdocs.yml</code>, <code>requirements.txt</code>, <code>skills/</code>, <code>commands/</code>,
+<code>agents/</code>, <code>hooks/</code>) AND <code>mkdocs build --strict</code> fails. Mode-aware:
+full blocks, light warns, off silent. Bypass for emergencies via
+<code>LOOM_BD_PRECLOSE_STRICT_SKIP=1</code>. Companion to sibling loom-kbo
+(pre-push hook) — close-time + push-time + CI = defense-in-depth.</p>
+<h4 id="d1b-docs-serving-check-full-diataxis-projects">D1b. Docs SERVING check (full-Diataxis projects)<a class="headerlink" href="#d1b-docs-serving-check-full-diataxis-projects" title="Permanent link">&para;</a></h4>
+<p><code>mkdocs build --strict</code> (D1, above) verifies the docs BUILD; it does
+NOT verify that the published site ACTUALLY SERVES. Those are
+different failures: on 2026-06-08 every Deploy-docs run was green AND
+gh-pages was a valid site, yet <code>https://fkberthold.github.io/loom/</code>
+404'd for an unknown period because GitHub Pages had been DISABLED —
+a <em>silent-green</em> outage that neither the strict build nor
+session-startup step 1c (which only flags RED Deploy-docs runs)
+caught. The serving check closes that gap.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>~/.claude/scripts/loom-docs-serving-check<span class="w">          </span><span class="c1"># derive site_url from mkdocs.yml</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>~/.claude/scripts/loom-docs-serving-check<span class="w"> </span>&lt;url&gt;<span class="w">    </span><span class="c1"># or pass an explicit site URL</span>
+</code></pre></div>
+<p>The helper (loom-7q1g) gates on <strong>full-Diataxis</strong> (<code>docs/</code> +
+<code>mkdocs.yml</code> present AND no <code>docs/.no-diataxis</code> marker; otherwise it
+skips cleanly) and reports three layers: <strong>Layer 1</strong> <code>mkdocs build
+--strict</code> build integrity; <strong>Layer 2</strong> the latest Deploy-docs GitHub
+Actions run conclusion (via <code>gh run list</code>); <strong>Layer 3 (the new part)</strong>
+the site ACTUALLY SERVES — <code>curl -sIL &lt;site_url&gt;</code> → HTTP 200, falling
+back to the GitHub Pages API (<code>gh api repos/{owner}/{repo}/pages</code> →
+<code>status=built</code> / not 404) when curl is absent or inconclusive. It is
+<strong>INFO/nudge — always <code>exit 0</code>, never hard-blocks</strong> (nudge-not-block,
+loom-yb5): the findings print to stdout (<code>WARN —</code> prefix on a problem
+layer) and you decide. It degrades gracefully — any layer whose tool
+(mkdocs / gh / curl) or network is unavailable is skipped with a note
+rather than failing the wrap-up. Composes with session-startup step 1c
+(red-run detection) and the <code>bd-preflight-docs-strict</code> hook (D1):
+build-time + close-time-serving + CI = defense-in-depth.</p>
+<h4 id="d2-close-push">D2. Close + push<a class="headerlink" href="#d2-close-push" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>bd<span class="w"> </span>close<span class="w"> </span>&lt;id1&gt;<span class="w"> </span>&lt;id2&gt;<span class="w"> </span>...<span class="w"> </span>--reason<span class="o">=</span><span class="s2">&quot;&lt;one-line summary&gt;&quot;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Guard: skip bd dolt push for solo workspaces (no remote configured) — loom-hsb.</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">if</span><span class="w"> </span>bd<span class="w"> </span>dolt<span class="w"> </span>remote<span class="w"> </span>list<span class="w"> </span>--json<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s1">&#39;&quot;name&quot;&#39;</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>bd<span class="w"> </span>dolt<span class="w"> </span>push
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">else</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;(solo bd workspace; no Dolt remote — skipping bd dolt push)&quot;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="k">fi</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>git<span class="w"> </span>push
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>git<span class="w"> </span>status<span class="w">   </span><span class="c1"># MUST show &quot;up to date with origin&quot;</span>
+</code></pre></div>
+<p>The <code>bd-close-capture</code> hook will block the close if recent capture
+work is missing — bypass with <code>--force</code> or <code>BD_CLOSE_FORCE=1</code> only
+for trivial fixes that genuinely don't warrant a drawer. The hook
+writes <code>stage=close</code>.</p>
+<p><strong>Flag gotcha (loom-b20, sub-issue 1):</strong> <code>bd close</code> accepts <code>--reason
+"..."</code>, NOT <code>--notes</code>. The <code>--notes</code> flag exists on <code>bd update</code> and
+is easy to pattern-match into a close command. When you pass an
+unknown flag, bd's Cobra parser prints <code>Error: unknown flag: --notes</code>
+followed by the full help text, <strong>but exits 0</strong> — the close was not
+performed and the failure can look like a successful close-with-help
+in a busy terminal scrollback. Always use <code>--reason</code> on close. If you
+need richer post-close notes, run <code>bd update &lt;id&gt; --append-notes "..."</code>
+<em>after</em> the close.</p>
+<p>The <code>bd dolt push</code> guard exists because solo bd workspaces (no Dolt
+remote configured) have <code>bd dolt push</code> exit 1 with a "remote 'origin'
+not found" error that is benign — issues are still versioned locally
+in <code>.beads/</code>. The guard checks <code>bd dolt remote list --json</code> and skips
+the push when the result is empty (<code>[]</code>). See loom-hsb.</p>
+<h4 id="d3-capture-the-decision-in-mempalace">D3. Capture the decision in MemPalace<a class="headerlink" href="#d3-capture-the-decision-in-mempalace" title="Permanent link">&para;</a></h4>
+<p>Set stage <code>wrap-up</code> before D3.</p>
+<p><strong>The capture fan-out is the DEFAULT capture path (loom-0ahj.5,
+grounding design-doc 14f08e6d D6 + the exploration capture-tax
+finding).</strong> Capture is itself dispatched, not hand-written: central
+fans the drafting out to the <strong><code>drawer-author</code> + <code>kg-relationship-
+extractor</code> subagents in parallel</strong> (the two-agent capture fan-out),
+then <strong>REVIEWS</strong> their drafts and <strong>FILES</strong> them through the MemPalace
+MCP tools. This mirrors the variable-middle posture — just as central
+writes no test or line of code in the middle (it dispatches the
+test-author → implementer pipeline), central <strong>does NOT hand-write the
+drawer, the KG triples, or the diary entry</strong> here: the drafting is
+SUBAGENT work, central is the reviewer-and-filer. The capture-tax
+finding is the motivation — hand-authoring the closing drawer + KG +
+diary was the friction that made phase D get skipped; defaulting to the
+fan-out removes that tax. (Tiny ≤ 1-line fixes are the explicit
+exception — see "What to skip" below.)</p>
+<p>So the DEFAULT D3 sequence is: <strong>dispatch the fan-out → review the two
+drafts → file via MCP</strong>. Central never types the drawer body or the
+triples from scratch; it briefs each subagent with the bead-id + the
+landing commit SHAs, reviews what comes back, edits at the margins, and
+files. The <code>/wrap-up</code> slash command bundles exactly this default
+fan-out (and the diary write + close + push) into one ritual.</p>
+<p>For each closed bead, the fan-out drafts and central files:</p>
+<ol>
+<li>
+<p><strong>Decision drawer</strong> in the project's <code>decisions</code> room with:
+   symptom (or feature goal), root cause (or design choice),
+   options-considered + which-chosen + why, family lineage,
+   verification at decision time. The <code>drawer-author</code> subagent
+   (<code>~/.claude/agents/drawer-author.md</code>) drafts these well — central
+   reviews and files via <code>mempalace_add_drawer</code>, it does not
+   hand-write the drawer.</p>
+</li>
+<li>
+<p><strong>KG triples</strong> for convention or design-family work
+   (<code>subject → predicate → object</code>) so future sessions see the
+   family on the next phase A1 search. The
+   <code>kg-relationship-extractor</code> subagent drafts these; central reviews
+   and files each via <code>mempalace_kg_add</code>.</p>
+</li>
+<li>
+<p><strong>Diary entry</strong> via <code>mempalace_diary_write</code> (params: <code>agent_name</code>,
+   <code>entry</code>, optional <code>topic</code>) in AAAK — what got shipped, what was
+   surprising, what to remember. Pass the AAAK summary in the <code>entry</code>
+   field; the plugin's <code>-32000</code> error is opaque on param-name typos.</p>
+</li>
+<li>
+<p><strong>Optional</strong> <code>bd remember "&lt;one-line insight&gt;"</code> for project tribal
+   knowledge that should auto-inject at <code>bd prime</code> time. Boundary
+   (per 2026-05-02 decision): one-line tribal facts → <code>bd remember</code>;
+   multi-paragraph decisions → MemPalace drawer.</p>
+</li>
+</ol>
+<p>The diary entry (item 3) and the optional <code>bd remember</code> (item 4)
+stay central-side — they're a one-line AAAK write and a tribal-fact
+write, not a drafting job. <code>/wrap-up</code> bundles the whole default
+sequence: the drawer-author + kg-relationship-extractor fan-out (items
+1–2, central reviews-and-files), the diary write, and the close +
+push.</p>
+<h3 id="how-activity-recipes-reference-the-shell">How activity recipes reference the shell<a class="headerlink" href="#how-activity-recipes-reference-the-shell" title="Permanent link">&para;</a></h3>
+<p>Recipes use <strong>inline pointer text</strong>, not auto-loading. A recipe body
+contains literal references to lifecycle phases:</p>
+<blockquote>
+<p>Follow <code>bead-lifecycle-shell</code> phase A (MemPalace search + claim +
+optional worktree). Then run the variable middle below. Return to
+the shell for phase B (verification), phase C (commit + finish-
+branch), and phase D (close + capture).</p>
+</blockquote>
+<p>Recipes never duplicate phase bodies; they cite phases by letter and
+trust this skill to remain the source of truth. If a phase body
+changes here, every recipe inherits the change automatically.</p>
+<p>When a recipe needs to extend a phase (e.g., a feature recipe wants
+extra integration verification beyond B1), the recipe says so
+explicitly: <code>extends phase B with: &lt;recipe-specific check&gt;</code>. The
+shell phase still runs first; the extension follows.</p>
+<h3 id="decision-parallel-vs-sequential">Decision: parallel vs sequential<a class="headerlink" href="#decision-parallel-vs-sequential" title="Permanent link">&para;</a></h3>
+<p>There are two distinct decision points — <strong>across-bead</strong> (which
+beads to work on) and <strong>within-bead</strong> (how to execute one bead's
+variable middle). Both call into <code>superpowers:dispatching-parallel-
+agents</code>; the trigger and the cost-payoff threshold differ.</p>
+<h4 id="across-bead-when-2-beads-are-unblocked">Across-bead — when 2+ beads are unblocked<a class="headerlink" href="#across-bead-when-2-beads-are-unblocked" title="Permanent link">&para;</a></h4>
+<p>Use <code>superpowers:dispatching-parallel-agents</code> when 2+ beads have
+independent root causes (different files, no shared state). Trigger:
+<code>bd ready</code> shows multiple unblocked beads that touch disjoint files.
+Stay sequential when beads share files, when one fix depends on
+another, or when interactive judgment is needed per step.</p>
+<p>The shell is per-bead; parallel agents each run their own copy of
+the shell + their own variable middle.</p>
+<h4 id="within-bead-when-m-steps-are-independent">Within-bead — when M-steps are independent<a class="headerlink" href="#within-bead-when-m-steps-are-independent" title="Permanent link">&para;</a></h4>
+<p>Before starting an activity recipe's variable middle, scan the
+M-steps and ask: are 2+ of them independent (different files, no
+shared state, no sequential dependency)? If yes, dispatch them in
+parallel via <code>superpowers:dispatching-parallel-agents</code> with
+<code>isolation: "worktree"</code>. If no, stay sequential.</p>
+<p><strong>Cost-payoff threshold.</strong> Parallelism wins when each task is
+non-trivial — more than a one-line edit per step. For tiny edits
+(≤ ~5 lines per step), sequential is faster than dispatch overhead
+(worker prompt, isolation worktree, review-on-return). Make the
+call explicit: state "M-steps are independent but small; running
+sequentially" or "M-steps are independent and non-trivial;
+dispatching in parallel" so the choice is visible in the close
+drawer.</p>
+<p><strong>Worker leak hazard (loom-tag finding).</strong> Parallel workers with
+absolute paths (<code>/home/frank/repos/&lt;project&gt;/&lt;file&gt;</code>) write into
+main, not the worktree — the harness creates the worktree but does
+NOT sandbox absolute-path Edit/Write calls. When dispatching, give
+workers <strong>relative</strong> paths in their prompts (<code>commands/foo.md</code>).
+After workers return, verify with <code>git diff --stat</code> in BOTH the
+worktree and main to detect leaks. See
+<code>drawer_loom_decisions_df73c725b47dd67832935e3a</code> (loom-tag,
+2026-05-04) for the full finding. This hazard is per-dispatch; it
+does not multiply with the number of nudges that point at it.</p>
+<h3 id="failure-modes-concrete">Failure modes (concrete)<a class="headerlink" href="#failure-modes-concrete" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Skip phase A1 (MemPalace search):</strong> design lands without seeing
+  prior art; rework when reviewer spots the family. Caught
+  2026-05-02 by Frank's "are you using MemPalace fully?" question.
+  The 0qw fix design pivoted from defensive coercion to convention
+  alignment after the search surfaced huu.15.2.</li>
+<li><strong>Skip stage writes:</strong> status line goes stale; future cold-start
+  sessions can't reconstruct where work stopped. The shell mandates
+  these writes precisely because the v1 best-effort approach drifted.</li>
+<li><strong>Skip phase B1 (verification):</strong> "it works in my head" failures
+  reach commit. Verification-before-completion is the gate; the
+  shell does not advance to phase C without evidence.</li>
+<li><strong>Skip phase D3 (capture):</strong> the next session repeats the
+  research from scratch; the family lineage stays implicit. Caught
+  repeatedly across bug families before the workflow infrastructure
+  was built.</li>
+<li><strong>Inline phase bodies in recipes:</strong> drift between recipes within
+  three sessions. Always cite by letter; never duplicate.</li>
+</ul>
+<h3 id="related-infrastructure">Related infrastructure<a class="headerlink" href="#related-infrastructure" title="Permanent link">&para;</a></h3>
+<p>This shell is the v2 successor to the v1 <code>working-a-bead</code> skill
+(which is bug-shaped). Full design + decisions live in the MemPalace
+drawer "RECIPE SHAPES — ACTIVITY MATRIX" (hundred_acre_woods/decisions
+room, 2026-05-02). Build queue tracked under loom epic <code>loom-0y6</code>
+(continuation of HAW epic <code>hundred-acre-woods-bng</code>).</p>
+<p>Companion skills (each one fills the variable middle for one
+activity shape):</p>
+<ul>
+<li><code>bugfix-a-bead</code> (renames v1 <code>working-a-bead</code>) — bead <code>loom-lzi</code></li>
+<li><code>feature-a-bead</code> — bead <code>loom-5rf</code></li>
+<li><code>refactor-a-bead</code> — bead <code>loom-uca</code></li>
+<li><code>research-a-bead</code> — bead <code>loom-0q0</code></li>
+<li><code>cleanup-a-bead</code> — bead <code>loom-62x</code></li>
+<li><code>docs-a-bead</code> — bead <code>loom-s0n</code></li>
+</ul>
+<p>Slash commands and subagents that integrate with the shell:</p>
+<ul>
+<li><code>/working-a-bead &lt;id&gt;</code> — router that picks the right activity
+  recipe (bead <code>loom-1ab</code>).</li>
+<li><code>/wrap-up</code> — bundles phase D3 captures.</li>
+<li><code>bug-family-researcher</code> — phase A1 helper.</li>
+<li><code>drawer-author</code> — phase D3 helper.</li>
+<li><code>kg-relationship-extractor</code> — phase D3 helper.</li>
+</ul>
+<!-- END INCLUDE -->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.action.edit"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

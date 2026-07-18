@@ -1,0 +1,6545 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Workflow infrastructure for Claude Code — beads + MemPalace + superpowers + beadpowers woven into one disciplined developer workflow.">
+      
+      
+      
+        <link rel="canonical" href="https://fkberthold.github.io/loom/reference/loom-mine-history/">
+      
+      
+        <link rel="prev" href="../slash-commands/loom-guest/">
+      
+      
+        <link rel="next" href="../slash-commands/loom-upstream-gc/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>loom-mine-history - loom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#loom-mine-history-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="loom" class="md-header__button md-logo" aria-label="loom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            loom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              loom-mine-history
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fkberthold/loom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fkberthold/loom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  How-to
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="loom" class="md-nav__button md-logo" aria-label="loom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    loom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fkberthold/loom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fkberthold/loom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/bug-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bug walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/feature-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/design-cycle-walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design-cycle walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install loom
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/open-a-session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/open-a-design-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a design cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/claim-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claim a bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/run-dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run the dispatch-middle pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/finish-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finish a bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/stop-a-session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stop a session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/bypass-workflow-ceremony/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bypass workflow ceremony
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/guest-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use guest mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/where-to-update-what/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where to update what
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/scaffold-managed-project-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaffold a managed project's docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/author-project-constitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Author a project constitution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/adopt-a-brownfield-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adopt a brownfield project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/contribute-upstream/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribute a fix upstream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/recover-from-dispatch-crash/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recover from a dispatch crash
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/resync-managed-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resync a managed project's conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../how-to/common-scenarios/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common scenarios
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_18" id="__nav_3_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common scenarios
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/new-bug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New bug
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/parallel-bugs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parallel bugs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/exploratory-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exploratory work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/find-prior-art/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Find prior art
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/debug-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debug workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/tweak-a-hook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tweak a hook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/common-scenarios/add-path-rule/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a path-scoped rule
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installed-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installed files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../skills/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Skills
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/audit-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    audit-project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/bead-lifecycle-shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bead-lifecycle-shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/bugfix-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bugfix-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/cleanup-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cleanup-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design-a-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    design-a-cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-middle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/docs-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docs-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/docs-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docs-scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    explore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/feature-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    feature-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-adopt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-adopt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-pass-cost-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two-pass cost gate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-mined-drawers-land-provenancemined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where mined drawers land — provenance:mined
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#incremental-re-mining-the-watermark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incremental re-mining — the watermark
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupted-runs-resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupted runs — --resume
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#narrative-arcs-synthesize-tier-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrative arcs — --synthesize (tier-2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adoption-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adoption summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skill-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mine-history-decision-archaeology-for-a-brownfield-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mine-History — Decision Archaeology for a Brownfield Repo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mine-History — Decision Archaeology for a Brownfield Repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-locked-contract-do-not-redesign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The locked contract (do not redesign)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#procedure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Procedure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Procedure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#0-read-the-watermark-before-any-wrapper-call-zero-spend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0 — Read the watermark (before any wrapper call, zero spend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-resolve-target-dry-run-zero-spend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1 — Resolve target (dry-run, zero spend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-surface-the-preview-await-go-ahead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2 — Surface the preview, await go-ahead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-real-pass-paid-only-after-go-ahead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3 — Real pass (paid; only after go-ahead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-filing-loop-mcp-this-is-the-skills-job-not-the-wrappers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4 — Filing loop (MCP; this is the skill's job, not the wrapper's)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4 — Filing loop (MCP; this is the skill&#39;s job, not the wrapper&#39;s)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#4a-per-unit-drafts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4a — Per-unit drafts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4b-arc-drawers-only-when-outarcsjsonl-exists-tier-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4b — Arc drawers (only when &lt;out&gt;/arcs.jsonl exists; tier-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4c-kg-triples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4c — KG triples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4d-advance-the-watermark-last-after-the-whole-filing-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4d — Advance the watermark (LAST; after the whole filing loop)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-adoption-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5 — Adoption summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interrupted-runs-resume_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupted runs (--resume)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anti-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anti-scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#related_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/refactor-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    refactor-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/research-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    research-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/session-startup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    session-startup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upstream-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../skills/all-skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All skills (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../slash-commands/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slash commands
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Slash commands
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/audit-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /audit-project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/bugfix-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /bugfix-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/check-loom-upstream/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /check-loom-upstream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/check-upstream-prs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /check-upstream-prs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/cleanup-orphans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /cleanup-orphans
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design-a-cycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    design-a-cycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dispatch-middle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-middle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/docs-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /docs-scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    explore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/lineage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /lineage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-adopt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-adopt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/loom-guest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /loom-guest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-mine-history
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-pass-cost-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two-pass cost gate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-mined-drawers-land-provenancemined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where mined drawers land — provenance:mined
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#incremental-re-mining-the-watermark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incremental re-mining — the watermark
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupted-runs-resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupted runs — --resume
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#narrative-arcs-synthesize-tier-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrative arcs — --synthesize (tier-2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adoption-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adoption summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skill-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mine-history-decision-archaeology-for-a-brownfield-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mine-History — Decision Archaeology for a Brownfield Repo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mine-History — Decision Archaeology for a Brownfield Repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-locked-contract-do-not-redesign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The locked contract (do not redesign)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#procedure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Procedure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Procedure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#0-read-the-watermark-before-any-wrapper-call-zero-spend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0 — Read the watermark (before any wrapper call, zero spend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-resolve-target-dry-run-zero-spend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1 — Resolve target (dry-run, zero spend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-surface-the-preview-await-go-ahead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2 — Surface the preview, await go-ahead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-real-pass-paid-only-after-go-ahead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3 — Real pass (paid; only after go-ahead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-filing-loop-mcp-this-is-the-skills-job-not-the-wrappers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4 — Filing loop (MCP; this is the skill's job, not the wrapper's)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4 — Filing loop (MCP; this is the skill&#39;s job, not the wrapper&#39;s)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#4a-per-unit-drafts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4a — Per-unit drafts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4b-arc-drawers-only-when-outarcsjsonl-exists-tier-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4b — Arc drawers (only when &lt;out&gt;/arcs.jsonl exists; tier-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4c-kg-triples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4c — KG triples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4d-advance-the-watermark-last-after-the-whole-filing-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4d — Advance the watermark (LAST; after the whole filing loop)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-adoption-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5 — Adoption summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interrupted-runs-resume_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupted runs (--resume)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anti-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anti-scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#related_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/loom-upstream-gc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /loom-upstream-gc
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/research-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /research-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upstream-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/working-a-bead/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /working-a-bead
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/wrap-up/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    /wrap-up
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slash-commands/all-commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All commands (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../subagents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Subagents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_5" id="__nav_4_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Subagents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../subagents/bug-family-researcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bug-family-researcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../subagents/drawer-author/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    drawer-author
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../subagents/kg-relationship-extractor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    kg-relationship-extractor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../subagents/project-onboarder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project-onboarder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../subagents/all-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All subagents (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../hooks/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hooks
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_6" id="__nav_4_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hooks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/bd-claim-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-claim-research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/bd-close-capture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-close-capture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/bd-preflight-docs-strict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-preflight-docs-strict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bd-prime-wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-prime-wrapper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bd-remember-guest-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-remember-guest-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bd-worktree-preseed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-worktree-preseed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../constitution-enforce-hook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constitution-enforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/context-budget-sensor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    context-budget-sensor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cwd-drift-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cwd-drift-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/dispatch-nudge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dispatch-nudge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/edit-after-failure-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edit-after-failure-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../edit-write-pwd-guard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edit-write-pwd-guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/git-push-bd-sync/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    git-push-bd-sync
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/loom-drift-nudge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-drift-nudge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/post-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    post-rewrite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/pre-push-mkdocs-strict/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pre-push-mkdocs-strict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pytest-tempdir-prune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pytest-tempdir-prune
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/skill-redirect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    skill-redirect
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/workflow-mode-onboarding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    workflow-mode-onboarding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/worktree-bg-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    worktree-bg-inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hooks/all-hooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All hooks (verbatim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_7" id="__nav_4_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helper scripts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Helper scripts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../helper-scripts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helper scripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-print-deploy-hint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-print-deploy-hint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-rebase-worktree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-rebase-worktree
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-subagent-lean/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-subagent-lean
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-worktree-python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    loom-worktree-python
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Templates & conventions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Templates & conventions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design-doc-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design-doc template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-constitution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project constitution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../script-convention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    script/ convention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../path-scoped-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path-scoped rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upstream-loom-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    upstream:loom label
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-scaffold-fixme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DOCS-SCAFFOLD-FIXME sentinels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convention-drift-detector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Downstream convention-drift detector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas & internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Schemas & internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workflow-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    workflow.json schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-invariants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bd-state-integrity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd-state integrity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loom-env-vars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loom env vars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decision-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decision tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_10" id="__nav_4_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External tools & Claude Code harness
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    External tools & Claude Code harness
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bd-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bd CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mempalace-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemPalace MCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-code-hook-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code hook layering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-code-hook-semantics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code hook semantics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../explanation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Explanation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/mental-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mental model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/recipe-family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipe family
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/workflow-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/gate-dont-advise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate, don't advise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/provenance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provenance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-pass-cost-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two-pass cost gate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-mined-drawers-land-provenancemined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where mined drawers land — provenance:mined
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#incremental-re-mining-the-watermark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incremental re-mining — the watermark
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupted-runs-resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupted runs — --resume
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#narrative-arcs-synthesize-tier-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrative arcs — --synthesize (tier-2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adoption-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adoption summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skill-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mine-history-decision-archaeology-for-a-brownfield-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mine-History — Decision Archaeology for a Brownfield Repo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mine-History — Decision Archaeology for a Brownfield Repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-locked-contract-do-not-redesign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The locked contract (do not redesign)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#procedure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Procedure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Procedure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#0-read-the-watermark-before-any-wrapper-call-zero-spend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0 — Read the watermark (before any wrapper call, zero spend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1-resolve-target-dry-run-zero-spend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1 — Resolve target (dry-run, zero spend)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-surface-the-preview-await-go-ahead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2 — Surface the preview, await go-ahead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-real-pass-paid-only-after-go-ahead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3 — Real pass (paid; only after go-ahead)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-filing-loop-mcp-this-is-the-skills-job-not-the-wrappers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4 — Filing loop (MCP; this is the skill's job, not the wrapper's)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4 — Filing loop (MCP; this is the skill&#39;s job, not the wrapper&#39;s)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#4a-per-unit-drafts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4a — Per-unit drafts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4b-arc-drawers-only-when-outarcsjsonl-exists-tier-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4b — Arc drawers (only when &lt;out&gt;/arcs.jsonl exists; tier-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4c-kg-triples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4c — KG triples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4d-advance-the-watermark-last-after-the-whole-filing-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4d — Advance the watermark (LAST; after the whole filing loop)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-adoption-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5 — Adoption summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interrupted-runs-resume_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupted runs (--resume)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anti-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anti-scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#related_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/fkberthold/loom/edit/main/docs/reference/loom-mine-history.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="loom-mine-history-reference">loom-mine-history — reference<a class="headerlink" href="#loom-mine-history-reference" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Decision-archaeology for a brownfield repo. <code>/loom-mine-history</code>
+mines a repo's git/PR history for design rationale that was stated
+in-flight but never captured, then files the salient survivors as
+<code>provenance:mined</code> decision drawers in the project's <strong>own</strong>
+MemPalace wing. It is the P4 phase of <a href="../loom-adopt/"><code>/loom-adopt</code></a>
+and also stands alone as a primitive you run directly.</p>
+</blockquote>
+<p>A greenfield loom project accretes its decision record as it grows —
+every locked decision lands in a drawer at the moment it's made. A
+brownfield repo is the opposite: an empty palace sitting on top of a
+rich decision record that already exists in git — PR descriptions,
+commit messages, release-tag annotations — none of it captured the
+loom way. <code>/loom-mine-history</code> recovers that rationale.</p>
+<p>The work is split across a <strong>firm seam</strong>:</p>
+<ul>
+<li><strong>The bash engine</strong> (<code>lib/loom-mine-history.sh</code>, driven by the
+  <code>scripts/loom-mine-history</code> wrapper) harvests PRs + commits + tags,
+  gates them down to plausible decision candidates, runs an LLM
+  salience+draft pass, and writes a manifest to disk. It owns
+  repo+wing resolution and engine invocation. It <strong>cannot</strong> file into
+  MemPalace — MCP tools are not callable from bash.</li>
+<li><strong>The skill</strong> (<code>skills/loom-mine-history/SKILL.md</code>) drives the
+  wrapper through the cost gate and does the MCP filing the engine
+  cannot. It owns the cost-gate orchestration and the filing loop.</li>
+</ul>
+<p>Read what the wrapper resolved (it writes the resolved wing to
+<code>&lt;out&gt;/wing</code>); the skill never re-derives resolution logic.</p>
+<h2 id="the-two-pass-cost-gate">The two-pass cost gate<a class="headerlink" href="#the-two-pass-cost-gate" title="Permanent link">&para;</a></h2>
+<p>The single most important thing to know as a user: <strong>the mine never
+spends without showing you a preview first.</strong> The gate is locked and
+runs in two passes:</p>
+<ol>
+<li><strong>Dry-run (zero spend).</strong> The wrapper runs <code>--dry-run</code> first. It
+   harvests and gates candidates and emits a <strong>cost-preview line</strong> —
+   <code>N harvested → M gated → ~M LLM reads, est ≤ M model calls</code> — plus
+   the gated candidate list and the resolved wing. It calls no model
+   and writes no manifest.</li>
+<li><strong>Real pass (paid; only after your explicit go-ahead).</strong> The skill
+   surfaces the preview, then <strong>stops and waits</strong> for a clear
+   confirmation. Only then does the paid LLM salience+draft pass run.</li>
+</ol>
+<p>Implicit assent is not enough — the skill waits for an explicit
+go-ahead. If the preview looks too expensive, you can re-run the
+dry-run with <code>--max-units</code> or <code>--since</code> to tighten the scope and
+re-preview before committing any spend.</p>
+<h2 id="where-mined-drawers-land-provenancemined">Where mined drawers land — <code>provenance:mined</code><a class="headerlink" href="#where-mined-drawers-land-provenancemined" title="Permanent link">&para;</a></h2>
+<p>Mined drawers land in <strong>the project's own wing</strong>, in the <strong>same
+<code>decisions</code> room</strong> as native captures — distinguished by the
+<code>provenance:mined</code> tag, <strong>not</strong> a separate room. This is deliberate:</p>
+<ul>
+<li>The wing defaults to the sanitized repo basename; <code>--wing</code>
+  overrides it. The skill reads it from <code>&lt;out&gt;/wing</code> and never
+  re-derives it.</li>
+<li>Keeping mined drawers in the <code>decisions</code> room (rather than a
+  dedicated <code>mined</code> room) means <strong>bug-family search reaches them</strong> the
+  same way it reaches native decisions. The tag is what carries
+  provenance, so you can still filter to mined-only when you want to.</li>
+<li>Mined drawers are <strong>never</strong> filed into loom's own wing — they belong
+  to the project they came from. (The exception is when loom itself is
+  the repo being mined.)</li>
+</ul>
+<p>To find mined drawers afterward, search filtered to <code>&lt;wing&gt;/decisions</code>
+or filter by the <code>provenance:mined</code> tag. With <code>--synthesize</code> (below),
+<code>synthesis:arc</code> narrows further to the narrative-arc drawers.</p>
+<h2 id="incremental-re-mining-the-watermark">Incremental re-mining — the watermark<a class="headerlink" href="#incremental-re-mining-the-watermark" title="Permanent link">&para;</a></h2>
+<p>Re-running the mine is <strong>incremental by watermark</strong>. The repo carries
+a <code>history_mined_through</code> KG fact naming the HEAD the last mine
+examined through:</p>
+<ul>
+<li><strong>Before the dry-run</strong>, the skill reads that fact and passes
+  <code>--since-sha=&lt;watermark&gt;</code> so only post-watermark history is
+  harvested — a re-mine never re-harvests (and never risks re-spending
+  on) history it already covered.</li>
+<li><strong>After the filing loop completes</strong>, the skill advances the fact to
+  the new HEAD (invalidate-then-add: replace semantics, never two live
+  facts). On a first mine there is no prior fact — it just files the
+  initial one.</li>
+</ul>
+<p>If HEAD hasn't advanced since the watermark, the dry-run shows
+<code>0 harvested</code> and the run stops — there's nothing new to mine.</p>
+<p>The watermark is keyed on the <strong>resolved wing</strong> (the repo's stable
+palace identity), so the read half (before the dry-run) and the write
+half (after filing) close the round-trip on the same entity.</p>
+<h2 id="interrupted-runs-resume">Interrupted runs — <code>--resume</code><a class="headerlink" href="#interrupted-runs-resume" title="Permanent link">&para;</a></h2>
+<p><code>--resume</code> and the watermark are <strong>distinct layers</strong> that compose:</p>
+<ul>
+<li><strong><code>--resume</code></strong> recovers ONE interrupted real pass from its on-disk
+  <code>&lt;out&gt;/.processed</code> checkpoint — same <code>$out</code>, same slice. It spends
+  only on the units the interrupted run had not yet processed. It does
+  <strong>not</strong> advance the <code>history_mined_through</code> fact.</li>
+<li><strong>The watermark</strong> spans runs: it's the across-invocation incremental
+  cursor, advanced once per fully-filed run. A fresh run with no
+  <code>$out</code> to resume still benefits from it via the dry-run's
+  <code>--since-sha</code> read.</li>
+</ul>
+<p>So an interrupted run is resumed with <code>--resume</code> (cheap, same dir); a
+later clean run is scoped with <code>--since-sha</code> from the watermark. Only
+the latter advances the fact.</p>
+<h2 id="narrative-arcs-synthesize-tier-2">Narrative arcs — <code>--synthesize</code> (tier-2)<a class="headerlink" href="#narrative-arcs-synthesize-tier-2" title="Permanent link">&para;</a></h2>
+<p><code>--synthesize</code> adds a second LLM pass: the engine clusters the salient
+units and narrates one <strong>narrative-arc</strong> drawer per cluster, emitting
+<code>&lt;out&gt;/arcs.jsonl</code>. The skill files those arc drawers <strong>after</strong> the
+per-unit drawers (the arcs cross-reference the per-unit drawers, so
+those must exist first), rewriting each arc's constituent references
+from the source anchor (PR#/SHA) to the real filed <code>drawer_id</code>. Arc
+drawers carry both <code>provenance:mined</code> and <code>synthesis:arc</code> tags. Without
+<code>--synthesize</code>, no <code>arcs.jsonl</code> is emitted and that step is skipped.</p>
+<h2 id="flags">Flags<a class="headerlink" href="#flags" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--root &lt;dir&gt;</code></td>
+<td>Repo root to mine (default: cwd's git root).</td>
+</tr>
+<tr>
+<td><code>--wing &lt;name&gt;</code></td>
+<td>MemPalace wing for the mined drawers (default: sanitized repo basename, read from <code>&lt;out&gt;/wing</code>).</td>
+</tr>
+<tr>
+<td><code>--since &lt;DATE&gt;</code></td>
+<td>Harvest only history after <code>DATE</code>.</td>
+</tr>
+<tr>
+<td><code>--since-release &lt;TAG&gt;</code></td>
+<td>Harvest only history after release tag <code>TAG</code>.</td>
+</tr>
+<tr>
+<td><code>--since-sha &lt;SHA&gt;</code></td>
+<td>Harvest only <code>SHA..HEAD</code>. Set automatically from the watermark on a re-mine; takes precedence over <code>--since-release</code>.</td>
+</tr>
+<tr>
+<td><code>--max-units &lt;N&gt;</code></td>
+<td>Cap the number of harvested units (use to tighten a too-expensive preview).</td>
+</tr>
+<tr>
+<td><code>--synthesize</code></td>
+<td>Add the tier-2 narrative-arc clustering+narration pass.</td>
+</tr>
+<tr>
+<td><code>--resume</code></td>
+<td>Recover an interrupted real pass from <code>&lt;out&gt;/.processed</code> without re-spending on already-processed units.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="adoption-summary">Adoption summary<a class="headerlink" href="#adoption-summary" title="Permanent link">&para;</a></h2>
+<p>After the filing loop, the skill reports terse counts you can scan:
+<strong>filed</strong> (per-unit drawers), <strong>arcs-filed</strong> (when <code>--synthesize</code> ran),
+<strong>skipped-dup</strong> (drafts that matched an existing drawer),
+<strong>triples-added</strong> (KG facts), and <strong>watermark</strong>
+(<code>advanced &lt;old&gt; → &lt;new&gt;</code> or <code>set &lt;new&gt; (first mine)</code>). The summary
+names the wing explicitly so you know where to search next.</p>
+<h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Page</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The orchestrator that runs this as its P4 phase</td>
+<td><a href="../loom-adopt/">loom-adopt</a></td>
+</tr>
+<tr>
+<td>Walking a brownfield adoption end-to-end (audit → scaffold → mine)</td>
+<td><a href="../../how-to/adopt-a-brownfield-project/">Adopt a brownfield project</a></td>
+</tr>
+<tr>
+<td>Why mined drawers carry <code>provenance:mined</code> and share the <code>decisions</code> room</td>
+<td><a href="../../explanation/provenance/">Provenance</a></td>
+</tr>
+<tr>
+<td>The MCP filing surface the skill drives</td>
+<td><a href="../mempalace-mcp/">MemPalace MCP</a></td>
+</tr>
+<tr>
+<td>Command (user door)</td>
+<td><code>commands/loom-mine-history.md</code></td>
+</tr>
+<tr>
+<td>Wrapper + engine (executable seam)</td>
+<td><code>scripts/loom-mine-history</code>, <code>lib/loom-mine-history.sh</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="skill-source">Skill source<a class="headerlink" href="#skill-source" title="Permanent link">&para;</a></h2>
+<p>The full procedure — watermark read, two-pass cost gate, the two-phase
+filing loop (per-unit drafts → arcs → KG triples → watermark advance),
+and the <code>--resume</code>/anti-scope details — is included verbatim below from
+<code>skills/loom-mine-history/SKILL.md</code>. Edits go to the primitive, not
+this page.</p>
+<!-- BEGIN INCLUDE ../../skills/loom-mine-history/SKILL.md -->
+<hr />
+<p>name: loom-mine-history
+description: Mine a brownfield repo's git/PR history for decisions stated in-flight but never captured, then file the salient survivors as <code>provenance:mined</code> decision drawers in the project's own MemPalace wing. Drives the <code>~/.claude/scripts/loom-mine-history</code> wrapper through a locked two-pass cost gate — zero-spend dry-run preview, explicit user go-ahead, then the paid LLM salience pass — and does the MCP filing the bash engine cannot. Invoked by <code>/loom-mine-history</code>.</p>
+<hr />
+<h2 id="mine-history-decision-archaeology-for-a-brownfield-repo">Mine-History — Decision Archaeology for a Brownfield Repo<a class="headerlink" href="#mine-history-decision-archaeology-for-a-brownfield-repo" title="Permanent link">&para;</a></h2>
+<p>Recovers the design rationale a repo accumulated before loom's capture
+discipline existed. The bash engine (<code>lib/loom-mine-history.sh</code>) harvests
+PRs + commits + tags, gates them, runs an LLM salience+draft pass, and
+writes a manifest to disk — but it cannot file into MemPalace, because MCP
+tools are not callable from bash. This skill is the other half: it drives
+the wrapper through the cost gate, then files the manifest via MCP.</p>
+<p>The seam is firm: <strong>the wrapper owns repo+wing resolution and engine
+invocation; this skill's prose owns the cost-gate orchestration and the
+MCP filing loop.</strong> Do not duplicate resolution logic here — read what the
+wrapper resolved (it writes the wing to <code>&lt;out&gt;/wing</code>).</p>
+<p>Design source: <code>drawer_loom_decisions_e43e3693c8ee82e3bc6e34c6</code>
+(loom/decisions wing). Engine close: <code>drawer_loom_decisions_490284f114c5a773ee3456cf</code>.</p>
+<h3 id="when-to-use">When to use<a class="headerlink" href="#when-to-use" title="Permanent link">&para;</a></h3>
+<p>The user runs <code>/loom-mine-history</code> (optionally <code>--root</code>, <code>--wing</code>,
+<code>--since</code>, <code>--since-release</code>, <code>--since-sha</code>, <code>--max-units</code>, <code>--resume</code>,
+<code>--synthesize</code>) against a repo whose history predates its MemPalace
+wing — a freshly-adopted project, a legacy service, loom itself before
+bn7. Manual-only; never auto-fired. <code>--synthesize</code> adds the tier-2 pass:
+the engine clusters salient units and narrates one "narrative arc"
+drawer per cluster, emitting <code>&lt;out&gt;/arcs.jsonl</code> for the skill to file
+alongside the per-unit drawers (step 4b).</p>
+<p>Re-running the mine is <strong>incremental by watermark</strong>: this skill reads
+the repo's <code>history_mined_through</code> KG fact before the dry-run (step 0)
+and passes <code>--since-sha=&lt;that SHA&gt;</code> so only post-watermark history is
+harvested, then re-files an updated <code>history_mined_through</code> fact after
+the filing loop (step 4d) pointing at the new HEAD. The <code>--resume</code> flag
+is orthogonal — it recovers a single interrupted run from its
+<code>&lt;out&gt;/.processed</code> checkpoint without re-spending the LLM pass; the
+watermark spans runs, <code>--resume</code> spans an interruption within one run.</p>
+<h3 id="the-locked-contract-do-not-redesign">The locked contract (do not redesign)<a class="headerlink" href="#the-locked-contract-do-not-redesign" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Two-pass cost gate.</strong> Run the wrapper <code>--dry-run</code> FIRST (zero spend).
+   Surface the preview. Await an explicit go-ahead. ONLY THEN run the real
+   pass. Never spend without the confirm beat.</li>
+<li><strong>Seam.</strong> Wrapper resolves + invokes; this skill files via MCP.</li>
+<li><strong>Project's own wing, shared room, <code>provenance:mined</code> tag.</strong> Mined
+   drawers land in <code>&lt;resolved-wing&gt;/decisions</code> — the SAME room as native
+   captures — distinguished by the <code>provenance:mined</code> tag, not a separate
+   room. The wing defaults to the sanitized repo basename; <code>--wing</code>
+   overrides. Read it from <code>&lt;out&gt;/wing</code> — never re-derive it.</li>
+</ol>
+<h3 id="procedure">Procedure<a class="headerlink" href="#procedure" title="Permanent link">&para;</a></h3>
+<h4 id="0-read-the-watermark-before-any-wrapper-call-zero-spend">0 — Read the watermark (before any wrapper call, zero spend)<a class="headerlink" href="#0-read-the-watermark-before-any-wrapper-call-zero-spend" title="Permanent link">&para;</a></h4>
+<p>A repo that has been mined before carries a <code>history_mined_through</code> KG
+fact naming the HEAD the last mine examined through. Read it BEFORE the
+dry-run so this run can be incremental — mining only the slice of history
+added since the last watermark instead of re-harvesting (and risking
+re-spending on) everything.</p>
+<p>The repo entity is the resolved <strong>wing</strong> — the repo's stable palace
+identity, the same string the wrapper writes to <code>&lt;out&gt;/wing</code> and the
+<code>mined_from</code> object the engine's triples carry. Resolve it the way the
+wrapper does (the repo-root basename verbatim, or the user's <code>--wing</code>)
+so the query keys on the same entity the write in step 4d will use.</p>
+<ol>
+<li><strong>Query</strong> — <code>mempalace_kg_query(entity=&lt;repo-entity&gt;)</code> and look for an
+   outgoing <code>history_mined_through</code> predicate. (Use the same repo-entity
+   string step 4d files under — see that step.)</li>
+<li><strong>No fact present</strong> — this is a first mine. Skip <code>--since-sha</code>; the
+   engine harvests full history. Proceed to step 1.</li>
+<li><strong>A fact present</strong> — let <code>WATERMARK</code> be its object (the prior HEAD
+   SHA). Pass <code>--since-sha=&lt;WATERMARK&gt;</code> to BOTH wrapper passes (dry-run
+   in step 1 and the real pass in step 3) so the engine harvests only
+   <code>WATERMARK..HEAD</code>. Hold onto <code>WATERMARK</code> — you also need it to
+   invalidate the stale fact in step 4d, and to compute the
+   "resuming from watermark" line in step 2.</li>
+</ol>
+<p>If the repo's HEAD has not advanced since the watermark (<code>--since-sha</code>
+selects an empty range), the dry-run preview will show <code>0 harvested</code> —
+nothing new to mine. Report that and stop; there is no second fact to
+file (the watermark already points at HEAD).</p>
+<h4 id="1-resolve-target-dry-run-zero-spend">1 — Resolve target (dry-run, zero spend)<a class="headerlink" href="#1-resolve-target-dry-run-zero-spend" title="Permanent link">&para;</a></h4>
+<p>Run the wrapper with <code>--dry-run</code>, forwarding the user's flags (including
+<code>--since-sha=&lt;WATERMARK&gt;</code> when step 0 found a prior fact). Pick a tmp
+dir now so the real pass can reuse it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">out</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>~/.claude/scripts/loom-mine-history<span class="w"> </span>--dry-run<span class="w"> </span><span class="o">[</span>--root<span class="w"> </span>&lt;dir&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--wing<span class="w"> </span>&lt;name&gt;<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="o">[</span>--since<span class="o">=</span>DATE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--since-release<span class="o">=</span>TAG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--since-sha<span class="o">=</span>WATERMARK<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="o">[</span>--max-units<span class="o">=</span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--synthesize<span class="o">]</span>
+</code></pre></div>
+<p>Pass <code>--since-sha=&lt;WATERMARK&gt;</code> here whenever step 0 found a prior
+<code>history_mined_through</code> fact — it scopes the harvest to <code>WATERMARK..HEAD</code>
+and takes precedence over <code>--since-release</code>. Omit it on a first mine.</p>
+<p>Forward <code>--synthesize</code> through both passes when the user asked for it —
+the dry-run preview reflects only the tier-1 cost (the tier-2 arc cost is
+computed in the real pass), but the flag must reach the real pass below
+so <code>&lt;out&gt;/arcs.jsonl</code> is emitted.</p>
+<p>The dry-run emits the engine's cost preview line
+(<code>cost-preview: N harvested -&gt; M gated -&gt; ~M LLM reads, est &lt;= M model
+calls</code>), the gated candidate list, and the resolved wing
+(<code>(wing for filing: &lt;wing&gt;)</code>). No <code>--out</code> on the dry-run — it writes no
+manifest and calls no model.</p>
+<h4 id="2-surface-the-preview-await-go-ahead">2 — Surface the preview, await go-ahead<a class="headerlink" href="#2-surface-the-preview-await-go-ahead" title="Permanent link">&para;</a></h4>
+<p>Present to the user, in one beat:</p>
+<ul>
+<li><strong>the watermark line, when step 0 found a prior fact</strong>:
+  <code>resuming from watermark &lt;short-sha&gt; (N new units since last mine)</code> —
+  where <code>&lt;short-sha&gt;</code> is the prior <code>WATERMARK</code> abbreviated and N is the
+  dry-run's harvested count (the units in <code>WATERMARK..HEAD</code>). On a first
+  mine (no prior fact) omit this line; the run covers full history;</li>
+<li>the cost preview: <strong>N harvested → M gated → ~M LLM reads, est cost</strong>;</li>
+<li>the resolved <strong>wing</strong> the drawers will land in;</li>
+<li>the gated candidates (so they can sanity-check what survived).</li>
+</ul>
+<p>Then STOP and ask for explicit confirmation. Do not proceed to the paid
+pass on implicit assent — wait for a clear go-ahead. If the user wants a
+tighter run, re-run step 1 with <code>--max-units</code>/<code>--since</code> and re-preview.</p>
+<h4 id="3-real-pass-paid-only-after-go-ahead">3 — Real pass (paid; only after go-ahead)<a class="headerlink" href="#3-real-pass-paid-only-after-go-ahead" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>~/.claude/scripts/loom-mine-history<span class="w"> </span>--out<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$out</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="o">[</span>same<span class="w"> </span>--root/--wing/--since/--since-sha/...<span class="w"> </span>flags<span class="o">]</span><span class="w"> </span><span class="o">[</span>--synthesize<span class="o">]</span><span class="w"> </span><span class="o">[</span>--resume<span class="o">]</span>
+</code></pre></div>
+<p>Pass the SAME <code>--since-sha=&lt;WATERMARK&gt;</code> you passed to the dry-run, so the
+paid pass mines the same <code>WATERMARK..HEAD</code> slice you previewed. Reuse the
+same <code>$out</code> across the dry-run and real pass — <code>--resume</code> (below) reads
+the <code>&lt;out&gt;/.processed</code> checkpoint that the real pass writes there.</p>
+<p>The wrapper invokes the engine with <code>--yes --out "$out"</code>, which runs the
+LLM salience+draft pass and writes the manifest. With <code>--synthesize</code> it
+also runs the tier-2 clustering+narration pass and emits
+<code>&lt;out&gt;/arcs.jsonl</code>. Then read:</p>
+<ul>
+<li><code>&lt;out&gt;/wing</code> — the resolved wing (single line). Use this verbatim.</li>
+<li><code>&lt;out&gt;/watermark</code> — the HEAD SHA the engine mined through this run
+  (single line). The real pass always writes it, even with zero salient
+  drafts (the engine DID examine through HEAD). Step 4d files it as the
+  new <code>history_mined_through</code> fact AFTER the filing loop completes.</li>
+<li><code>&lt;out&gt;/drafts.jsonl</code> — one JSON/line:
+  <code>{source_id, source_type, anchor{id,url,date,author}, verbatim,
+  synthesis, drawer_body, room, tags}</code>.</li>
+<li><code>&lt;out&gt;/kg-triples.jsonl</code> — one JSON/line:
+  <code>{subject, predicate, object}</code>.</li>
+<li><code>&lt;out&gt;/arcs.jsonl</code> — <strong>only present when <code>--synthesize</code> was passed</strong>
+  (tier-2). One JSON/line:
+  <code>{arc_title, theme, narrative, constituents[], drawer_body, room,
+  tags}</code>. Each entry in <code>constituents</code> is a <strong><code>source_id</code></strong> matching a
+  draft line in <code>drafts.jsonl</code>. The arc's <code>drawer_body</code> references its
+  constituents by source ANCHOR (PR#/SHA), because the engine has no
+  drawer_ids — step 4b rewrites those to the real drawer_ids it filed.
+  Absent without <code>--synthesize</code>; skip the arc-filing step (4b) when the
+  file is missing or empty.</li>
+</ul>
+<p>If <code>drafts.jsonl</code> is empty, nothing was salient — report that and stop
+(no filing, no error).</p>
+<h4 id="4-filing-loop-mcp-this-is-the-skills-job-not-the-wrappers">4 — Filing loop (MCP; this is the skill's job, not the wrapper's)<a class="headerlink" href="#4-filing-loop-mcp-this-is-the-skills-job-not-the-wrappers" title="Permanent link">&para;</a></h4>
+<p><strong>Two-phase, ordered: per-unit drafts FIRST, arcs SECOND.</strong> The arc
+drawers (step 4b) cross-reference the per-unit drawers, so the per-unit
+drawers must exist — and their <code>drawer_id</code>s be known — before any arc
+is filed. Do not interleave.</p>
+<h5 id="4a-per-unit-drafts">4a — Per-unit drafts<a class="headerlink" href="#4a-per-unit-drafts" title="Permanent link">&para;</a></h5>
+<p>Let <code>WING</code> be the contents of <code>&lt;out&gt;/wing</code>. Keep a running map
+<code>source_id → drawer_id</code> (<code>ID_MAP</code>) — you will need it in step 4b to
+rewrite arc constituents. For each draft line in <code>&lt;out&gt;/drafts.jsonl</code>:</p>
+<ol>
+<li><strong>Dedup check</strong> — <code>mempalace_check_duplicate(content=&lt;drawer_body&gt;)</code>.
+   If it reports a match, SKIP this draft (count it skipped-dup); do not
+   file a near-duplicate of an existing drawer. If the match exposes the
+   existing drawer's id, still record <code>source_id → &lt;existing drawer_id&gt;</code>
+   in <code>ID_MAP</code> so an arc can link to it; otherwise leave it unmapped.</li>
+<li><strong>File the drawer</strong> —
+   <code>mempalace_add_drawer(wing=WING, room="decisions",
+   content=&lt;drawer_body&gt;, source_file=&lt;anchor.url or anchor.id&gt;)</code>.
+   Capture the returned <code>drawer_id</code>.</li>
+<li><strong>Tag provenance</strong> —
+   <code>mempalace_tag_drawer(drawer_id=&lt;id&gt;, tag="provenance:mined")</code>. (The
+   <code>provenance:mined</code> tag from the manifest's <code>tags</code> array, filed as a
+   single composite tag string — <code>tag_drawer</code> has no key/value split.)</li>
+<li><strong>Record the mapping</strong> — add <code>source_id → drawer_id</code> to <code>ID_MAP</code>,
+   keyed by this draft's <code>source_id</code>. This is the lookup table step 4b
+   consumes.</li>
+</ol>
+<h5 id="4b-arc-drawers-only-when-outarcsjsonl-exists-tier-2">4b — Arc drawers (only when <code>&lt;out&gt;/arcs.jsonl</code> exists; tier-2)<a class="headerlink" href="#4b-arc-drawers-only-when-outarcsjsonl-exists-tier-2" title="Permanent link">&para;</a></h5>
+<p>Skip this entire step if <code>--synthesize</code> was not passed (no <code>arcs.jsonl</code>)
+or the file is empty. Otherwise — <strong>only after every per-unit draft in
+4a is filed and <code>ID_MAP</code> is complete</strong> — for each arc line in
+<code>&lt;out&gt;/arcs.jsonl</code>:</p>
+<ol>
+<li><strong>Resolve constituents → drawer_ids.</strong> Walk the arc's
+   <code>constituents[]</code> (each is a <code>source_id</code>); look each up in <code>ID_MAP</code> to
+   get the real <code>drawer_id</code> filed in 4a. A <code>source_id</code> absent from
+   <code>ID_MAP</code> (skipped-dup with no exposed id, or never filed) has no
+   drawer to link — drop it from the linked set and note it.</li>
+<li><strong>Rewrite the body anchors → drawer_ids.</strong> The engine's
+   <code>drawer_body</code> lists constituents by source anchor (PR#/SHA) in its
+   "Constituent decisions:" block, since it had no drawer_ids. Rewrite
+   each constituent reference from the anchor to the resolved
+   <code>drawer_id</code> (or its <code>mp://&lt;drawer_id&gt;</code> URI), so the filed arc drawer
+   cross-references the real filed drawers rather than bare anchors.
+   Keep the anchor as a parenthetical only if useful; the <code>drawer_id</code>
+   is the primary link.</li>
+<li><strong>Dedup check</strong> — <code>mempalace_check_duplicate(content=&lt;rewritten
+   drawer_body&gt;)</code>. If matched, SKIP (count it skipped-dup).</li>
+<li><strong>File the arc drawer</strong> —
+   <code>mempalace_add_drawer(wing=WING, room="decisions",
+   content=&lt;rewritten drawer_body&gt;)</code>. Capture the returned <code>drawer_id</code>.</li>
+<li><strong>Tag</strong> — <code>mempalace_tag_drawer(drawer_id=&lt;id&gt;,
+   tag="provenance:mined")</code> AND <code>mempalace_tag_drawer(drawer_id=&lt;id&gt;,
+   tag="synthesis:arc")</code> — two separate calls; a drawer can carry
+   multiple independent tags (many-to-many). (Both tags come from the
+   arc line's <code>tags</code> array: <code>provenance:mined</code> + <code>synthesis:arc</code>.)</li>
+</ol>
+<h5 id="4c-kg-triples">4c — KG triples<a class="headerlink" href="#4c-kg-triples" title="Permanent link">&para;</a></h5>
+<p>For each triple line in <code>&lt;out&gt;/kg-triples.jsonl</code>:</p>
+<ul>
+<li><code>mempalace_kg_add(subject=&lt;subject&gt;, predicate=&lt;predicate&gt;,
+  object=&lt;object&gt;)</code>. The engine emits <code>decided</code>, <code>mined_from</code>, and
+  <code>authored_by</code> triples per salient unit; file each as-is.</li>
+</ul>
+<h5 id="4d-advance-the-watermark-last-after-the-whole-filing-loop">4d — Advance the watermark (LAST; after the whole filing loop)<a class="headerlink" href="#4d-advance-the-watermark-last-after-the-whole-filing-loop" title="Permanent link">&para;</a></h5>
+<p><strong>Do this only after 4a + 4b + 4c are all complete</strong> — the watermark
+records that everything through <code>&lt;out&gt;/watermark</code> has been FILED, so it
+must not advance until the drawers and per-unit triples are actually in
+the palace. (If the filing loop aborted partway, leave the old fact
+standing — re-running re-mines the unfiled tail; advancing early would
+skip it.)</p>
+<p>The repo entity is the same string step 0 queried — the resolved
+<strong>wing</strong> (<code>WING</code>, the contents of <code>&lt;out&gt;/wing</code>). Keying the write and the
+step-0 read on the same entity is what makes the round-trip close.</p>
+<ol>
+<li><strong>Read the new HEAD</strong> — let <code>NEW_SHA</code> be the single line in
+   <code>&lt;out&gt;/watermark</code> (the HEAD the engine mined through this run).</li>
+<li><strong>Invalidate the stale fact, then add the new one (replace
+   semantics).</strong> If step 0 found a prior <code>history_mined_through</code> fact,
+   it must be RETIRED before the new one is added — otherwise the graph
+   carries two <code>history_mined_through</code> objects and step 0 of the next
+   run cannot tell which is current. Do it in order:</li>
+<li><code>mempalace_kg_invalidate(...)</code> the old
+     <code>(&lt;WING&gt;, history_mined_through, &lt;WATERMARK&gt;)</code> fact (the prior SHA
+     from step 0);</li>
+<li>THEN <code>mempalace_kg_add(subject=WING,
+     predicate="history_mined_through", object=NEW_SHA)</code>.
+   On a <strong>first</strong> mine (step 0 found no prior fact) there is nothing to
+   invalidate — just <code>mempalace_kg_add</code> the new fact.</li>
+<li><strong>Idempotence guard.</strong> If <code>NEW_SHA == WATERMARK</code> (HEAD did not advance
+   — the step-0 empty-range case should have stopped you already, but
+   guard anyway), the fact already points at HEAD: skip both the
+   invalidate and the add, leaving the existing fact untouched.</li>
+</ol>
+<p>This is the write half of the round-trip whose read half is step 0: next
+run's step 0 queries <code>&lt;WING&gt; → history_mined_through → NEW_SHA</code> and mines
+only <code>NEW_SHA..HEAD</code>.</p>
+<p>Process drafts (4a) before arcs (4b) before triples (4c) before the
+watermark (4d) — the drawers must exist when arcs link them and when the
+graph references their sources, and the watermark must not advance until
+all of that is filed.</p>
+<h4 id="5-adoption-summary">5 — Adoption summary<a class="headerlink" href="#5-adoption-summary" title="Permanent link">&para;</a></h4>
+<p>Report terse counts the user can scan:</p>
+<ul>
+<li><strong>filed</strong>: per-unit drawers added to <code>WING/decisions</code>;</li>
+<li><strong>arcs-filed</strong>: when <code>--synthesize</code> ran, surface
+  <code>filed K arc drawer(s) linking N per-unit drawers</code> — K = arc drawers
+  filed in 4b, N = the distinct per-unit <code>drawer_id</code>s those arcs link
+  (resolved via <code>ID_MAP</code>). Omit this line when no arcs were emitted;</li>
+<li><strong>skipped-dup</strong>: drafts/arcs that matched an existing drawer;</li>
+<li><strong>triples-added</strong>: KG facts filed;</li>
+<li><strong>watermark</strong>: <code>advanced &lt;old-short-sha&gt; → &lt;new-short-sha&gt;</code> when step
+  4d replaced a prior fact, or <code>set &lt;new-short-sha&gt; (first mine)</code> when it
+  filed the initial fact. This is the user's signal that the next mine
+  will be incremental from here.</li>
+</ul>
+<p>Name the wing explicitly so the user knows where to search next
+(<code>mempalace_search</code> filtered to <code>WING/decisions</code>, or by the
+<code>provenance:mined</code> tag — <code>synthesis:arc</code> narrows to the arc drawers).</p>
+<h3 id="interrupted-runs-resume_1">Interrupted runs (<code>--resume</code>)<a class="headerlink" href="#interrupted-runs-resume_1" title="Permanent link">&para;</a></h3>
+<p>The LLM salience pass is the expensive beat; an interrupted real pass
+(crash, cancel, network drop) leaves the units it already processed in
+<code>&lt;out&gt;/.processed</code>. To recover WITHOUT re-spending on those units, re-run
+the real pass against the SAME <code>$out</code> with <code>--resume</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>~/.claude/scripts/loom-mine-history<span class="w"> </span>--out<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$out</span><span class="s2">&quot;</span><span class="w"> </span>--resume<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="o">[</span>same<span class="w"> </span>flags<span class="w"> </span>as<span class="w"> </span>the<span class="w"> </span>interrupted<span class="w"> </span>run,<span class="w"> </span>including<span class="w"> </span>--since-sha<span class="o">]</span>
+</code></pre></div>
+<p>The engine skips every survivor recorded in <code>&lt;out&gt;/.processed</code> and
+spends only on the remainder, appending to the existing <code>drafts.jsonl</code> /
+<code>kg-triples.jsonl</code>. After the resumed pass completes, run the filing loop
+(step 4) as normal — <code>mempalace_check_duplicate</code> (4a/4b) makes re-filing
+any drawers that WERE filed before the interruption idempotent, so it is
+safe to file the whole manifest, not just the resumed tail.</p>
+<p><code>--resume</code> and the watermark are distinct layers and compose:</p>
+<ul>
+<li><strong><code>--resume</code></strong> recovers ONE interrupted run from its on-disk
+  <code>.processed</code> checkpoint — same <code>$out</code>, same <code>WATERMARK..HEAD</code> slice. It
+  does NOT advance the <code>history_mined_through</code> fact; that only happens in
+  step 4d once the filing loop completes successfully.</li>
+<li><strong>The watermark</strong> spans runs: it is the across-invocation incremental
+  cursor, advanced once per fully-filed run (step 4d). A fresh run with
+  no <code>$out</code> to resume still benefits from it via the step-0 <code>--since-sha</code>
+  read.</li>
+</ul>
+<p>So an interrupted run is resumed with <code>--resume</code> (cheap, same dir); a
+later clean run is scoped with <code>--since-sha</code> from the watermark (step 0).
+Only the latter advances the fact.</p>
+<h3 id="anti-scope">Anti-scope<a class="headerlink" href="#anti-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Do NOT re-implement repo/wing resolution — the wrapper owns it; read
+  <code>&lt;out&gt;/wing</code>.</li>
+<li>Do NOT skip the dry-run or the go-ahead beat — spending without the
+  confirm beat violates the locked contract.</li>
+<li>Do NOT file mined drawers into loom's wing (unless loom is the repo
+  being mined) — they belong to the project they came from.</li>
+<li>Do NOT invent a separate <code>mined</code> room — same <code>decisions</code> room, the tag
+  carries provenance.</li>
+<li>Do NOT file arcs before the per-unit drafts (4a) are all filed — the
+  arc-constituent rewrite reads <code>ID_MAP</code>, which is only complete once
+  every draft has a <code>drawer_id</code>. Filing an arc early links bare anchors
+  instead of real drawers.</li>
+<li>Do NOT re-cluster or re-narrate arcs here — the engine's
+  <code>--synthesize</code> pass owns clustering + narration and emits
+  <code>arcs.jsonl</code>. The skill only files them and rewrites anchors →
+  drawer_ids; it does not redraw the arc set.</li>
+<li>Do NOT advance the watermark (4d) before the filing loop (4a–4c)
+  completes — the fact asserts everything through that SHA is FILED. An
+  early advance on a partial/aborted run silently skips the unfiled tail
+  on the next mine.</li>
+<li>Do NOT <code>kg_add</code> a new <code>history_mined_through</code> without first
+  <code>kg_invalidate</code>-ing the prior one — two live facts make step 0
+  ambiguous about which SHA is current. Replace, never accumulate.</li>
+<li>Do NOT compute the watermark SHA yourself (<code>git rev-parse HEAD</code>, etc.)
+  — read <code>&lt;out&gt;/watermark</code>, the HEAD the engine actually mined through.
+  Deriving it independently risks recording a HEAD the engine did not
+  examine (e.g. if it advanced mid-run).</li>
+<li>Do NOT conflate <code>--resume</code> with the watermark — <code>--resume</code> recovers an
+  interrupted single run from <code>&lt;out&gt;/.processed</code>; it never advances the
+  <code>history_mined_through</code> fact. Only a fully-filed run advances it (4d).</li>
+</ul>
+<h3 id="related_1">Related<a class="headerlink" href="#related_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Command (user door): <code>commands/loom-mine-history.md</code>.</li>
+<li>Wrapper (executable seam): <code>~/.claude/scripts/loom-mine-history</code>.</li>
+<li>Engine (harvest → gate → LLM → manifest, <code>--synthesize</code> tier-2 arcs):
+  <code>lib/loom-mine-history.sh</code>.</li>
+<li>Closes: loom-bn7.4 (per-unit filing), loom-68r (arc filing +
+  anchor→drawer_id rewrite), loom-zcv (skill-side watermark round-trip:
+  step-0 <code>--since-sha</code> read + step-4d <code>history_mined_through</code> write).
+  Lib half of <code>--synthesize</code>: loom-bn7.2; lib half of the watermark
+  (<code>--since-sha</code> + <code>&lt;out&gt;/watermark</code> emit + <code>--resume</code>): loom-bn7.3.</li>
+</ul>
+<!-- END INCLUDE -->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
