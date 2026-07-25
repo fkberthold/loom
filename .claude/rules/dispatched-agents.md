@@ -12,41 +12,86 @@ make verification dishonest. The conventions below mitigate each.
 
 ## Pre-flight smoke battery
 
-**Run this as the first bash call of every dispatched-worker
+**Run these as the FIRST bash calls of every dispatched-worker
 session, before touching any file** (loom-g5k). Catches the most
 common worktree-isolation failure modes at their cheapest detection
 point. Abort and ask for guidance if any check fails.
 
+**Run each step as its own separate Bash call — this battery is NOT
+one pasteable block** (loom-ta1w). The worktree-isolation harness
+statically verifies that every command stays inside the worktree and
+refuses anything it cannot prove. Command substitution (`$(...)`),
+brace grouping (`|| { echo ...; exit 1; }`), and multi-statement
+`if … fi` blocks all come back as:
+
+> This agent is isolated in the worktree `<path>`, but this command is
+> too complex to verify that it stays inside the worktree; break it
+> into plain, separate commands. Refusing to run it.
+
+A worker handed one big block therefore improvises a split nobody
+reviewed — and an improvised battery is one nobody verified. **Brief
+authors: present these steps as separate calls**, never as a single
+fenced block to paste.
+
+Each step below is a plain command whose OUTPUT the worker reads and
+compares. **The comparison is the agent's job, not the shell's** —
+that inversion is what keeps every step runnable under the harness.
+
+**Step 0 — constitution.** Read the project's tooling profile into
+context (information, not action; loom-ld4). An absent file is fine.
+
 ```bash
-# 0. Constitution — cat the project's tooling profile into context
-#    (information, not action; loom-ld4). The worker inherits the
-#    agreed shell/package-manager/runtime/canonical-commands instead
-#    of guessing. Absent file is fine — this is an info read, NOT a
-#    gate; never abort on its result.
-cat .claude/project-constitution.md 2>/dev/null \
-  || echo "(no .claude/project-constitution.md — proceeding without a pinned profile)"
+cat .claude/project-constitution.md 2>/dev/null || echo "(no .claude/project-constitution.md — proceeding without a pinned profile)"
+```
 
-# 1. Path — pwd resolves to the worktree's git toplevel
-pwd_real=$(realpath "$(pwd)")
-top_real=$(realpath "$(git rev-parse --show-toplevel)")
-[ "$pwd_real" = "$top_real" ] || { echo "FAIL: pwd=$pwd_real top=$top_real"; exit 1; }
+**Step 1 — path.** The worktree root, canonicalized through symlinks
+(`realpath .` is `pwd` with symlinks resolved), then git's idea of the
+toplevel. **The two outputs must be identical**; if they differ, stop
+and escalate.
 
-# 2. Import — project's Python (if any) resolves inside the worktree
-#    (substitute <project_name>; skip if the project has no Python)
-python3 -c 'import <project_name>; print(<project_name>.__file__)' 2>/dev/null \
-  | grep -q "$top_real" || echo "WARN: python import does NOT resolve inside worktree"
+```bash
+realpath .
+```
 
-# 3. bd state — worktree's bd dolt is non-empty
-bd list -n 1 >/dev/null 2>&1 || { echo "FAIL: bd list returned empty"; exit 1; }
+```bash
+git rev-parse --show-toplevel
+```
 
-# 4. Base — branch base matches main tip (catches empty-branch
-#    rebase no-op when base is stale)
-merge_base=$(git merge-base HEAD main)
-main_tip=$(git rev-parse main)
-if [ "$merge_base" != "$main_tip" ]; then
-  echo "BASE STALE: $merge_base != $main_tip — rebasing"
-  git rebase main || { echo "FAIL: rebase failed — escalate"; exit 1; }
-fi
+**Step 2 — import.** The project's Python (if any) must resolve inside
+the worktree. Substitute `<project_name>`; skip entirely if the
+project has no Python. **The printed path must start with the step-1
+toplevel** — if it points at MAIN, the shadow is active.
+
+```bash
+python3 -c 'import <project_name>; print(<project_name>.__file__)'
+```
+
+**Step 3 — bd state.** The worktree's bd dolt must be non-empty. An
+error or an empty listing means the next write-class `bd` call will
+wipe `issues.jsonl` on merge — stop and escalate.
+
+```bash
+bd list -n 1
+```
+
+**Step 4 — base freshness.** The branch base must match main's tip.
+**Compare the two SHAs**; they must be identical.
+
+```bash
+git merge-base HEAD main
+```
+
+```bash
+git rev-parse main
+```
+
+If they differ the base is STALE — rebase before doing any work, then
+re-run step 4 to confirm. (Use `scripts/loom-rebase-worktree main`
+instead when untracked WIP from a prior crash needs preserving; see
+the Base-freshness section below.)
+
+```bash
+git rebase main
 ```
 
 Each section below documents the failure mode that motivates one
@@ -92,17 +137,23 @@ This is why the older "prefer-relative-paths-in-briefs" prescription
 was dropped: relative paths alone are not sufficient. Verify the cwd
 directly, canonicalized through realpath.
 
-**Pre-flight smoke test** (part of the aggregator above):
+**Pre-flight smoke test** (battery step 1 — two separate calls, whose
+outputs the worker compares):
 
 ```bash
-pwd_real=$(realpath "$(pwd)")
-top_real=$(realpath "$(git rev-parse --show-toplevel)")
-[ "$pwd_real" = "$top_real" ] || exit 1
+realpath .
+```
+
+```bash
+git rev-parse --show-toplevel
 ```
 
 `realpath` normalization handles symlink-resolved worktree roots
 (common when `.claude/worktrees/` sits behind a symlinked checkout
-or when the worktree path itself contains `..` segments).
+or when the worktree path itself contains `..` segments). Comparing
+the two outputs by eye replaces the old
+`[ "$pwd_real" = "$top_real" ]` shell test, which the isolation
+harness refuses for its command substitution (loom-ta1w).
 
 **Mechanical fix.** The `hooks/edit-write-pwd-guard.sh` PreToolUse
 hook (loom-ymc) catches Mode 1 + Mode 2 + Mode 4 at write time: it
@@ -122,7 +173,7 @@ worktree's modifications — tests pass against MAIN's behavior while
 pretending to verify the worktree's changes. Silent and
 post-merge-only.
 
-**Pre-flight smoke test** (part of the aggregator above):
+**Pre-flight smoke test** (battery step 2):
 
 ```bash
 python3 -c 'import <project_name>; print(<project_name>.__file__)'
@@ -233,15 +284,18 @@ state to the empty dolt AND auto-exports `.beads/issues.jsonl`,
 overwriting the worktree's full checked-in copy. On merge to main,
 **all other issues in issues.jsonl are silently lost**.
 
-**Pre-flight smoke test** (part of the aggregator above):
+**Pre-flight smoke test** (battery step 3):
 
 ```bash
-bd list -n 1 >/dev/null 2>&1 || exit 1
+bd list -n 1
 ```
 
-A non-zero exit, or an empty result, means the embedded dolt is
+An error, or an empty result, means the embedded dolt is
 empty and the next write-class bd call will wipe issues.jsonl on
-merge. Stop and escalate.
+merge. Stop and escalate. (The bare command replaces the old
+`>/dev/null 2>&1 || exit 1` guard — the worker reads the listing
+directly, and suppressing the output would have hidden the very
+thing being checked.)
 
 **Mechanical fix.** The `hooks/bd-worktree-preseed.sh` PreToolUse
 hook (loom-x4m) pre-seeds the worktree's bd dolt on the first
@@ -276,22 +330,31 @@ rebase against a partially-typed change set. Catch it pre-flight by
 comparing merge-base against main's tip directly, before any work
 begins.
 
-**Pre-flight smoke test** (part of the aggregator above):
+**Pre-flight smoke test** (battery step 4 — two separate calls, whose
+SHAs the worker compares):
 
 ```bash
-merge_base=$(git merge-base HEAD main)
-main_tip=$(git rev-parse main)
-if [ "$merge_base" != "$main_tip" ]; then
-  echo "BASE STALE: $merge_base != $main_tip — rebasing"
-  git rebase main || { echo "FAIL: rebase failed — escalate"; exit 1; }
-fi
+git merge-base HEAD main
+```
+
+```bash
+git rev-parse main
+```
+
+If the two SHAs differ the base is stale; rebase, then re-run both
+calls to confirm they now match:
+
+```bash
+git rebase main
 ```
 
 For an empty branch the rebase fast-forwards the branch tip to
 main; for a branch with commits it replays them onto main. Either
 way the worker proceeds on a known-fresh base AND knows its
 starting point shifted (the diagnostic the silent no-op was
-hiding).
+hiding). Doing the comparison in the agent rather than in an
+`if … fi` shell block is what makes this step runnable under the
+isolation harness (loom-ta1w).
 
 **Mechanical fix.** Use `scripts/loom-rebase-worktree main`
 (loom-azt) instead of plain `git rebase main` when untracked WIP
@@ -299,6 +362,76 @@ from a prior crash needs preserving across the rebase. The wrapper
 refuses outside a linked worktree, snapshots untracked files,
 pre-detects collisions, and restores files post-rebase. See
 [`docs/reference/loom-rebase-worktree.md`](../../docs/reference/loom-rebase-worktree.md).
+
+## Worker-side leak check (loom-ta1w)
+
+**Before handing back, a worker verifies its own footprint** — that
+what it changed is exactly what it meant to change, and that nothing
+leaked into the shared checkout.
+
+**Risk (the un-runnable leak check).** The obvious way to check "did
+I leak into main?" is to look at main's working tree, pointing git at
+the main checkout's absolute path with a `-C` redirect. **A worker
+cannot run that.** The isolation harness refuses it with a message
+distinct from the too-complex one:
+
+> This agent is isolated in the worktree `<path>`, but this command
+> redirects git to the shared checkout via `-C`. Refusing to run it —
+> a worktree-isolated agent's git operations must target its own
+> worktree.
+
+Three workers in one session (loom-vr6k, loom-8ztk, loom-qo4j) each
+hit this and each improvised a *different* fallback — a content
+comparison against the `main` ref, or a bare directory listing. Those
+improvisations were sound but ad hoc, and an ad-hoc check is one
+nobody reviewed.
+
+**The fix — go through git REFS, not the main working-tree PATH.**
+Refs are fully visible from inside the worktree, so both questions a
+worker needs to answer are answerable without leaving it.
+
+*What did my branch actually touch?*
+
+```bash
+git diff --stat main HEAD
+```
+
+The listed paths must match the bead's declared `Files:` (plus any
+footprint expansion the worker is about to declare in its report).
+Unrelated files here mean either a stale base (re-run battery step 4)
+or a genuine leak.
+
+*Should this path be absent from main?* Compare against the main
+**ref** rather than the main **path**:
+
+```bash
+git show main:<path>
+```
+
+A `fatal: path '<path>' does not exist in 'main'` is the expected,
+successful answer for a file the worker newly created. Content coming
+back means the file already exists on main — inspect before assuming
+a leak.
+
+**This is DISTINCT from the Edit/Write pwd guard.** Two different
+mechanisms, easy to conflate, and conflating them is harmful:
+
+- The `git -C` refusal above is the **isolation harness**, at the
+  **Bash** level. It is a limitation to route around — hence the
+  ref-based checks in this section.
+- `hooks/edit-write-pwd-guard.sh` (loom-ymc) is **loom's own hook**, on
+  the **Edit/Write/MultiEdit** tools, refusing writes that resolve
+  outside the worktree. When it blocks a write — including an
+  out-of-worktree scratchpad `Write`, as it correctly did for two
+  workers this session — **it is working exactly as designed**. Do not
+  treat that block as the same problem, and do not reach for
+  `LOOM_EDIT_WRITE_GUARD_SKIP=1` to "fix" it; write inside the
+  worktree instead.
+
+**Central's leak check is unchanged.** Central runs from the main
+checkout, where a plain `git diff --stat` works and is still the right
+call after a dispatch wave returns. This section is the worker-side
+counterpart, for the one context where that command is unavailable.
 
 ## Worker-report sampling transparency (loom-z3m.16)
 
