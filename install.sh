@@ -7,9 +7,10 @@
 # subsequent runs the symlinks are reset but backups aren't re-created.
 #
 # Usage:
-#   ./install.sh                    # install (default)
-#   ./install.sh --check            # report what WOULD be done; no changes
-#   ./install.sh --check-invocable  # verify shipped primitives are symlinked
+#   ./install.sh                      # install (default)
+#   ./install.sh --check              # report what WOULD be done; no changes
+#   ./install.sh --check-invocable    # verify shipped primitives are symlinked
+#   ./install.sh --check-registration # verify snippet hooks are REGISTERED live
 #
 # `--check-invocable` is a POST-INSTALL verification pass (no mutation):
 # it asserts every shipped primitive (skills/*/SKILL.md, commands/*.md,
@@ -20,6 +21,17 @@
 # was not re-run (observed for upstream-a-bead, loom-k2g.7). Distinct
 # from `--check`, which is a dry-run PREVIEW of the install itself.
 #
+# `--check-registration` is `--check-invocable`'s SIBLING (loom-kwkc):
+# it verifies the OTHER half of "a hook actually runs". A hook can be
+# shipped, symlinked, and named in settings.snippet.json and STILL never
+# fire, because ~/.claude/settings.json — the file the harness actually
+# reads — carries no such registration. settings.json is deliberately
+# not checked in (user-machine-specific, holds config outside loom's
+# scope), so the repo cannot own it and drift is invisible. Observed:
+# hooks/loom-drift-nudge.sh shipped 2026-07-17 (loom-ig3p.3), was
+# registered in the snippet, and was absent from the live settings.json
+# — loom's own convention-drift detector had never once fired.
+#
 # Run from the loom repo root.
 
 set -euo pipefail
@@ -28,10 +40,12 @@ LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 DRY_RUN=0
 CHECK_INVOCABLE=0
+CHECK_REGISTRATION=0
 
 case "${1:-}" in
   --check) DRY_RUN=1 ;;
   --check-invocable) CHECK_INVOCABLE=1 ;;
+  --check-registration) CHECK_REGISTRATION=1 ;;
 esac
 
 log() { echo "[loom-install] $*"; }
@@ -42,6 +56,147 @@ do_or_print() {
     eval "$*"
   fi
 }
+
+# ----------------------------------------------------------------------
+# Settings-registration parity check (loom-kwkc).
+#
+# NO MUTATION. Compares the (event, command) hook registrations declared
+# in settings.snippet.json against those present in the live
+# ~/.claude/settings.json, and reports every snippet registration the
+# harness would never run. The snippet is read DYNAMICALLY, so hooks
+# added later are covered with no edit here or in the suite.
+#
+# It deliberately does NOT write settings.json: that file is
+# user-machine-specific and holds config outside loom's scope, so the
+# remedy is REPORTED (re-run ./install.sh, whose existing merge replaces
+# the hooks stanzas loom owns) rather than applied behind the user's back.
+#
+# Missing-vs-unreadable policy:
+#   * live settings ABSENT      -> SKIP, exit 0. loom simply is not
+#     installed here (fresh clone / CI / container); there is no live
+#     registration surface to be out of parity WITH, so the invariant is
+#     vacuous and a red here would be a false alarm that trains people to
+#     ignore the gate.
+#   * live settings PRESENT but UNPARSEABLE -> exit 1. A corrupt
+#     settings.json means EVERY registration is dark — strictly worse
+#     than the drift being hunted, and a real defect.
+#
+# Matching is on (event, command). Matcher drift (right command, wrong
+# matcher) is out of scope: the merge copies snippet stanzas verbatim, so
+# a matcher can only diverge through hand-editing, and treating it as a
+# failure would red the gate on legitimate local customization.
+#
+# Overrides (fixtures): LOOM_SETTINGS_PARITY_SNIPPET,
+# LOOM_SETTINGS_PARITY_LIVE.
+# ----------------------------------------------------------------------
+check_registration() {
+  LOOM_PARITY_SNIPPET="${LOOM_SETTINGS_PARITY_SNIPPET:-$LOOM_ROOT/settings.snippet.json}" \
+  LOOM_PARITY_LIVE="${LOOM_SETTINGS_PARITY_LIVE:-$CLAUDE_HOME/settings.json}" \
+  python3 <<'PY'
+import json, os, sys
+
+snippet_path = os.environ["LOOM_PARITY_SNIPPET"]
+live_path = os.environ["LOOM_PARITY_LIVE"]
+
+
+def registrations(path):
+    """Every (event, command) hook registration in a settings-shaped doc."""
+    with open(path) as fh:
+        doc = json.load(fh)
+    found = []
+    hooks = doc.get("hooks") if isinstance(doc, dict) else None
+    if not isinstance(hooks, dict):
+        return found
+    for event, entries in hooks.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            inner = entry.get("hooks")
+            if not isinstance(inner, list):
+                continue
+            for hook in inner:
+                if isinstance(hook, dict) and hook.get("command"):
+                    found.append((event, hook["command"]))
+    return found
+
+
+try:
+    snippet_regs = registrations(snippet_path)
+except OSError as exc:
+    print("[loom-install] ERROR: cannot read settings.snippet.json at %s: %s"
+          % (snippet_path, exc), file=sys.stderr)
+    sys.exit(1)
+except ValueError as exc:
+    print("[loom-install] ERROR: settings.snippet.json at %s is invalid JSON: %s"
+          % (snippet_path, exc), file=sys.stderr)
+    sys.exit(1)
+
+if not os.path.exists(live_path):
+    print("[loom-install] SKIP registration parity: no live settings.json at %s"
+          % live_path)
+    print("[loom-install]   loom is not installed on this machine — there is no live")
+    print("[loom-install]   registration surface to compare against.")
+    sys.exit(0)
+
+try:
+    live_regs = registrations(live_path)
+except OSError as exc:
+    print("[loom-install] ERROR: live settings.json at %s is present but unreadable: %s"
+          % (live_path, exc), file=sys.stderr)
+    sys.exit(1)
+except ValueError as exc:
+    print("[loom-install] ERROR: live settings.json at %s is present but UNPARSEABLE "
+          "(invalid JSON): %s" % (live_path, exc), file=sys.stderr)
+    print("[loom-install]   Every hook registration in it is dark. Fix the JSON, "
+          "then re-run.", file=sys.stderr)
+    sys.exit(1)
+
+live_set = set(live_regs)
+missing = []
+for reg in snippet_regs:
+    if reg not in live_set and reg not in missing:
+        missing.append(reg)
+
+if not missing:
+    print("[loom-install] Registration parity OK: all %d snippet-registered hook(s) "
+          "are live in %s" % (len(set(snippet_regs)), live_path))
+    sys.exit(0)
+
+print("[loom-install] REGISTRATION DRIFT: %d hook(s) registered in %s are MISSING "
+      "from %s" % (len(missing), snippet_path, live_path), file=sys.stderr)
+for event, command in missing:
+    print("[loom-install]   MISSING: event=%s command=%s" % (event, command),
+          file=sys.stderr)
+print("[loom-install]", file=sys.stderr)
+print("[loom-install] These hooks are shipped and symlinked but wired to nothing — "
+      "the", file=sys.stderr)
+print("[loom-install] harness will never run them. Re-run ./install.sh from the main",
+      file=sys.stderr)
+print("[loom-install] loom checkout to merge the snippet's stanzas into settings.json.",
+      file=sys.stderr)
+print("[loom-install] (loom does not own settings.json wholesale; the merge replaces",
+      file=sys.stderr)
+print("[loom-install] only the hooks.PreToolUse / hooks.SessionStart / statusLine "
+      "stanzas.)", file=sys.stderr)
+sys.exit(1)
+PY
+}
+
+# --check-registration: run the parity check and exit with its verdict.
+#
+# Handled BEFORE the linked-worktree refusal below on purpose: that
+# refusal exists because `ln -s` from a worktree bakes the worktree path
+# into every ~/.claude symlink. This mode creates no symlinks and writes
+# nothing, and it reads only the snippet (identical in every checkout) —
+# so it is safe, and useful, from a worktree (which is where the suite
+# runs under a dispatched worker).
+if [ "$CHECK_REGISTRATION" = "1" ]; then
+  _reg_rc=0
+  check_registration || _reg_rc=$?
+  exit "$_reg_rc"
+fi
 
 # Refuse to run from a linked worktree (loom-cuk). install.sh resolves
 # LOOM_ROOT from BASH_SOURCE; when invoked at .worktrees/<id>/install.sh
@@ -336,6 +491,25 @@ log ""
 log "Settings.json merge:"
 SETTINGS="$CLAUDE_HOME/settings.json"
 SNIPPET="$LOOM_ROOT/settings.snippet.json"
+
+# Registration-parity REPORT (loom-kwkc) — informational, never fatal,
+# and it writes nothing itself. Run before the merge so the operator can
+# see which snippet-registered hooks were dark on this machine.
+#
+# On a real install the merge below then registers them (loom owns the
+# hooks.PreToolUse / hooks.SessionStart / statusLine stanzas, and
+# re-running install.sh is itself the user's explicit consent to that
+# long-standing merge). Under --check nothing is written at all, so the
+# report is the whole output and the remedy is to re-run without --check.
+_reg_drift=0
+check_registration || _reg_drift=$?
+if [ "$_reg_drift" != "0" ]; then
+  if [ "$DRY_RUN" = "1" ]; then
+    log "  ^ re-run ./install.sh (without --check) to register the hooks listed above"
+  else
+    log "  ^ the merge below registers the hooks listed above"
+  fi
+fi
 
 if [ ! -f "$SETTINGS" ]; then
   log "  $SETTINGS does not exist — creating from snippet."
