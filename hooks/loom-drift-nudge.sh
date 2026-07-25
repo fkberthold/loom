@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# loom-drift-nudge.sh — SessionStart hook (loom-ig3p.3). Compares a
-# managed project's STAMPED loom-convention-manifest hash against
-# loom's CURRENT manifest hash; on drift, emits ONE non-blocking,
-# one-time-per-session nudge pointing at `/audit-project --apply-drift`.
+# loom-drift-nudge.sh — SessionStart hook (loom-ig3p.3, extended by
+# loom-oktm). For a LOOM-MANAGED project (one carrying
+# `.claude/workflow.json`), emits ONE non-blocking, one-time-per-session
+# nudge pointing at `/audit-project --apply-drift` in either of two
+# states: the project has NEVER synced (no `.claude/.loom-sync` stamp),
+# or its STAMPED loom-convention-manifest hash is behind loom's CURRENT
+# manifest hash. Silent otherwise.
 #
 # THE PROBLEM this closes out. `scripts/loom-convention-manifest`
 # (loom-ig3p.1) computes loom's CURRENT convention hash over its
@@ -11,7 +14,8 @@
 # last sync. Neither alone detects drift — nothing compared the two.
 # THIS hook is the detector: on every SessionStart it reads the
 # project's stamp, recomputes loom's current hash, and nudges when
-# they differ.
+# they differ — or when the stamp is absent entirely (loom-oktm; see
+# the OPT-IN GUARD note below).
 #
 # GENERALIZES loom-1lj (constitution-enforce.sh's tooling age-skew
 # nudge): same shape — one-time-per-session, non-blocking, INFO-only
@@ -26,12 +30,47 @@
 # ATTENDED decision (does the user want to resync now?), not a
 # correctness invariant.
 #
-# OPT-IN GUARD. Only nudges a project that carries a
-# `.claude/.loom-sync` stamp — i.e. has synced against loom at least
-# once (via install.sh or `/audit-project`). No stamp → the project is
-# either not loom-managed or has never synced → SILENT no-op. Mirrors
-# constitution-enforce.sh's "absent constitution → exit 0 silent"
-# posture (most projects don't carry loom state at all).
+# OPT-IN GUARD — three states, three outcomes (loom-oktm).
+# LOOM-MANAGEDNESS is established by EITHER of two signals: the project
+# carries `.claude/workflow.json` (the same signal session-startup step
+# 1f uses for its constitution nudge), OR it carries a
+# `.claude/.loom-sync` stamp (which only `/audit-project` writes, so its
+# mere presence proves the project synced against loom at some point).
+# Either signal alone suffices — hence `||`, not `&&`, at step 4. Given
+# that:
+#
+#   * NEITHER signal → SILENT no-op. Never nudge a project that hasn't
+#     opted into loom by either route. Mirrors constitution-enforce.sh's
+#     "absent constitution → exit 0 silent" posture (most projects
+#     don't carry loom state at all).
+#   * `workflow.json` + NO `.claude/.loom-sync` → NEVER-SYNCED nudge.
+#     `workflow.json` is REQUIRED to reach this branch: it is the only
+#     managedness signal left once the stamp is known absent. This is
+#     the case an earlier revision silently swallowed — it treated "no
+#     stamp" as "nothing to compare" and exited quietly, so a CURRENT
+#     project and a project that had never received loom's conventions
+#     at all were indistinguishable. The never-synced case is the one
+#     that most needs the nudge — by definition it has received nothing.
+#     (Live instance: ~/repos/liza_base carried no stamp while its
+#     priming drifted 26+ days.)
+#   * stamp present (with OR WITHOUT `workflow.json`) → the hash
+#     comparison below (stale → nudge, matching → silent). The
+#     without-`workflow.json` half of that is deliberate BACKWARD
+#     COMPAT: every project that nudged before this change had a stamp,
+#     and some carry no `workflow.json`; requiring both signals would
+#     take previously-nudging projects silently quiet. Do NOT
+#     "simplify" step 4's `||` into an `&&` — cases A/D/E/F/G in
+#     lib/tests/loom-drift-nudge.test.sh pin exactly that grandfathered
+#     stamped-but-no-workflow.json shape and would go red.
+#
+# The two nudges are deliberately worded differently: the never-synced
+# one names the ABSENT stamp and asks for a first sync; the stale one
+# names both hashes and asks for a resync. Same fix command
+# (`/audit-project --apply-drift`), different emphasis.
+#
+# The never-synced branch does NOT compute loom's current manifest hash
+# — there is nothing to compare it against, and skipping it keeps the
+# nudge robust even where the manifest script can't be resolved.
 #
 # ONE-TIME-PER-SESSION. `SessionStart` fires on fresh start, resume,
 # AND `/clear` (see docs/reference/claude-code-hook-semantics.md) — not
@@ -118,10 +157,54 @@ fi
 CWD="${CWD:-$PWD}"
 
 STAMP="$CWD/.claude/.loom-sync"
+WORKFLOW_JSON="$CWD/.claude/workflow.json"
 
-# 4. OPT-IN GUARD: no stamp → not loom-synced (or not loom-managed at
-#    all) → SILENT no-op. Never nudge a project that hasn't opted in.
-[ -f "$STAMP" ] || exit 0
+# --- ONE-TIME-PER-SESSION emitter ---------------------------------------
+# Shared by BOTH nudge modes (never-synced and stale-stamp). Mirrors
+# constitution-enforce.sh's loom-1lj age-skew nudge exactly. Keyed on the
+# STAMP path — present or not — so distinct managed projects in the same
+# session each get their own one-shot nudge slot.
+emit_nudge_once() {
+  local msg="$1" sentinel_base sentinel_key sentinel
+  sentinel_base="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sentinel_key=$(printf '%s' "$STAMP" | sha256sum | cut -d' ' -f1)
+  else
+    sentinel_key=$(printf '%s' "$STAMP" | cksum | tr -d ' ')
+  fi
+  sentinel="$sentinel_base/loom-drift-nudge-$sentinel_key"
+  [ -e "$sentinel" ] && return 0   # already nudged this session
+
+  # A single concise stderr line (D4 loudness: proportional/non-blocking).
+  echo "$msg" >&2
+
+  # Best-effort one-shot: a write failure is non-fatal (we'd just nudge
+  # again next call — degrades to the pre-sentinel behavior, not a crash).
+  # NOTE the redirection ORDER: `2>/dev/null` must come FIRST. Bash
+  # applies redirections left to right, so the older `: >"$s" 2>/dev/null`
+  # form let the shell's own "No such file or directory" complaint escape
+  # to the real stderr when $sentinel's parent dir didn't exist (a
+  # nonexistent $XDG_RUNTIME_DIR) — turning a clean one-line nudge into
+  # two lines, the second of them noise.
+  : 2>/dev/null >"$sentinel" || true
+}
+
+# 4. OPT-IN GUARD: NEITHER managedness signal (no workflow.json AND no
+#    stamp) → SILENT no-op. Never nudge a project that hasn't opted into
+#    loom by either route. Keep this `||`: a stamp alone is a valid
+#    managedness signal (only /audit-project writes one), and narrowing
+#    to `&&` would silence the grandfathered stamped-but-no-workflow.json
+#    projects that already nudged before loom-oktm. See the OPT-IN GUARD
+#    header note.
+[ -f "$WORKFLOW_JSON" ] || [ -f "$STAMP" ] || exit 0
+
+# 4b. NEVER-SYNCED: loom-managed but carrying no stamp at all. Nudge and
+#     stop — there is no hash to compare (see the OPT-IN GUARD header
+#     note). Reached only when WORKFLOW_JSON exists, per the guard above.
+if [ ! -f "$STAMP" ]; then
+  emit_nudge_once "[loom-drift-nudge] INFO: this loom-managed project has never been synced against loom's conventions (no .claude/.loom-sync stamp) — run \`/audit-project --apply-drift\` to sync it and write the stamp."
+  exit 0
+fi
 
 STAMPED_HASH=$(grep '^hash=' "$STAMP" 2>/dev/null | head -1 | cut -d= -f2-)
 STAMPED_DATE=$(grep '^date=' "$STAMP" 2>/dev/null | head -1 | cut -d= -f2-)
@@ -148,27 +231,9 @@ CURRENT_HASH=$("$MANIFEST_BIN" --root "$LOOM_SELF_ROOT" 2>/dev/null) || exit 0
 # 6. Compare. Matching hash → in sync → silent no-op.
 [ "$STAMPED_HASH" = "$CURRENT_HASH" ] && exit 0
 
-# 7. ONE-TIME-PER-SESSION sentinel (mirrors constitution-enforce.sh's
-#    loom-1lj age-skew nudge exactly). Keyed on the STAMP path so
-#    distinct managed projects in the same session each get their own
-#    one-shot nudge slot.
-SENTINEL_BASE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
-if command -v sha256sum >/dev/null 2>&1; then
-  SENTINEL_KEY=$(printf '%s' "$STAMP" | sha256sum | cut -d' ' -f1)
-else
-  SENTINEL_KEY=$(printf '%s' "$STAMP" | cksum | tr -d ' ')
-fi
-SENTINEL="$SENTINEL_BASE/loom-drift-nudge-$SENTINEL_KEY"
-[ -e "$SENTINEL" ] && exit 0   # already nudged this session
-
-# 8. Emit the nudge — a single concise stderr line (D4 loudness:
-#    proportional/non-blocking). Names the drift (stamped vs current
-#    hash, short form) and points at the fix command.
-echo "[loom-drift-nudge] INFO: this project's loom-convention stamp (hash=${STAMPED_HASH:0:12}..., synced ${STAMPED_DATE:-unknown}) is behind loom's current conventions (hash=${CURRENT_HASH:0:12}...) — run \`/audit-project --apply-drift\` to resync." >&2
-
-# Best-effort one-shot: a write failure is non-fatal (we'd just nudge
-# again next call — degrades to the pre-sentinel behavior, not a
-# crash).
-: >"$SENTINEL" 2>/dev/null || true
+# 7. STALE STAMP: emit the drift nudge, once per session. Names the
+#    drift (stamped vs current hash, short form) and points at the fix
+#    command.
+emit_nudge_once "[loom-drift-nudge] INFO: this project's loom-convention stamp (hash=${STAMPED_HASH:0:12}..., synced ${STAMPED_DATE:-unknown}) is behind loom's current conventions (hash=${CURRENT_HASH:0:12}...) — run \`/audit-project --apply-drift\` to resync."
 
 exit 0
