@@ -91,38 +91,34 @@ assert_contains "cites loom-ld4 lineage" 'loom-ld4' "$SESSION_STARTUP"
 
 echo "==> dispatched-agents: smoke-battery step 0 cats the constitution"
 assert_contains "smoke battery names step 0 / constitution read" \
-  '0\. .*[Cc]onstitution|[Cc]onstitution.*step 0' "$RULE_FILE"
+  '0\. .*[Cc]onstitution|[Cc]onstitution.*step 0|[Ss]tep 0 — [Cc]onstitution' \
+  "$RULE_FILE"
 assert_contains "step 0 cats .claude/project-constitution.md" \
   'cat[^|]*\.claude/project-constitution\.md' "$RULE_FILE"
 assert_contains "step 0 framed as information not action" \
   '[Ii]nformation, not action' "$RULE_FILE"
 assert_contains "rule file cites loom-ld4" 'loom-ld4' "$RULE_FILE"
 
-# The step-0 cat must live INSIDE the aggregator fenced bash block,
-# and BEFORE the pwd-verification (`git rev-parse --show-toplevel`)
-# line — i.e. step 0 precedes step 1.
-echo "==> step 0 cat precedes pwd verification in the aggregator block"
+# Ordering: the step-0 cat must come BEFORE the step-1 pwd
+# verification (`git rev-parse --show-toplevel`).
+#
+# This used to require both commands inside ONE aggregator fenced
+# block. loom-ta1w split the battery into discrete one-command blocks,
+# because the worktree-isolation harness refuses the compound form —
+# so co-locating them in a single block is now the ANTI-pattern this
+# suite must not re-impose. The ordering intent is unchanged and is
+# now measured across blocks, by first-occurrence line number.
+echo "==> step 0 cat precedes pwd verification across the battery steps"
 if awk '
-  /^```bash/ { in_block=1; block=""; next }
-  /^```/ && in_block { in_block=0;
-    if (block ~ /\.claude\/project-constitution\.md/ &&
-        block ~ /git rev-parse --show-toplevel/) {
-      n=split(block, lines, "\n");
-      cat_at=0; pwd_at=0;
-      for (i=1;i<=n;i++) {
-        if (lines[i] ~ /\.claude\/project-constitution\.md/ && cat_at==0) cat_at=i;
-        if (lines[i] ~ /git rev-parse --show-toplevel/ && pwd_at==0) pwd_at=i;
-      }
-      if (cat_at>0 && pwd_at>0 && cat_at < pwd_at) found=1;
-    }
-    block=""; next
-  }
-  in_block { block = block "\n" $0 }
-  END { exit (found ? 0 : 1) }
+  /^```bash/ { in_block=1; next }
+  /^```/ && in_block { in_block=0; next }
+  in_block && /cat[^|]*\.claude\/project-constitution\.md/ && cat_at==0 { cat_at=NR }
+  in_block && /git rev-parse --show-toplevel/ && pwd_at==0 { pwd_at=NR }
+  END { exit (cat_at>0 && pwd_at>0 && cat_at < pwd_at ? 0 : 1) }
 ' "$RULE_FILE"; then
-  pass "step-0 constitution cat appears before pwd check in aggregator block"
+  pass "step-0 constitution cat appears before the step-1 pwd check"
 else
-  fail "step-0 constitution cat NOT found before pwd check in a single bash block"
+  fail "step-0 constitution cat NOT found before the pwd check in the battery"
 fi
 
 # =====================================================================
