@@ -15,15 +15,21 @@
 #   - tool is Edit / Write / MultiEdit
 #   - a bead is in_progress (bd list --status=in_progress non-empty)
 #   - workflow-state get dispatch is EMPTY
-#   - the target file_path is NUDGE-ELIGIBLE: a SOURCE file
-#     (hooks/*.sh, scripts/*, lib/*.sh) OR a TEST file
-#     (lib/tests/*.test.sh, *_test.*, *.test.*). NOT *.md, NOT
-#     docs/, NOT config. Central editing a test inline is the same
-#     test-author==code-author anti-pattern, so test files nudge too.
+#   - the target file_path is NUDGE-ELIGIBLE: a SOURCE or TEST file,
+#     per the shared `loom_is_source_or_test` predicate in
+#     lib/loom-hook-helpers.sh (loom-p5ee). That predicate is
+#     LANGUAGE-BLIND: it reads `language.runtime` from the project
+#     constitution when one is readable, and falls back to a widened
+#     built-in glob list covering py/sh/go/js/ts/rb/rs otherwise. NOT
+#     *.md, NOT docs/, NOT config. Central editing a test inline is the
+#     same test-author==code-author anti-pattern, so test files nudge
+#     too.
 # The nudge points central at /dispatch-middle (the cheap command —
 # one invocation runs the test-author→implementer pipeline).
-# Memoized once-per-bead via a sentinel keyed on the in_progress id,
-# so it isn't per-edit spam while dispatch stays unset.
+# Memoized once-per-bead via a sentinel keyed on the bead workflow-state
+# records (NOT `bd list --status=in_progress | head -1`, which names the
+# wrong bead whenever a project has N>1 concurrent claims), so it isn't
+# per-edit spam while dispatch stays unset.
 #
 # If dispatch=worker but central is editing a nudge-eligible file (the
 # central session doing the worker's job), emit a softer one-line
@@ -40,11 +46,17 @@
 
 set -uo pipefail
 
+# Precedence: explicit LOOM_TEST_LIB_DIR (worktree-shadow discipline) >
+# installed copy > repo-relative copy. LOOM_TEST_LIB_DIR must win, or a
+# worktree's tests silently exercise MAIN's installed helpers instead of
+# the worktree's — the same dishonest-verification shadow
+# .claude/rules/dispatched-agents.md documents for Python imports. Every
+# other hook already orders it this way; this one did not (loom-p5ee).
 # shellcheck source=../lib/loom-hook-helpers.sh
-if [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
-  . "$HOME/.claude/lib/loom-hook-helpers.sh"
-elif [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
   . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
 else
   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
 fi
@@ -68,47 +80,36 @@ esac
 [ -n "$PATH_RAW" ] || exit 0
 
 # --- Nudge-eligible-file heuristic ----------------------------------
-# A nudge-eligible file is a SOURCE file or a TEST file:
-#   SOURCE: hooks/*.sh, scripts/* (any), lib/*.sh.
-#   TEST:   lib/tests/*.test.sh, *_test.* (e.g. bar_test.go),
-#           *.test.* (e.g. foo.test.js).
-# Central editing a test inline is the same test-author==code-author
-# anti-pattern dispatch is meant to prevent, so tests nudge too.
-# EXCLUDE: *.md (docs/markdown), docs/* (docs), *.json / config.
-# Match on the path's tail so absolute, relative, and worktree-
-# prefixed paths all classify identically.
+# A nudge-eligible file is a SOURCE file or a TEST file. Central editing
+# a test inline is the same test-author==code-author anti-pattern
+# dispatch is meant to prevent, so tests nudge too.
+#
+# The predicate itself lives in lib/loom-hook-helpers.sh
+# (`loom_is_source_or_test`, loom-p5ee) and is SHARED with
+# hooks/main-checkout-edit-guard.sh (loom-vr6k). It resolves the
+# project's source/test globs HYBRID-style: from the constitution's
+# `language.runtime` when one is readable, else from a widened built-in
+# list covering py/sh/go/js/ts/rb/rs.
+#
+# This hook used to inline a loom-shaped heuristic (hooks/*.sh,
+# scripts/*, lib/*.sh for source; *_test.* / *.test.* for tests). Python
+# tests are `test_*.py` — a PREFIX, not a suffix — so in a Python
+# project neither sources nor tests matched and the hook was 100% dark.
 is_nudge_eligible() {
-  local p="$1"
-  # Excludes apply to everything, including would-be test docs.
-  case "$p" in
-    *.md|*.json) return 1 ;;
-    */docs/*|docs/*) return 1 ;;
-  esac
-  # Test files — the issue-#2 anti-pattern case.
-  case "$p" in
-    */lib/tests/*.test.sh|lib/tests/*.test.sh) return 0 ;;
-    *_test.*) return 0 ;;
-    *.test.*) return 0 ;;
-  esac
-  # Source files.
-  case "$p" in
-    */hooks/*.sh|hooks/*.sh) return 0 ;;
-    */scripts/*|scripts/*) return 0 ;;
-    */lib/*.sh|lib/*.sh) return 0 ;;
-  esac
-  return 1
+  loom_is_source_or_test "$1" "$PWD"
 }
 
 is_nudge_eligible "$PATH_RAW" || exit 0
 
 # --- Locate the workflow-state lib ----------------------------------
-# Prefer the installed copy, fall back to the repo-relative copy via
-# LOOM_TEST_LIB_DIR (so the test runner doesn't need install.sh).
+# Same precedence as the helpers ladder above: LOOM_TEST_LIB_DIR (so a
+# worktree's tests read the worktree's lib, and so the test runner
+# doesn't need install.sh) > installed copy.
 WFS_LIB=""
-if [ -f "$HOME/.claude/lib/workflow-state.sh" ]; then
-  WFS_LIB="$HOME/.claude/lib/workflow-state.sh"
-elif [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/workflow-state.sh" ]; then
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/workflow-state.sh" ]; then
   WFS_LIB="$LOOM_TEST_LIB_DIR/workflow-state.sh"
+elif [ -f "$HOME/.claude/lib/workflow-state.sh" ]; then
+  WFS_LIB="$HOME/.claude/lib/workflow-state.sh"
 fi
 [ -n "$WFS_LIB" ] || exit 0  # can't read state → fail silent
 
@@ -116,12 +117,31 @@ fi
 . "$WFS_LIB"
 
 # --- Identify the in_progress bead ----------------------------------
-# Best-effort: bd list --status=in_progress, take the first line's
-# leading bead-id token. Empty output → no claimed bead → silent.
+# GATE: some bead must actually be claimed. `bd list --status=in_progress`
+# empty → nothing is being worked → silent.
 command -v bd >/dev/null 2>&1 || exit 0
 IP_LINE=$(bd list --status=in_progress 2>/dev/null | head -1 || true)
 [ -n "$IP_LINE" ] || exit 0
-IP_BEAD=$(echo "$IP_LINE" | grep -oE '[a-z][a-z0-9]*-[a-z0-9]+(\.[a-z0-9]+)*' | head -1 || true)
+
+# WHICH bead: prefer the `bead` field workflow-state records — that is
+# the bead central is actually working. The bd-list scan is only a
+# FALLBACK for when the field is unset (loom-p5ee D3). Keying on
+# `bd list | head -1` was wrong: a project with N>1 concurrent claims
+# always yields the first-listed bead, never the one being worked, so a
+# single nudge permanently suppressed the nudge for every other bead.
+IP_BEAD=$(workflow_state_get bead "$PWD" 2>/dev/null || true)
+case "$IP_BEAD" in null) IP_BEAD="" ;; esac
+
+if [ -z "$IP_BEAD" ]; then
+  # Fallback: the first line's leading bead-id token. The character
+  # class MUST admit `_` and `-` inside the project prefix — bd prefixes
+  # like `liza_base-` and `tla-puzzles-` are real, and a class of
+  # `[a-z][a-z0-9]*` silently truncated `liza_base-6r49` to `base-6r49`,
+  # naming a bead that does not exist (loom-p5ee D2). The dotted tail
+  # keeps child ids (`loom-ig3p.1`) intact.
+  IP_BEAD=$(printf '%s' "$IP_LINE" \
+    | grep -oE '[a-z][a-z0-9_-]*-[a-z0-9]+(\.[a-z0-9]+)*' | head -1 || true)
+fi
 [ -n "$IP_BEAD" ] || exit 0
 
 # --- Memoization sentinel -------------------------------------------
