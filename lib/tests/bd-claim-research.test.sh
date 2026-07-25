@@ -126,9 +126,12 @@ run_hook() {
 }
 
 # claimed_id <hook-output> — the ID the hook announced, from the
-# "About to claim <id>." sentence in additionalContext.
+# "About to claim <id>." sentence in additionalContext. The token runs to
+# the next SPACE, not the next dot: bead IDs carry dotted sub-suffixes
+# (loom-z3m.1.4) and a dot-terminated capture would silently truncate
+# them here, in the harness, and mask the very defect under test.
 claimed_id() {
-  printf '%s' "$1" | grep -oE 'About to claim [^ .]+\.' | head -1 \
+  printf '%s' "$1" | grep -oE 'About to claim [^ ]+' | head -1 \
     | sed -E 's/^About to claim //; s/\.$//'
 }
 
