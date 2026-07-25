@@ -141,33 +141,57 @@ fi
 
 echo "==> clause (c): script/gen is a no-op (byte-identical artifacts) when already in sync"
 
-GEN_PATHS=(docs/reference mkdocs.yml)
+# WATCH SCOPE, not an ownership claim — the region sampled before/after.
+WATCH_PATHS=(docs/reference mkdocs.yml)
 
-pre_dirty="$(cd "$LOOM_ROOT" && git status --porcelain "${GEN_PATHS[@]}" 2>/dev/null)"
-if [ -n "$pre_dirty" ]; then
-  fail "generated paths are clean BEFORE running script/gen" \
-    "(pre-existing dirty state in ${GEN_PATHS[*]}; cannot assert no-op:
-$pre_dirty)"
-elif [ ! -x "$GEN_SCRIPT" ]; then
+# manifest_of <root> — "sha256  path" for every file under the watch
+# scope, sorted. Covers content changes, creations AND deletions.
+manifest_of() {
+  local root="$1" p
+  (
+    cd "$root" 2>/dev/null || exit 0
+    for p in "${WATCH_PATHS[@]}"; do
+      [ -e "$p" ] || continue
+      if [ -d "$p" ]; then
+        find "$p" -type f -exec sha256sum {} +
+      else
+        sha256sum "$p"
+      fi
+    done
+  ) | LC_ALL=C sort
+}
+
+# changed_paths <before-manifest> <after-manifest> — the paths that differ.
+changed_paths() {
+  diff <(printf '%s\n' "$1") <(printf '%s\n' "$2") \
+    | sed -n 's/^[<>] *[0-9a-f]\{64\}  //p' | LC_ALL=C sort -u
+}
+
+gen_log="$(mktemp)"
+
+if [ ! -x "$GEN_SCRIPT" ]; then
   fail "can run script/gen to assert no-op" "(script/gen not executable yet)"
 else
-  # Run from the repo root so relative resolution + git context are correct.
-  if ( cd "$LOOM_ROOT" && "$GEN_SCRIPT" ) >/tmp/script-gen-clean-regen.$$.log 2>&1; then
-    post_dirty="$(cd "$LOOM_ROOT" && git status --porcelain "${GEN_PATHS[@]}" 2>/dev/null)"
-    if [ -z "$post_dirty" ]; then
-      pass "script/gen left no uncommitted diff in ${GEN_PATHS[*]} (idempotent)"
+  manifest_before="$(manifest_of "$LOOM_ROOT")"
+  # Run from the repo root so relative resolution is correct.
+  if ( cd "$LOOM_ROOT" && "$GEN_SCRIPT" ) >"$gen_log" 2>&1; then
+    manifest_after="$(manifest_of "$LOOM_ROOT")"
+    if [ "$manifest_before" = "$manifest_after" ]; then
+      pass "script/gen left every watched artifact byte-identical (idempotent)"
     else
-      fail "script/gen left no uncommitted diff in ${GEN_PATHS[*]}" \
-        "(script/gen modified generated files on an in-sync tree:
-$post_dirty)"
+      fail "script/gen left every watched artifact byte-identical" \
+        "(script/gen CHANGED these files on a supposedly in-sync tree —
+either the committed generated output is stale (rerun script/gen, commit),
+or a generator no longer round-trips:
+$(changed_paths "$manifest_before" "$manifest_after"))"
     fi
   else
     fail "script/gen exits 0 on an in-sync tree" \
       "(non-zero exit; log:
-$(cat /tmp/script-gen-clean-regen.$$.log))"
+$(cat "$gen_log"))"
   fi
-  rm -f "/tmp/script-gen-clean-regen.$$.log"
 fi
+rm -f "$gen_log"
 
 # =====================================================================
 # Clause (d) — the gate's own contract (loom-qo4j)

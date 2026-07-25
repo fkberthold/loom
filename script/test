@@ -31,12 +31,14 @@ fi
 
 fail=0
 ran=0
+failed_files=()
 for f in "$dir"/*.test.sh; do
   [ -e "$f" ] || continue          # no matches → glob stays literal; skip
   ran=$((ran + 1))
   if ! bash "$f"; then
     fail=1
-    echo "FAILED: $f" >&2
+    failed_files+=("$f")
+    echo "FAILED: $f" >&2           # kept verbatim — existing parsers rely on it
   fi
 done
 
@@ -45,5 +47,22 @@ if [ "$ran" -eq 0 ]; then
   exit 1                            # no tests run is a failure, never green
 fi
 
-echo "script/test: ran $ran test file(s); $([ "$fail" -eq 0 ] && echo ALL GREEN || echo FAILURES PRESENT)"
+# The summary goes to STDOUT and NAMES the failing files (loom-qo4j).
+#
+# It used to print only the "FAILURES PRESENT" verdict here while the
+# `FAILED: <path>` lines went to stderr, interleaved hundreds of lines
+# earlier. So `script/test 2>&1 | tail` — the natural idiom — showed the
+# ALARM and hid the CAUSE. That defeated loom-p5ee's dispatched worker,
+# which reported a suite failure it could not attribute to any file.
+# Listing the paths in the trailing summary block makes a `| tail` of
+# either stream self-sufficient; the stderr lines above are unchanged, so
+# this is purely additive.
+if [ "$fail" -eq 0 ]; then
+  echo "script/test: ran $ran test file(s); ALL GREEN"
+else
+  echo "script/test: ran $ran test file(s); FAILURES PRESENT (${#failed_files[@]} of $ran):"
+  for f in "${failed_files[@]}"; do
+    echo "  FAILED: $f"
+  done
+fi
 exit "$fail"
