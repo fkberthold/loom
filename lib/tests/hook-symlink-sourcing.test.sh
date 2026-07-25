@@ -91,7 +91,11 @@ WORK=$(mktemp -d)
 # Run the symlinked hook from a throwaway git repo. The hook will no-op
 # on its bd logic (no .beads/), but it MUST first source the helper and
 # call loom_env_enabled — which is exactly where the bug bites.
-out=$(cd "$WORK" && HOME="$EMPTY_HOME" bash "$HOOK_LINK" rebase </dev/null 2>&1); rc=$?
+# LOOM_TEST_LIB_DIR is explicitly cleared: this test is about the
+# BASH_SOURCE fallback rung, and an ambient TESTLIB would short-circuit
+# the ladder before the fallback is ever reached (loom-8ztk).
+out=$(cd "$WORK" && env -u LOOM_TEST_LIB_DIR HOME="$EMPTY_HOME" \
+        bash "$HOOK_LINK" rebase </dev/null 2>&1); rc=$?
 
 if echo "$out" | grep -qi "command not found"; then
   fail "symlinked hook emitted 'command not found' (helper not sourced)" "$out"
@@ -125,14 +129,27 @@ FAKE_REPO=$(mktemp -d)
 mkdir -p "$FAKE_REPO/hooks" "$FAKE_REPO/lib"
 ln -s "$LOOM_ROOT/lib/loom-hook-helpers.sh" "$FAKE_REPO/lib/loom-hook-helpers.sh"
 
-# Extract the `. primary || fallback` sourcing idiom verbatim from the
-# representative hook so the probe sources EXACTLY what the hook does
-# (stripping the shellcheck comment lines). The probe is reached THROUGH
-# a .git/hooks symlink so BASH_SOURCE[0] inside it is the symlink path —
-# the unfixed fallback would point at .git/lib/ (absent), the fixed one
-# resolves through readlink -f to the mirror's hooks/, then ../lib.
-SRC_LINES=$(grep -nE 'loom-hook-helpers\.sh' "$HOOK" \
-  | grep -vE '^\s*[0-9]+:\s*#' | sed -E 's/^[0-9]+://')
+# Extract the helper-sourcing idiom verbatim from the representative hook
+# so the probe sources EXACTLY what the hook does. The probe is reached
+# THROUGH a .git/hooks symlink so BASH_SOURCE[0] inside it is the symlink
+# path — the unfixed fallback would point at .git/lib/ (absent), the fixed
+# one resolves through readlink -f to the mirror's hooks/, then ../lib.
+#
+# The idiom is now a multi-rung LOOM_TEST_LIB_DIR-first if/elif/else
+# ladder (loom-8ztk), so the extraction must capture the WHOLE block:
+# grepping only the lines that MENTION the lib would drop the `else`/`fi`
+# and hand the probe a syntax error. Extraction starts after the
+# `# shellcheck source=` directive and runs to the closing `fi`; the
+# legacy single-statement `primary || fallback` form (line-continuation
+# chain, no `if`) is still handled, so this keeps working whichever shape
+# the hook carries.
+SRC_LINES=$(awk '
+  /^# shellcheck source=\.\.\/lib\/loom-hook-helpers\.sh$/ { grab = 1; next }
+  grab && /^if / { inblock = 1 }
+  grab { print }
+  grab && inblock && /^fi$/ { exit }
+  grab && !inblock && !/\\$/ { exit }
+' "$HOOK")
 
 PROBE_REAL="$FAKE_REPO/hooks/probe-real.sh"
 {
@@ -154,7 +171,8 @@ chmod +x "$PROBE_REAL"
 PROBE_LINK="$FAKE_GIT/hooks/probe-link"
 ln -s "$PROBE_REAL" "$PROBE_LINK"
 
-probe_out=$(HOME="$EMPTY_HOME" bash "$PROBE_LINK" 2>&1); probe_rc=$?
+probe_out=$(env -u LOOM_TEST_LIB_DIR HOME="$EMPTY_HOME" \
+              bash "$PROBE_LINK" 2>&1); probe_rc=$?
 
 if echo "$probe_out" | grep -q "HAVE loom_env_enabled"; then
   pass "loom_env_enabled defined after symlink-fallback source"

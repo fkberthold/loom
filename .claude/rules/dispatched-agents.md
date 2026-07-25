@@ -149,6 +149,78 @@ resolution. It refuses to run in the main repo (the shadow doesn't
 apply there) and passes through python3's exit code unchanged. See
 [`docs/reference/loom-worktree-python.md`](../../docs/reference/loom-worktree-python.md).
 
+## Bash lib resolution (loom-8ztk)
+
+**Risk (Mode 6 — the bash flavor of the Python-import shadow).**
+`install.sh` installs `~/.claude/lib/*` as **symlinks into the loom
+repo's MAIN checkout**. A hook that sources
+`$HOME/.claude/lib/loom-hook-helpers.sh` from inside a worktree
+therefore loads **MAIN's** copy, not the worktree's. A dispatched
+worker that modifies `lib/` and runs the hook tests gets tests that
+silently exercise MAIN's code while appearing to verify its own
+work — the exact same dishonest verification as the Python
+`pip install -e` shadow above, in a different runtime. Silent, and
+post-merge-only.
+
+This one bites harder than the Python case in one respect: the
+Python shadow needs someone to have run `pip install -e` at some
+point, whereas the bash shadow is active on **every** loom
+installation by construction — the symlinks are what `install.sh`
+does.
+
+**The fix — a TESTLIB-first source ladder.** Every hook resolves a
+lib through three rungs, in this order:
+
+```bash
+# shellcheck source=../lib/loom-hook-helpers.sh
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
+else
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
+fi
+```
+
+`LOOM_TEST_LIB_DIR` **must be the first rung.** A test that sets it
+to the worktree's `lib/` then reads the worktree's copy; without the
+first rung the installed symlink wins and the test reads MAIN's. The
+`readlink -f` on the last rung is a separate fix (loom-fxad) — it
+makes the repo-relative fallback resolve correctly when the hook is
+reached through an installed `.git/hooks` symlink.
+
+The rungs BELOW the first are each hook's own business: some end
+fail-open (`2>/dev/null || true`), some fail-closed, and some omit
+the repo-relative rung entirely. Preserve whatever posture the hook
+already has — only the ordering is universal.
+
+**Writing a test for a hook.** Export `LOOM_TEST_LIB_DIR` at the top
+of the test file, pointing at the repo root's `lib/`:
+
+```bash
+LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export LOOM_TEST_LIB_DIR="$LOOM_ROOT/lib"
+```
+
+Inside a worktree `LOOM_ROOT` is the worktree, so the hook under test
+loads the worktree's lib. This also means the suite no longer depends
+on `install.sh` having been run.
+
+**Mechanical fix.** `lib/tests/hook-source-ladder.test.sh` is the
+gate. It scans **every** `hooks/*.sh` by glob — never a hardcoded
+list, so a newly added hook cannot ship shadowed — and fails naming
+any hook that references a lib without a guarded `LOOM_TEST_LIB_DIR`
+rung ahead of the lower-precedence ones. Per gate-don't-advise
+(loom-wj26.1) this is a correctness invariant, so it gates via
+`script/test` rather than nudging.
+
+Note this section adds **no step to the pre-flight smoke battery** —
+unlike its Python sibling, which needs a per-worker check because the
+shadow depends on whether anyone ever ran `pip install -e`. The bash
+shadow is a property of the hooks themselves, so it is settled once,
+in the repo, by the gate. A worker inherits the fix by running the
+suite.
+
 ## bd state preseed
 
 **Risk (Mode 3 — bd-state-empty fresh worktree).** Git worktrees

@@ -18,9 +18,19 @@ set -euo pipefail
 
 INPUT=$(cat)
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR > installed copy > repo-
+# relative fallback (readlink -f so it resolves through an installed
+# .git/hooks symlink, loom-fxad). TESTLIB must win, or a worktree's tests
+# silently load MAIN's lib/ — ~/.claude/lib/* are symlinks into the main
+# checkout, the bash flavor of the loom-rsk Python-import shadow.
 # shellcheck source=../lib/loom-hook-helpers.sh
-. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
+else
   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
+fi
 TOOL=$(json_get '.tool_name' 'tool_name' "$INPUT")
 CMD=$(json_get '.tool_input.command' 'command' "$INPUT")
 
@@ -29,8 +39,15 @@ CMD=$(json_get '.tool_input.command' 'command' "$INPUT")
 echo "$CMD" | grep -qE '(^|[;&|]|\n)[[:space:]]*bd[[:space:]]+update[[:space:]]+.*--claim' || exit 0
 
 # Mode check.
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR wins so a worktree's tests
+# load the WORKTREE's lib, not MAIN's. No repo-relative rung — that
+# preserves this hook's original hard-fail-if-absent posture exactly.
 # shellcheck source=../lib/workflow-state.sh
-. "$HOME/.claude/lib/workflow-state.sh"
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/workflow-state.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/workflow-state.sh"
+else
+  . "$HOME/.claude/lib/workflow-state.sh"
+fi
 MODE=$(workflow_resolve_mode "$PWD")
 [ "$MODE" = "full" ] || exit 0
 

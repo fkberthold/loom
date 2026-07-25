@@ -46,9 +46,19 @@
 
 set -uo pipefail
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR > installed copy > repo-
+# relative fallback (readlink -f so it resolves through an installed
+# .git/hooks symlink, loom-fxad). TESTLIB must win, or a worktree's tests
+# silently load MAIN's lib/ — ~/.claude/lib/* are symlinks into the main
+# checkout, the bash flavor of the loom-rsk Python-import shadow.
 # shellcheck source=../lib/loom-hook-helpers.sh
-. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
+else
   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
+fi
 
 loom_env_enabled LOOM_BD_POST_REWRITE_SKIP && exit 0
 
@@ -77,7 +87,14 @@ command -v "$BD_BIN" >/dev/null 2>&1 || exit 0
 # sorts the `_type:memory` lines into a stable order. Without it the
 # hook would rewrite .beads/issues.jsonl on every rebase whenever bd's
 # randomized map iteration flipped the memory-line order (loom-n1sk).
-CANON_EXPORT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/../lib/bd-canonical-export.sh"
+# Lib ladder (loom-8ztk): this one is EXECUTED rather than sourced, but
+# it is the same shadow — from a worktree the readlink -f path resolves
+# to MAIN's lib/ when the hook is reached via an installed symlink.
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/bd-canonical-export.sh" ]; then
+  CANON_EXPORT="$LOOM_TEST_LIB_DIR/bd-canonical-export.sh"
+else
+  CANON_EXPORT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/../lib/bd-canonical-export.sh"
+fi
 
 # Detached HEAD? Can't safely create a follow-up commit.
 git symbolic-ref -q HEAD >/dev/null 2>&1 || exit 0

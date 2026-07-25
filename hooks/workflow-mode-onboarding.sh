@@ -19,9 +19,17 @@ INPUT=$(cat 2>/dev/null || true)
 # Also honors `LOOM_SUBAGENT_LEAN=1` (loom-b1l) for app-code wrappers
 # that need deterministic slim emission — the env-var check lives
 # inside loom_is_subagent_payload, so it composes here for free.
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR wins so a worktree's tests
+# load the WORKTREE's lib, not MAIN's. Every rung stays fail-open
+# (2>/dev/null || true) — a missing lib must never break the hook.
 # shellcheck source=../lib/subagent-detect.sh
-. "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/subagent-detect.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/subagent-detect.sh" 2>/dev/null || true
+elif [ -f "$HOME/.claude/lib/subagent-detect.sh" ]; then
+  . "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || true
+else
   . "$(dirname "${BASH_SOURCE[0]}")/../lib/subagent-detect.sh" 2>/dev/null || true
+fi
 if declare -F loom_is_subagent_payload >/dev/null 2>&1; then
   loom_is_subagent_payload "$INPUT" && exit 0
 fi
@@ -32,8 +40,15 @@ if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
 fi
 CWD="${CWD:-$PWD}"
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR wins so a worktree's tests
+# load the WORKTREE's lib, not MAIN's. No repo-relative rung — that
+# preserves this hook's original hard-fail-if-absent posture exactly.
 # shellcheck source=../lib/workflow-state.sh
-. "$HOME/.claude/lib/workflow-state.sh"
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/workflow-state.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/workflow-state.sh"
+else
+  . "$HOME/.claude/lib/workflow-state.sh"
+fi
 
 ROOT=$(workflow_project_root "$CWD")
 
@@ -52,9 +67,17 @@ CFG="$ROOT/.claude/workflow.json"
 # per-clone .git/info/exclude, so they never surface in a teammate's
 # `git status` (loom-e5ys). ADD-only + idempotent; never touches .beads/ (the
 # team's shared bd tracker). Non-fatal — a failure here must not break onboarding.
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR wins so a worktree's tests
+# load the WORKTREE's lib, not MAIN's. Every rung stays fail-open
+# (2>/dev/null || true) — a missing lib must never break the hook.
 # shellcheck source=../lib/auto-exclude.sh
-. "$HOME/.claude/lib/auto-exclude.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/auto-exclude.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/auto-exclude.sh" 2>/dev/null || true
+elif [ -f "$HOME/.claude/lib/auto-exclude.sh" ]; then
+  . "$HOME/.claude/lib/auto-exclude.sh" 2>/dev/null || true
+else
   . "$(dirname "${BASH_SOURCE[0]}")/../lib/auto-exclude.sh" 2>/dev/null || true
+fi
 if declare -F loom_auto_exclude_sync >/dev/null 2>&1; then
   loom_auto_exclude_sync --start-dir="$CWD" 2>/dev/null || true
 fi
