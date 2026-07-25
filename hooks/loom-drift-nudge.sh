@@ -30,25 +30,38 @@
 # ATTENDED decision (does the user want to resync now?), not a
 # correctness invariant.
 #
-# OPT-IN GUARD — two distinct states, two distinct outcomes (loom-oktm).
-# The guard is LOOM-MANAGEDNESS, not stamp presence: a project is
-# loom-managed iff it carries `.claude/workflow.json` (the same signal
-# session-startup step 1f uses for its constitution nudge). Given that:
+# OPT-IN GUARD — three states, three outcomes (loom-oktm).
+# LOOM-MANAGEDNESS is established by EITHER of two signals: the project
+# carries `.claude/workflow.json` (the same signal session-startup step
+# 1f uses for its constitution nudge), OR it carries a
+# `.claude/.loom-sync` stamp (which only `/audit-project` writes, so its
+# mere presence proves the project synced against loom at some point).
+# Either signal alone suffices — hence `||`, not `&&`, at step 4. Given
+# that:
 #
-#   * NOT loom-managed → SILENT no-op, always. Never nudge a project
-#     that hasn't opted into loom. Mirrors constitution-enforce.sh's
+#   * NEITHER signal → SILENT no-op. Never nudge a project that hasn't
+#     opted into loom by either route. Mirrors constitution-enforce.sh's
 #     "absent constitution → exit 0 silent" posture (most projects
 #     don't carry loom state at all).
-#   * loom-managed + NO `.claude/.loom-sync` → NEVER-SYNCED nudge. This
-#     is the case an earlier revision silently swallowed: it treated
-#     "no stamp" as "nothing to compare" and exited quietly, so a
-#     CURRENT project and a project that had never received loom's
-#     conventions at all were indistinguishable. The never-synced case
-#     is the one that most needs the nudge — by definition it has
-#     received nothing. (Live instance: ~/repos/liza_base carried no
-#     stamp while its priming drifted 26+ days.)
-#   * loom-managed + stamp → the hash comparison below (stale → nudge,
-#     matching → silent).
+#   * `workflow.json` + NO `.claude/.loom-sync` → NEVER-SYNCED nudge.
+#     `workflow.json` is REQUIRED to reach this branch: it is the only
+#     managedness signal left once the stamp is known absent. This is
+#     the case an earlier revision silently swallowed — it treated "no
+#     stamp" as "nothing to compare" and exited quietly, so a CURRENT
+#     project and a project that had never received loom's conventions
+#     at all were indistinguishable. The never-synced case is the one
+#     that most needs the nudge — by definition it has received nothing.
+#     (Live instance: ~/repos/liza_base carried no stamp while its
+#     priming drifted 26+ days.)
+#   * stamp present (with OR WITHOUT `workflow.json`) → the hash
+#     comparison below (stale → nudge, matching → silent). The
+#     without-`workflow.json` half of that is deliberate BACKWARD
+#     COMPAT: every project that nudged before this change had a stamp,
+#     and some carry no `workflow.json`; requiring both signals would
+#     take previously-nudging projects silently quiet. Do NOT
+#     "simplify" step 4's `||` into an `&&` — cases A/D/E/F/G in
+#     lib/tests/loom-drift-nudge.test.sh pin exactly that grandfathered
+#     stamped-but-no-workflow.json shape and would go red.
 #
 # The two nudges are deliberately worded differently: the never-synced
 # one names the ABSENT stamp and asks for a first sync; the stale one
@@ -176,8 +189,13 @@ emit_nudge_once() {
   : 2>/dev/null >"$sentinel" || true
 }
 
-# 4. OPT-IN GUARD: not loom-managed → SILENT no-op, always. Never nudge a
-#    project that hasn't opted into loom.
+# 4. OPT-IN GUARD: NEITHER managedness signal (no workflow.json AND no
+#    stamp) → SILENT no-op. Never nudge a project that hasn't opted into
+#    loom by either route. Keep this `||`: a stamp alone is a valid
+#    managedness signal (only /audit-project writes one), and narrowing
+#    to `&&` would silence the grandfathered stamped-but-no-workflow.json
+#    projects that already nudged before loom-oktm. See the OPT-IN GUARD
+#    header note.
 [ -f "$WORKFLOW_JSON" ] || [ -f "$STAMP" ] || exit 0
 
 # 4b. NEVER-SYNCED: loom-managed but carrying no stamp at all. Nudge and
