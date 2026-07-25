@@ -33,17 +33,55 @@
 # context) and trivially unit-testable without wiring up manifest
 # fixtures too — see lib/tests/loom-sync-stamp.test.sh.
 #
+# TWO FACTS, NOT ONE (loom-uh4i). The stamp originally recorded a
+# single `hash=`, written unconditionally on every `/audit-project`
+# invocation. That conflated two genuinely different questions —
+# "when did anyone last LOOK at this project?" and "when did loom's
+# conventions last actually LAND in it?" — into one field. Since
+# hooks/loom-drift-nudge.sh compares that field against loom's current
+# hash, a read-only `--check=` run that applied nothing still marked
+# the project synced and silenced the nudge: the detector could be
+# quieted by LOOKING at it. Measured 2026-07-25 — ~/repos/liza_base
+# carried a hash matching loom exactly with zero remediation applied
+# and its CLAUDE.md / .claude/rules/ byte-unchanged for weeks.
+#
+# The fix is to SEPARATE the facts, not to drop either one (the
+# original unconditional-stamp rationale is real: a project audited
+# before the drift machinery existed still needs a baseline, and
+# "no prior stamp" must not read as "the entire manifest drifted"
+# forever):
+#
+#   last_checked / last_checked_date  — written by ANY invocation.
+#                                       Purely informational.
+#   last_synced  / last_synced_date   — written ONLY when remediation
+#                                       actually applied (--synced).
+#
+# The nudge compares against `last_synced`, and loom-oktm's
+# never-synced branch keys on its ABSENCE.
+#
+# WHY CHECK-ONLY IS THE DEFAULT. A forgotten `--synced` leaves the
+# nudge firing — annoying, visible, self-correcting. A forgotten
+# `--checked` would silently silence the detector, which is exactly
+# the bug above. The safe polarity is the default one.
+#
 # CONTRACT.
 #   Function form (source this file to get the function without any
 #   side effects — no stamp is written just by sourcing):
 #     source scripts/loom-sync-stamp
-#     loom_write_sync_stamp <target-dir> <manifest-hash> [date]
+#     loom_write_sync_stamp [--synced|--checked] <target-dir> <hash> [date]
 #
 #   CLI form (invoke directly; same behavior, for callers that shell
 #   out — e.g. install.sh, or prose-driven skill steps):
-#     scripts/loom-sync-stamp <target-dir> <manifest-hash> [date]
+#     scripts/loom-sync-stamp [--synced|--checked] <target-dir> <hash> [date]
 #
-#   <target-dir>     — project root whose .claude/.loom-sync gets
+#   --synced          — this invocation APPLIED remediation. Advances
+#                       last_synced AND last_checked (a sync is also a
+#                       check).
+#   --checked         — this invocation only LOOKED. Advances
+#                       last_checked and PRESERVES any existing
+#                       last_synced. This is the DEFAULT when neither
+#                       flag is given.
+#   <target-dir>      — project root whose .claude/.loom-sync gets
 #                       written. Created (mkdir -p) if <target-dir>/
 #                       .claude doesn't exist yet.
 #   <manifest-hash>   — the hash to stamp (required; typically the
@@ -56,25 +94,57 @@
 #                       specific sync date recorded.
 #
 #   Output file (<target-dir>/.claude/.loom-sync) — a tiny key=value
-#   file, OVERWRITTEN (not appended) on every call:
-#     hash=<manifest hash>
-#     date=<YYYY-MM-DD>
+#   file. Each key appears AT MOST ONCE; a write replaces a key's
+#   value rather than appending a line:
+#     last_synced=<manifest hash>        (omitted until a real sync)
+#     last_synced_date=<YYYY-MM-DD>      (omitted until a real sync)
+#     last_checked=<manifest hash>
+#     last_checked_date=<YYYY-MM-DD>
 #
-# Run:  scripts/loom-sync-stamp <target-dir> <manifest-hash> [date]
+#   LEGACY MIGRATION. A pre-loom-uh4i stamp carries only `hash=` and
+#   `date=`. Those are read as `last_synced` / `last_synced_date` —
+#   NOT as last_checked — because under the old semantics that write
+#   happened at what was called a sync. Grandfathering them any other
+#   way would take every already-stamped project from silent to
+#   nudging overnight, and would break loom-oktm's deliberately
+#   grandfathered stamped-but-no-workflow.json shape. The legacy keys
+#   are CONSUMED by the migration (not re-emitted): carrying two
+#   representations of one fact is the conflation this change exists
+#   to remove. hooks/loom-drift-nudge.sh applies the same rule on the
+#   read side, so no downstream project needs any action.
+#
+# Run:  scripts/loom-sync-stamp [--synced] <target-dir> <hash> [date]
 #       bash lib/tests/loom-sync-stamp.test.sh
 
 set -uo pipefail
 
-# loom_write_sync_stamp <target-dir> <manifest-hash> [date]
+# _loom_stamp_field <stamp-file> <key> — first value for <key>, or "".
+_loom_stamp_field() {
+  [ -f "$1" ] || return 0
+  sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1
+}
+
+# loom_write_sync_stamp [--synced|--checked] <target-dir> <hash> [date]
 #
 # Writes <target-dir>/.claude/.loom-sync. Returns non-zero (with a
 # stderr message, no partial write) when a required argument is
 # missing, so a caller can never mistake a validation failure for a
 # successful stamp.
 loom_write_sync_stamp() {
-  local target_dir="${1:-}"
-  local manifest_hash="${2:-}"
-  local stamp_date="${3:-}"
+  local mode="checked"
+  local -a positional=()
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --synced)  mode="synced" ;;
+      --checked) mode="checked" ;;
+      *)         positional+=("$arg") ;;
+    esac
+  done
+
+  local target_dir="${positional[0]:-}"
+  local manifest_hash="${positional[1]:-}"
+  local stamp_date="${positional[2]:-}"
 
   if [ -z "$target_dir" ]; then
     echo "loom_write_sync_stamp: <target-dir> is required" >&2
@@ -93,11 +163,32 @@ loom_write_sync_stamp() {
     echo "loom_write_sync_stamp: could not create $claude_dir" >&2
     return 1
   fi
+  local stamp="$claude_dir/.loom-sync"
+
+  # Read-modify-write, NOT a blind overwrite: recording "we looked"
+  # must never destroy the record of "we synced".
+  local synced_hash synced_date
+  synced_hash="$(_loom_stamp_field "$stamp" last_synced)"
+  synced_date="$(_loom_stamp_field "$stamp" last_synced_date)"
+  # Legacy migration — see the LEGACY MIGRATION note in the header.
+  if [ -z "$synced_hash" ]; then
+    synced_hash="$(_loom_stamp_field "$stamp" hash)"
+    synced_date="$(_loom_stamp_field "$stamp" date)"
+  fi
+
+  if [ "$mode" = "synced" ]; then
+    synced_hash="$manifest_hash"
+    synced_date="$stamp_date"
+  fi
 
   {
-    printf 'hash=%s\n' "$manifest_hash"
-    printf 'date=%s\n' "$stamp_date"
-  } > "$claude_dir/.loom-sync"
+    if [ -n "$synced_hash" ]; then
+      printf 'last_synced=%s\n' "$synced_hash"
+      printf 'last_synced_date=%s\n' "${synced_date:-$stamp_date}"
+    fi
+    printf 'last_checked=%s\n' "$manifest_hash"
+    printf 'last_checked_date=%s\n' "$stamp_date"
+  } > "$stamp"
 }
 
 # Direct-invocation guard (mirrors the loom-ld4 sourced-vs-executed

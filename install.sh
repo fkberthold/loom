@@ -668,6 +668,14 @@ fi
 # scripts/loom-sync-stamp (loom_write_sync_stamp), kept as a tiny
 # standalone unit so it's independently testable without invoking
 # install.sh end-to-end — see lib/tests/loom-sync-stamp.test.sh.
+#
+# `--synced`, not the check-only default (loom-uh4i). The stamp records
+# two facts now: `last_checked` (anyone looked) and `last_synced`
+# (remediation actually landed), and the drift nudge compares against
+# `last_synced`. Running install.sh IS the remediation from loom's own
+# perspective — it puts loom's current conventions in place — so this is
+# a real sync. Left on the default, loom's own repo would nudge
+# "checked but never synced" every session.
 log ""
 log "Stamping $PROJECT_SETTINGS_DIR/.loom-sync..."
 if [ "$DRY_RUN" = "1" ]; then
@@ -675,8 +683,8 @@ if [ "$DRY_RUN" = "1" ]; then
 else
   _loom_sync_hash="$("$LOOM_ROOT/scripts/loom-convention-manifest")"
   if [ -n "$_loom_sync_hash" ]; then
-    "$LOOM_ROOT/scripts/loom-sync-stamp" "$LOOM_ROOT" "$_loom_sync_hash"
-    log "  stamped $PROJECT_SETTINGS_DIR/.loom-sync (hash=$_loom_sync_hash)"
+    "$LOOM_ROOT/scripts/loom-sync-stamp" --synced "$LOOM_ROOT" "$_loom_sync_hash"
+    log "  stamped $PROJECT_SETTINGS_DIR/.loom-sync (last_synced=$_loom_sync_hash)"
   else
     log "  WARN: scripts/loom-convention-manifest produced no hash — skipping .loom-sync stamp"
   fi

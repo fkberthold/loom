@@ -45,6 +45,17 @@
 #   P. unwritable sentinel path (nonexistent $XDG_RUNTIME_DIR) → the
 #      nudge is still EXACTLY one clean line, no shell redirection
 #      complaint leaking to stderr.
+#   Q. v2 split stamp, matching last_synced + stale last_checked →
+#      silent (the nudge keys on last_synced) (loom-uh4i).
+#   R. v2 split stamp, stale last_synced + MATCHING last_checked →
+#      NUDGES. A read-only check must never silence the detector.
+#   S. v2 split stamp, last_checked only (no last_synced) →
+#      never-synced nudge; absence of last_synced is the key.
+#   T. legacy `hash=` stamp is grandfathered as last_synced (keeps
+#      loom-oktm's fixtures A/D/E/F/G green).
+#   U. end-to-end through the REAL scripts/loom-sync-stamp: stale →
+#      nudge; read-only check (== all-[SKIP] apply) → still nudge;
+#      real apply (--synced) → silent.
 #
 # Run:  bash lib/tests/loom-drift-nudge.test.sh
 
@@ -331,6 +342,130 @@ else
   fail "unwritable sentinel leaked shell noise" "rc=$rc lines=$n out=$out"
 fi
 rm -rf "$P"
+
+# =========================================================================
+# loom-uh4i — the CHECKED/SYNCED SPLIT.
+#
+# THE BUG: `/audit-project` re-stamped `.claude/.loom-sync`
+# unconditionally on every invocation, so a read-only `--check=...` run
+# that applied NOTHING still wrote loom's current hash — and this hook,
+# comparing that hash against loom's current one, went silent. The
+# detector could be quieted by LOOKING at it. Measured 2026-07-25:
+# ~/repos/liza_base stamped 14:23:51 with a hash matching loom exactly,
+# nudge silent, zero remediation applied, its CLAUDE.md (mtime 07-15) and
+# .claude/rules/dispatched-agents.md (mtime 07-10) byte-unchanged and
+# still missing every current convention.
+#
+# THE FIX: the stamp carries two facts. `last_checked` is written by any
+# invocation (informational); `last_synced` only by one that actually
+# applied remediation. THIS HOOK COMPARES AGAINST `last_synced` — and its
+# loom-oktm never-synced branch keys on the ABSENCE of `last_synced`.
+# A legacy stamp carrying only `hash=` is grandfathered as `last_synced`.
+#
+# v2 fixture: writes the split-field stamp directly (the hook is a pure
+# reader — the writer is exercised by lib/tests/loom-sync-stamp.test.sh).
+# mk_v2_project <synced-hash> <synced-date> <checked-hash> <checked-date>
+# Any argument may be "" to omit that key.
+mk_v2_project() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.claude"
+  : > "$d/.claude/.loom-sync"
+  [ -n "${1:-}" ] && printf 'last_synced=%s\n' "$1" >> "$d/.claude/.loom-sync"
+  [ -n "${2:-}" ] && printf 'last_synced_date=%s\n' "$2" >> "$d/.claude/.loom-sync"
+  [ -n "${3:-}" ] && printf 'last_checked=%s\n' "$3" >> "$d/.claude/.loom-sync"
+  [ -n "${4:-}" ] && printf 'last_checked_date=%s\n' "$4" >> "$d/.claude/.loom-sync"
+  echo "$d"
+}
+
+echo "==> Q. v2 stamp: matching last_synced + STALE last_checked → silent"
+P=$(mk_v2_project "$CURRENT_HASH" "2026-07-17" "deadbeefdeadbeef00000000" "2026-07-25")
+SESS_Q=$(mktemp -d)
+out=$(run_hook "$P" "$FROOT" "$SESS_Q" '{}'); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass "v2: nudge keys on last_synced — a stale last_checked alone never nudges"
+else
+  fail "v2 matching last_synced should be silent" "rc=$rc out=$out"
+fi
+rm -rf "$P" "$SESS_Q"
+
+echo "==> R. v2 stamp: STALE last_synced + MATCHING last_checked → NUDGES"
+# The exact bug shape: a read-only check recorded loom's current hash,
+# but no remediation ever landed. The nudge must survive that.
+P=$(mk_v2_project "deadbeefdeadbeef00000000" "2026-01-01" "$CURRENT_HASH" "2026-07-25")
+SESS_R=$(mktemp -d)
+out=$(run_hook "$P" "$FROOT" "$SESS_R" '{}'); rc=$?
+lines=$(printf '%s\n' "$out" | grep -c 'loom-drift-nudge')
+if [ "$rc" -eq 0 ] && [ "$lines" -eq 1 ] \
+   && echo "$out" | grep -q 'deadbeefdead' \
+   && echo "$out" | grep -q '/audit-project --apply-drift'; then
+  pass "v2: a current last_checked does NOT silence a stale last_synced (the loom-uh4i bug)"
+else
+  fail "current last_checked wrongly silenced a stale last_synced" "rc=$rc lines=$lines out=$out"
+fi
+rm -rf "$P" "$SESS_R"
+
+echo "==> S. v2 stamp: last_checked ONLY (never synced) → never-synced nudge"
+P=$(mk_v2_project "" "" "$CURRENT_HASH" "2026-07-25")
+SESS_S=$(mktemp -d)
+out=$(run_hook "$P" "$FROOT" "$SESS_S" '{}'); rc=$?
+lines=$(printf '%s\n' "$out" | grep -c 'loom-drift-nudge')
+if [ "$rc" -eq 0 ] && [ "$lines" -eq 1 ] \
+   && echo "$out" | grep -q 'never been synced' \
+   && echo "$out" | grep -q '/audit-project --apply-drift'; then
+  pass "v2: checked-but-never-synced → never-synced nudge (absence of last_synced is the key)"
+else
+  fail "checked-but-never-synced should nudge" "rc=$rc lines=$lines out=$out"
+fi
+rm -rf "$P" "$SESS_S"
+
+echo "==> T. legacy hash= stamp is grandfathered as last_synced"
+# loom-oktm's stamped-but-no-workflow.json shape (its fixtures A/D/E/F/G)
+# must keep working byte-for-byte: matching → silent, stale → nudge.
+P=$(mk_fixture_project "$CURRENT_HASH" "2026-07-17")
+SESS_T1=$(mktemp -d)
+out_ok=$(run_hook "$P" "$FROOT" "$SESS_T1" '{}')
+rm -rf "$P"
+P=$(mk_fixture_project "deadbeefdeadbeef00000000" "2026-01-01")
+SESS_T2=$(mktemp -d)
+out_stale=$(run_hook "$P" "$FROOT" "$SESS_T2" '{}')
+if [ -z "$out_ok" ] && echo "$out_stale" | grep -q 'loom-drift-nudge' \
+   && ! echo "$out_stale" | grep -q 'never been synced'; then
+  pass "legacy hash= reads as last_synced (matching → silent; stale → STALE nudge, not never-synced)"
+else
+  fail "legacy hash= grandfathering" "ok=$out_ok stale=$out_stale"
+fi
+rm -rf "$P" "$SESS_T1" "$SESS_T2"
+
+echo "==> U. END-TO-END: a read-only check does not silence; a real apply does"
+# Drives the REAL writer (scripts/loom-sync-stamp) exactly as
+# audit-project's Step 1c (check-only) and its post---apply-drift
+# re-stamp (--synced) do, then re-runs the hook in a FRESH session.
+STAMP_BIN="$LOOM_ROOT/scripts/loom-sync-stamp"
+P=$(mk_managed_project)
+# 1. Project synced at an old hash → stale → nudges.
+"$STAMP_BIN" --synced "$P" "deadbeefdeadbeef00000000" "2026-01-01" >/dev/null 2>&1
+SESS_U1=$(mktemp -d); out_u1=$(run_hook "$P" "$FROOT" "$SESS_U1" '{}')
+# 2. A read-only `/audit-project --check=drift` runs: Step 1c records the
+#    CHECK. This is ALSO the all-[SKIP] shape — `--apply-drift` where the
+#    user skipped every item applies nothing, so it takes the same
+#    check-only path. A run that leaves the project byte-identical must
+#    leave the nudge state byte-identical.
+"$STAMP_BIN" "$P" "$CURRENT_HASH" "2026-07-25" >/dev/null 2>&1
+SESS_U2=$(mktemp -d); out_u2=$(run_hook "$P" "$FROOT" "$SESS_U2" '{}')
+# 3. `--apply-drift` applies >= 1 item → Step 3.5 re-stamps --synced.
+"$STAMP_BIN" --synced "$P" "$CURRENT_HASH" "2026-07-25" >/dev/null 2>&1
+SESS_U3=$(mktemp -d); out_u3=$(run_hook "$P" "$FROOT" "$SESS_U3" '{}')
+if echo "$out_u1" | grep -q 'loom-drift-nudge' \
+   && echo "$out_u2" | grep -q 'loom-drift-nudge' \
+   && [ -z "$out_u3" ]; then
+  pass "end-to-end: read-only check (and an all-[SKIP] apply) leaves the nudge firing; a real apply silences it"
+else
+  fail "end-to-end checked-vs-synced round trip" \
+    "stale=$out_u1
+after-check=$out_u2
+after-sync=$out_u3"
+fi
+rm -rf "$P" "$SESS_U1" "$SESS_U2" "$SESS_U3"
 
 rm -rf "$FROOT"
 

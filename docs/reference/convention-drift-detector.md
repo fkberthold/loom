@@ -29,7 +29,7 @@ epic loom-ig3p).
 | Piece | What it does | Bead |
 |---|---|---|
 | `scripts/loom-convention-manifest` | Enumerates loom's convention file-set and hashes it deterministically | loom-ig3p.1 |
-| `scripts/loom-sync-stamp` | Writes a project's `.claude/.loom-sync` (hash + date) at sync time | loom-ig3p.2 |
+| `scripts/loom-sync-stamp` | Writes a project's `.claude/.loom-sync` — `last_checked` on any audit, `last_synced` only when remediation applied | loom-ig3p.2, loom-uh4i |
 | `hooks/loom-drift-nudge.sh` | SessionStart hook — non-blocking, once-per-session drift nudge | loom-ig3p.3 |
 | `/audit-project --check=drift` / `--apply-drift` | On-demand deep diff + per-item human-reviewed apply | loom-ig3p.4 |
 | `lib/tests/convention-drift-gates.test.sh` | Correctness-class gates wired into `script/test` | loom-ig3p.5 |
@@ -81,41 +81,97 @@ an isolated fixture tree instead of the real repo.
 
 ## Sync stamp — `scripts/loom-sync-stamp`
 
-Writes `<target-dir>/.claude/.loom-sync`, a tiny key=value file:
+Writes `<target-dir>/.claude/.loom-sync`, a tiny key=value file
+carrying **two facts** (loom-uh4i):
 
 ```
-hash=<manifest hash>
-date=<YYYY-MM-DD>
+last_synced=<manifest hash>      # omitted until a real sync happens
+last_synced_date=<YYYY-MM-DD>    # omitted until a real sync happens
+last_checked=<manifest hash>
+last_checked_date=<YYYY-MM-DD>
 ```
+
+| key | written by | meaning |
+| --- | --- | --- |
+| `last_checked` / `last_checked_date` | **any** invocation | somebody looked at this project. Informational only. |
+| `last_synced` / `last_synced_date` | only an invocation that **applied** remediation (`--synced`) | loom's conventions actually landed here. **The nudge compares this one.** |
 
 Two forms, same unit:
 
 ```bash
 # CLI (shells out)
-scripts/loom-sync-stamp <target-dir> <manifest-hash> [date]
+scripts/loom-sync-stamp [--synced|--checked] <target-dir> <manifest-hash> [date]
 
 # sourced (side-effect-free until called)
 source scripts/loom-sync-stamp
-loom_write_sync_stamp <target-dir> <manifest-hash> [date]
+loom_write_sync_stamp [--synced|--checked] <target-dir> <manifest-hash> [date]
 ```
 
-Every call **overwrites** the file — it is a point-in-time record,
-never an append log. `[date]` defaults to today (UTC) and is only
-overridden for deterministic tests or a caller with a specific sync
-date to record.
+`--checked` is the **default**. That polarity is deliberate: a
+forgotten `--synced` leaves the drift nudge firing — visible and
+self-correcting — whereas a forgotten `--checked` would silently
+silence the detector, which is precisely the bug this split fixed.
 
-**Two callers, two targets, same unit:**
+Each key appears **at most once**; a write replaces a key's value
+rather than appending. A check-only write is a read-modify-write that
+**preserves** any existing `last_synced` pair — recording "we looked"
+must never destroy the record of "we synced". `[date]` defaults to
+today (UTC) and is only overridden for deterministic tests or a caller
+with a specific date to record.
+
+### Why two facts (loom-uh4i)
+
+The stamp originally carried a single `hash=`, rewritten
+unconditionally on every `/audit-project` invocation. Because the
+[SessionStart nudge](#sessionstart-nudge--hooksloom-drift-nudgesh)
+compares that field against loom's current hash, a **read-only**
+`--check=` run that applied nothing still marked the project synced
+and silenced the nudge: **the detector could be quieted by looking at
+it.** Measured 2026-07-25 — a managed project was stamped with a hash
+matching loom exactly, nudge silent, zero remediation applied, its
+`CLAUDE.md` and `.claude/rules/dispatched-agents.md` byte-unchanged
+for weeks and still missing every current convention.
+
+The original unconditional-stamp rationale is real and was **not**
+dropped: a project audited before the drift machinery existed still
+needs a baseline, and "no prior stamp" must not read as "the entire
+manifest drifted" forever. So the fix separates the two facts rather
+than discarding either.
+
+### Legacy migration
+
+A pre-loom-uh4i stamp carries only `hash=` / `date=`. Both the writer
+and the hook read that pair as **`last_synced`** — not as
+`last_checked` — because under the old semantics the write happened at
+what was *called* a sync. Grandfathering it any other way would take
+every already-stamped project from silent to nudging overnight, and
+would break the deliberately grandfathered
+stamped-but-no-`workflow.json` shape from loom-oktm. The migration
+**consumes** the legacy keys (they are not re-emitted): carrying two
+representations of one fact is the conflation this change removes.
+No downstream project needs to do anything — its next
+`/audit-project` run rewrites the stamp in the new shape.
+
+**Callers, targets, and which flag each passes:**
 
 - `install.sh` stamps **loom's own** `<loom-root>/.claude/.loom-sync`
-  — loom dogfoods itself as "the target project" the same way it
-  dogfoods its own `.claude/settings.json` and
-  `.claude/project-constitution.md`.
-- `/audit-project` Step 1c stamps a **downstream/managed** project's
-  `<root>/.claude/.loom-sync`, unconditionally, on *every* invocation
-  regardless of which `--check=` mode was requested — running
-  `/audit-project` at all against a project *is* the sync event.
+  with `--synced` — loom dogfoods itself as "the target project" the
+  same way it dogfoods its own `.claude/settings.json` and
+  `.claude/project-constitution.md`, and installing loom's conventions
+  *is* the remediation.
+- `/audit-project` **Step 1c** records the **check** on a
+  downstream/managed project's `<root>/.claude/.loom-sync`,
+  unconditionally, on *every* invocation regardless of which
+  `--check=` mode was requested — running `/audit-project` at all *is*
+  a check event.
+- `/audit-project` **Step 3.5 `--apply-drift`** is the only place a
+  **sync** is ever recorded, and only when
+  `scripts/loom-drift-resolve` reports `N >= 1` applied. Zero applied
+  — including an `--apply-drift` where the user skipped every item —
+  is a check, not a sync: *a run that leaves the project
+  byte-identical leaves the nudge state byte-identical.*
 
-In both cases the caller computes the hash (always against the loom
+In every case the caller computes the hash (always against the loom
 checkout, never against the target) and passes it in; this unit only
 writes.
 
@@ -140,7 +196,17 @@ each managed project it opens in:
    all** were indistinguishable — and never-synced is the state that most
    needs the nudge. Fixed in `loom-oktm`.
 3. Otherwise the stamp exists (with or without `workflow.json`) — reads
-   the stamped `hash=` / `date=`.
+   its **`last_synced` / `last_synced_date`** record, falling back to a
+   legacy `hash=` / `date=` pair (see
+   [Legacy migration](#legacy-migration)). `last_checked` is **never**
+   compared; a read-only audit writes only that field, so it cannot
+   silence the nudge (loom-uh4i).
+3b. **Checked-but-never-synced branch.** The stamp exists but carries
+   no `last_synced` record, only a `last_checked` one → emit the
+   *never-synced* nudge, naming the last-checked date, and stop. The
+   loom-oktm never-synced branch keys on the **absence of
+   `last_synced`**, not on the absence of the stamp file. A stamp with
+   neither record is malformed or hand-edited → fail open, silent.
 4. Recomputes loom's **current** manifest hash — resolving its own
    real path via `readlink -f` first, since `BASH_SOURCE` reflects the
    `~/.claude/hooks/` symlink install.sh creates, not the real loom

@@ -100,8 +100,10 @@ audit. This is a deliberately user-pulled workflow.
   `docs/reference/project-constitution.md`).
 - `--check=drift` — run ONLY the downstream convention-drift deep-diff
   (Step 3.3 below): compare the project's stamped
-  `loom-convention-manifest` hash (captured in Step 1c-pre, BEFORE
-  Step 1c's unconditional re-stamp) against loom's CURRENT hash, and
+  `loom-convention-manifest` hash (its `last_synced` record, captured
+  in Step 1c-pre BEFORE Step 1c rewrites the stamp — and note that
+  Step 1c records only a CHECK, so this read-only mode never silences
+  the drift nudge; loom-uh4i) against loom's CURRENT hash, and
   — on a mismatch or a missing stamp — enumerate exactly WHICH files
   under loom's `templates/` tree changed since the project's last
   sync. This is the "deep diff" the D1 O(1) hash-only session-startup
@@ -449,40 +451,75 @@ loud.
 If `--wing` was explicitly passed, skip Step 1b entirely (the user
 made the call deliberately).
 
-### Step 1c-pre — capture the prior sync stamp (loom-ig3p.4)
+### Step 1c-pre — capture the prior SYNC record (loom-ig3p.4)
 
 **Runs immediately before Step 1c, on every invocation.** Step 1c
-below unconditionally OVERWRITES `<root>/.claude/.loom-sync` with
-this run's hash — so any step that wants to compare the PRIOR stamp
-against loom's current hash (Step 3.3's `--check=drift`) MUST read it
-here, first, or the value is gone. This is a pure read, purely
-additive to Step 1c — it does not change Step 1c's own behavior.
+below rewrites `<root>/.claude/.loom-sync` — so any step that wants to
+compare the PRIOR sync record against loom's current hash (Step 3.3's
+`--check=drift`) MUST read it here, first, or the value is gone. This
+is a pure read, purely additive to Step 1c — it does not change
+Step 1c's own behavior.
+
+Read `last_synced` / `last_synced_date`, falling back to the LEGACY
+`hash=` / `date=` keys a pre-loom-uh4i stamp carries (see Step 1c's
+"Two facts" note for why the legacy pair grandfathers as *synced*, not
+*checked*):
 
 ```bash
 prior_hash=""
 prior_date=""
 if [ -f "<root>/.claude/.loom-sync" ]; then
-  prior_hash="$(sed -n 's/^hash=//p' "<root>/.claude/.loom-sync" | head -1)"
-  prior_date="$(sed -n 's/^date=//p' "<root>/.claude/.loom-sync" | head -1)"
+  prior_hash="$(sed -n 's/^last_synced=//p' "<root>/.claude/.loom-sync" | head -1)"
+  prior_date="$(sed -n 's/^last_synced_date=//p' "<root>/.claude/.loom-sync" | head -1)"
+  # legacy stamp (pre-loom-uh4i): a bare hash=/date= pair reads as the
+  # sync record.
+  if [ -z "$prior_hash" ]; then
+    prior_hash="$(sed -n 's/^hash=//p' "<root>/.claude/.loom-sync" | head -1)"
+    prior_date="$(sed -n 's/^date=//p' "<root>/.claude/.loom-sync" | head -1)"
+  fi
 fi
 ```
 
-An absent file leaves both empty — not an error; Step 3.3 treats an
-empty `$prior_hash` as "never synced" (full drift).
+An absent file — or a stamp carrying only `last_checked` — leaves both
+empty. Not an error; Step 3.3 treats an empty `$prior_hash` as "never
+synced" (full drift), which for a checked-but-never-synced project is
+the honest answer: it has been looked at, but loom's conventions have
+never landed in it.
 
-### Step 1c — stamp `<root>/.claude/.loom-sync` (loom-ig3p.2)
+### Step 1c — record the CHECK in `<root>/.claude/.loom-sync` (loom-ig3p.2, revised loom-uh4i)
 
 **Runs on every `/audit-project` invocation, regardless of which
-`--check=` mode was requested** — this is the "sync" half of the D1
-downstream convention-drift detector (design drawer
-`drawer_loom_decisions_4d3918198c51bb65ceaebf90`). Running
-`/audit-project` at all against a project IS the sync event; the
-stamp records that it happened and against which of loom's
-convention hashes. The complementary "detect" half (loom-ig3p.3)
-later compares this stamp against loom's CURRENT hash to notice
-drift — so the stamp must be written unconditionally, not only under
-`--apply-onboarding` (a narrow `--check=docs`-only run should still
-record that the project was looked at).
+`--check=` mode was requested.** Running `/audit-project` at all IS a
+check event, and recording it keeps the "audited before the drift
+machinery existed" case from reading as a permanent gap. But a check
+is NOT a sync: **this step never writes the sync record**, and a
+read-only `--check=` run therefore **does NOT silence** the
+`hooks/loom-drift-nudge.sh` drift nudge.
+
+**Two facts, not one (loom-uh4i).** The stamp originally carried a
+single `hash=`, rewritten unconditionally here on every invocation.
+Since the nudge compares that field against loom's current hash, a
+read-only check that applied nothing still marked the project synced —
+the detector could be quieted by LOOKING at it. Measured 2026-07-25:
+`~/repos/liza_base` was stamped 14:23:51 with a hash matching loom
+exactly, nudge silent, zero remediation applied, its `CLAUDE.md` and
+`.claude/rules/dispatched-agents.md` byte-unchanged and still missing
+every current convention. The fix SEPARATES the facts rather than
+dropping either (the unconditional-stamp rationale is real — see the
+paragraph above):
+
+| key | written by | meaning |
+| --- | --- | --- |
+| `last_checked` / `last_checked_date` | ANY invocation (this step) | somebody looked. Informational only. |
+| `last_synced` / `last_synced_date` | only a run that APPLIED remediation (Step 3.5) | loom's conventions actually landed. **This is what the nudge compares.** |
+
+A LEGACY stamp carrying only `hash=` / `date=` is read as
+`last_synced` — under the old semantics that write happened at what
+was *called* a sync, and grandfathering it any other way would take
+every already-stamped project from silent to nudging overnight.
+`scripts/loom-sync-stamp` and `hooks/loom-drift-nudge.sh` apply the
+same rule on the write and read sides, so no downstream project needs
+any action.
 
 Two script calls, both against `<loom>` (this loom checkout — the
 same `<loom>` root mechanism Check 2 and Check 6 use), never against
@@ -490,8 +527,12 @@ same `<loom>` root mechanism Check 2 and Check 6 use), never against
 
 ```bash
 _hash="$(bash <loom>/scripts/loom-convention-manifest)"
-bash <loom>/scripts/loom-sync-stamp "<root>" "$_hash"
+bash <loom>/scripts/loom-sync-stamp "<root>" "$_hash"   # check-only: NO --synced
 ```
+
+**Do not pass `--synced` here.** Check-only is the writer's default
+precisely so a forgotten flag leaves the nudge firing (visible,
+self-correcting) rather than silently silencing it.
 
 `scripts/loom-convention-manifest` (loom-ig3p.1) computes loom's
 CURRENT hash from `<loom>/templates/`. `scripts/loom-sync-stamp`
@@ -500,26 +541,31 @@ CURRENT hash from `<loom>/templates/`. `scripts/loom-sync-stamp`
 `<root>/.claude/.loom-sync` as a small key=value file:
 
 ```
-hash=<the computed hash>
-date=<YYYY-MM-DD, today, UTC>
+last_synced=<hash of the last run that actually applied>   # omitted until then
+last_synced_date=<YYYY-MM-DD>                              # omitted until then
+last_checked=<the computed hash>
+last_checked_date=<YYYY-MM-DD, today, UTC>
 ```
 
-The call OVERWRITES any prior stamp (this run's hash + date is now
-the record) and creates `<root>/.claude/` if it doesn't already
-exist. No guest-mode gate applies here (unlike the `[AUTOFIX:...]`
-recipes in Step 3.5) — the stamp is a small, idempotent bookkeeping
-write, not a structural project change, and skipping it under guest
-mode would silently defeat the drift detector for every guest-mode
-audit. Log one line to the report:
+The call is a read-modify-write: it replaces the `last_checked` pair,
+**preserves** any existing `last_synced` pair (migrating a legacy
+`hash=`/`date=` pair into it), never appends a duplicate key, and
+creates `<root>/.claude/` if it doesn't already exist. No guest-mode
+gate applies here (unlike the `[AUTOFIX:...]` recipes in Step 3.5) —
+the stamp is a small, idempotent bookkeeping write, not a structural
+project change, and skipping it under guest mode would silently defeat
+the drift detector for every guest-mode audit. Log one line to the
+report:
 
 ```
-[SYNC] stamped <root>/.claude/.loom-sync (hash=<hash>, date=<date>)
+[CHECK] recorded <root>/.claude/.loom-sync (last_checked=<hash>, date=<date>)
 ```
 
-This mirrors install.sh's own analogous stamp of
-`<loom>/.claude/.loom-sync` (loom dogfoods itself as "the target
-project" from install.sh's perspective — see install.sh's "Stamp
-loom's own `<loom_root>/.claude/.loom-sync`" step).
+install.sh's analogous stamp of `<loom>/.claude/.loom-sync` (loom
+dogfoods itself as "the target project" from install.sh's perspective
+— see install.sh's "Stamp loom's own `<loom_root>/.claude/.loom-sync`"
+step) DOES pass `--synced`: installing loom's conventions is the
+remediation, so from loom's own perspective it is a real sync.
 
 ### Step 2 — dispatch project-onboarder (unless `--check=docs`)
 
@@ -1205,17 +1251,25 @@ files moved.
    current_hash="$(bash <loom>/scripts/loom-convention-manifest)"
    ```
 
-2. Compare against `$prior_hash` / `$prior_date` captured in
-   Step 1c-pre (BEFORE Step 1c's unconditional re-stamp overwrote the
-   file):
+2. Compare against `$prior_hash` / `$prior_date` — the `last_synced`
+   record captured in Step 1c-pre, BEFORE Step 1c rewrote the stamp:
 
-   - **`$prior_hash` empty** (no stamp — project never synced): emit
+   - **`$prior_hash` empty** (no `last_synced` record — project never
+     synced, whether or not it has been *checked*): emit
 
      ```
-     [DRIFT] no prior .loom-sync stamp found — this project has never
-     been synced against loom's convention set; treating the ENTIRE
-     manifest as drifted
+     [DRIFT] no prior .loom-sync sync record found — this project has
+     never been synced against loom's convention set; treating the
+     ENTIRE manifest as drifted
      ```
+
+     A checked-but-never-synced project lands here on **every** run
+     until an `--apply-drift` actually applies something (loom-uh4i).
+     That repetition is intentional, not a bug: the project genuinely
+     has received none of loom's conventions, and the pre-loom-uh4i
+     behavior — where the second run reported "no drift" because the
+     first run's read-only check had stamped the current hash — is the
+     exact failure this split removes.
 
      and list every path from `bash <loom>/scripts/loom-convention-
      manifest --list` as a drift item (each `templates/<relpath>`).
@@ -1580,6 +1634,57 @@ detected" line).
 4. Fold the engine's `[APPLY]` / `[SKIP]` / `[FAIL]` / `[QUIT]`
    output verbatim into the `## Auto-applied` section (below) under a
    `--apply-drift` subheading.
+
+5. **Record the SYNC — but only if remediation actually landed
+   (loom-uh4i).** This is the ONLY place `last_synced` is ever
+   written. The engine's last line is always
+
+   ```
+   resolved: <N> applied, <M> skipped, <K> failed
+   ```
+
+   Parse `<N>`. **Iff `N >= 1`**, re-stamp with `--synced`, reusing the
+   `$current_hash` Step 3.3 already computed:
+
+   ```bash
+   bash <loom>/scripts/loom-sync-stamp --synced "<root>" "$current_hash"
+   ```
+
+   and log:
+
+   ```
+   [SYNC] recorded <root>/.claude/.loom-sync (last_synced=<hash>, date=<date>) — <N> item(s) applied
+   ```
+
+   **If `N == 0` (zero applied) — including the all-`[SKIP]` case where
+   the user was offered every item and skipped every one — do NOT
+   re-stamp; zero applied is a CHECK, not a sync.** Step
+   1c already recorded the check; nothing further is written, and the
+   drift nudge keeps firing. The rule: *a run that leaves the project
+   byte-identical must leave the nudge state byte-identical.* An
+   all-skip `--apply-drift` changes not one byte of the project, so it
+   is indistinguishable in outcome from a read-only `--check=drift`,
+   and it must be indistinguishable in effect. Note the polarity of the
+   two possible errors — a false "synced" is silent and invisible
+   (this bead's bug), while a false "not synced" is a one-line
+   per-session INFO nudge; when in doubt, fail toward nudging.
+
+   `N >= 1` with some items skipped DOES count as a sync: the user was
+   shown loom's current convention set and acted on it, and skipping
+   items they judged inapplicable is part of acting. `<K>` failures do
+   not veto a sync either — the gate is strictly "did any remediation
+   land".
+
+   Only `--apply-drift` can write the sync record. `--apply-onboarding`
+   and `--apply-trivial` never do: the manifest hash is computed over
+   `<loom>/templates/`, and neither an onboarding AUTOFIX nor a
+   doc-cardinality fix carries a template into the project.
+
+   A user who has deliberately reviewed every drift item and rejected
+   them all is, correctly, still nudged. The right remedy for "I've
+   decided I don't want loom's conventions here" is an explicit
+   opt-out (`LOOM_DRIFT_NUDGE_SKIP=1` in the project's environment),
+   never an opt-out silently inferred from a skip.
 
 #### --apply-trivial: walk the docs-drift section
 
@@ -2262,11 +2367,18 @@ One line per drift item, prefix-tagged. Concrete examples:
 - **Does not write to disk without user approval** (except for
   `--apply-trivial` / `--apply-onboarding` items where the user
   has pre-authorized the AUTOFIX-tagged class by passing the flag,
-  and except for the Step 1c `<root>/.claude/.loom-sync` stamp —
-  loom-ig3p.2 — which is an unconditional, idempotent bookkeeping
-  write on every run, not a structural project change, and is
-  logged as `[SYNC]` in the report rather than gated behind an
-  apply flag).
+  and except for the Step 1c `<root>/.claude/.loom-sync` CHECK
+  record — loom-ig3p.2 — which is an unconditional, idempotent
+  bookkeeping write on every run, not a structural project change,
+  and is logged as `[CHECK]` in the report rather than gated behind
+  an apply flag).
+- **Does not record a SYNC unless remediation actually applied**
+  (loom-uh4i). Step 1c's unconditional write touches only
+  `last_checked`; the `last_synced` record the drift nudge compares
+  against is written in exactly one place — Step 3.5's `--apply-drift`
+  path, and only when `scripts/loom-drift-resolve` reports `N >= 1`
+  applied. A read-only `--check=` run, or an `--apply-drift` where
+  every item was skipped, leaves the nudge firing.
 - **Does not run `bd init`** (interactive — requires the user to
   acknowledge the workspace prompt). Even with `--apply-onboarding`,
   item 2 MISS stays in the per-item queue.
