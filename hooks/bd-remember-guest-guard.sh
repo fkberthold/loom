@@ -47,9 +47,19 @@ INPUT=$(cat)
 
 # --- Tool dispatch ---------------------------------------------------------
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR > installed copy > repo-
+# relative fallback (readlink -f so it resolves through an installed
+# .git/hooks symlink, loom-fxad). TESTLIB must win, or a worktree's tests
+# silently load MAIN's lib/ — ~/.claude/lib/* are symlinks into the main
+# checkout, the bash flavor of the loom-rsk Python-import shadow.
 # shellcheck source=../lib/loom-hook-helpers.sh
-. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
+else
   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
+fi
 TOOL=$(json_get_py '.tool_name' 'd.get("tool_name","")' "$INPUT")
 CMD=$(json_get_py '.tool_input.command' 'd.get("tool_input",{}).get("command","")' "$INPUT")
 
@@ -61,8 +71,15 @@ echo "$CMD" | grep -qE '(^|[^[:alnum:]_-])bd[[:space:]]+remember([^[:alnum:]_-]|
 
 # --- Guest mode + bd_mode resolution --------------------------------------
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR wins so a worktree's tests
+# load the WORKTREE's lib. The repo-relative rung is kept as-is (and as
+# the only fallback) to preserve this hook's original posture.
 # shellcheck source=../lib/workflow-config.sh
-. "$(dirname "${BASH_SOURCE[0]}")/../lib/workflow-config.sh"
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/workflow-config.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/workflow-config.sh"
+else
+  . "$(dirname "${BASH_SOURCE[0]}")/../lib/workflow-config.sh"
+fi
 
 workflow_config_guest_active "$PWD" || exit 0
 

@@ -26,9 +26,19 @@
 
 set -uo pipefail
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR > installed copy > repo-
+# relative fallback (readlink -f so it resolves through an installed
+# .git/hooks symlink, loom-fxad). TESTLIB must win, or a worktree's tests
+# silently load MAIN's lib/ — ~/.claude/lib/* are symlinks into the main
+# checkout, the bash flavor of the loom-rsk Python-import shadow.
 # shellcheck source=../lib/loom-hook-helpers.sh
-. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
+else
   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
+fi
 
 if loom_env_enabled LOOM_EDIT_WRITE_GUARD_SKIP; then
   exit 0
@@ -48,13 +58,15 @@ esac
 # Empty file_path → let the underlying tool reject.
 [ -n "$PATH_RAW" ] || exit 0
 
-# Locate worktree-detect.sh: prefer install path, fall back to repo-relative
-# (so the test runner doesn't depend on install.sh having run).
+# Locate worktree-detect.sh. Lib ladder (loom-8ztk): an explicitly-set
+# LOOM_TEST_LIB_DIR wins, THEN the install path. The two rungs used to be
+# the other way round, so a worktree's tests loaded MAIN's copy via the
+# ~/.claude/lib symlink while appearing to verify the worktree's.
 DETECT_LIB=""
-if [ -f "$HOME/.claude/lib/worktree-detect.sh" ]; then
-  DETECT_LIB="$HOME/.claude/lib/worktree-detect.sh"
-elif [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/worktree-detect.sh" ]; then
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/worktree-detect.sh" ]; then
   DETECT_LIB="$LOOM_TEST_LIB_DIR/worktree-detect.sh"
+elif [ -f "$HOME/.claude/lib/worktree-detect.sh" ]; then
+  DETECT_LIB="$HOME/.claude/lib/worktree-detect.sh"
 fi
 [ -n "$DETECT_LIB" ] || exit 0  # can't detect → fail open
 

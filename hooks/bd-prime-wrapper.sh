@@ -59,9 +59,17 @@ MEMORIES_MAX_BYTES="${BD_PRIME_MEMORIES_MAX_BYTES:-10000}"
 # the stdin payload carries subagent markers (loom-w58) OR when app
 # code has set LOOM_SUBAGENT_LEAN=1 to force slim emission (loom-b1l).
 INPUT=$(cat 2>/dev/null || true)
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR wins so a worktree's tests
+# load the WORKTREE's lib, not MAIN's. Every rung stays fail-open
+# (2>/dev/null || true) — a missing lib must never break the hook.
 # shellcheck source=../lib/subagent-detect.sh
-. "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/subagent-detect.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/subagent-detect.sh" 2>/dev/null || true
+elif [ -f "$HOME/.claude/lib/subagent-detect.sh" ]; then
+  . "$HOME/.claude/lib/subagent-detect.sh" 2>/dev/null || true
+else
   . "$(dirname "${BASH_SOURCE[0]}")/../lib/subagent-detect.sh" 2>/dev/null || true
+fi
 if declare -F loom_is_subagent_payload >/dev/null 2>&1; then
   loom_is_subagent_payload "$INPUT" && exit 0
 fi

@@ -32,9 +32,19 @@
 
 set -uo pipefail
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR > installed copy > repo-
+# relative fallback (readlink -f so it resolves through an installed
+# .git/hooks symlink, loom-fxad). TESTLIB must win, or a worktree's tests
+# silently load MAIN's lib/ — ~/.claude/lib/* are symlinks into the main
+# checkout, the bash flavor of the loom-rsk Python-import shadow.
 # shellcheck source=../lib/loom-hook-helpers.sh
-. "$HOME/.claude/lib/loom-hook-helpers.sh" 2>/dev/null || \
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/loom-hook-helpers.sh"
+elif [ -f "$HOME/.claude/lib/loom-hook-helpers.sh" ]; then
+  . "$HOME/.claude/lib/loom-hook-helpers.sh"
+else
   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/loom-hook-helpers.sh"
+fi
 
 if loom_env_enabled LOOM_SKILL_REDIRECT_SKIP; then
   exit 0
