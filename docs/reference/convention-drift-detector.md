@@ -124,17 +124,30 @@ writes.
 Fires on every `SessionStart` (fresh start, resume, and `/clear`). For
 each managed project it opens in:
 
-1. **Opt-in guard.** No `<project>/.claude/.loom-sync` stamp → silent
-   no-op. A project that has never synced against loom (or isn't
-   loom-managed at all) is never nudged.
-2. Reads the stamped `hash=` / `date=`.
-3. Recomputes loom's **current** manifest hash — resolving its own
+1. **Opt-in guard.** The signal is *loom-managedness*, and either of two
+   things proves it: a `<project>/.claude/workflow.json`, or an existing
+   `<project>/.claude/.loom-sync` stamp (only `/audit-project` ever
+   writes one, so its presence is itself proof the project opted in).
+   With **neither** → silent no-op. A project that isn't loom-managed at
+   all is never nudged.
+2. **Never-synced branch.** Loom-managed (`workflow.json` present) but
+   carrying **no stamp** → emit the *never-synced* nudge and stop. There
+   is no hash to compare, and skipping the manifest computation keeps
+   this path robust where the manifest script can't be resolved. This is
+   the case an earlier revision silently swallowed: it read "no stamp" as
+   "nothing to compare" and exited quietly, so a project that was
+   **current** and one that had **never received loom's conventions at
+   all** were indistinguishable — and never-synced is the state that most
+   needs the nudge. Fixed in `loom-oktm`.
+3. Otherwise the stamp exists (with or without `workflow.json`) — reads
+   the stamped `hash=` / `date=`.
+4. Recomputes loom's **current** manifest hash — resolving its own
    real path via `readlink -f` first, since `BASH_SOURCE` reflects the
    `~/.claude/hooks/` symlink install.sh creates, not the real loom
    checkout, and the manifest script's own root-resolution needs the
    real one.
-4. Matching hash → in sync → silent no-op.
-5. Mismatched hash → emits **one** stderr line, gated by a
+5. Matching hash → in sync → silent no-op.
+6. Mismatched hash → emits **one** stderr line, gated by a
    once-per-session sentinel under `$XDG_RUNTIME_DIR` (falling back to
    `$TMPDIR`), keyed on the stamp path:
 

@@ -10,12 +10,16 @@ For the mechanism underneath this flow, see
 
 ## Precondition
 
-- The project has synced against loom **at least once** — via
-  `install.sh` (loom's own bootstrap) or a prior `/audit-project` run
-  of any kind. Every `/audit-project` invocation, regardless of
-  `--check=` mode, stamps `<root>/.claude/.loom-sync`; a project that
-  has never been audited has no stamp and the nudge below stays
-  silent for it.
+- The project is **loom-managed** — it carries a
+  `<root>/.claude/workflow.json`, or it has synced against loom at least
+  once via `install.sh` (loom's own bootstrap) or a prior
+  `/audit-project` run of any kind. Every `/audit-project` invocation,
+  regardless of `--check=` mode, stamps `<root>/.claude/.loom-sync`.
+  A loom-managed project that has **never** been audited has no stamp
+  and gets the *never-synced* variant of the nudge below, pointing at
+  this same procedure — that first run is exactly what writes its stamp
+  (`loom-oktm`). Only a project that is loom-managed by **neither**
+  signal stays silent.
 - You're working from the loom-managed project's root (or pass
   `--root <path>` / `--wing <wing>` explicitly, same precedence chain
   as every other `/audit-project` mode).
