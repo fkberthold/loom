@@ -127,34 +127,89 @@ assert_contains "bd state section points at loom-x4m preseed hook" \
   'loom-x4m|bd-worktree-preseed'
 
 # =====================================================================
-# 5. Aggregator: copy-pasteable "first bash call" block
+# 5. Battery steps are DISCRETE, independently-runnable commands
+#    (loom-ta1w)
 # =====================================================================
 #
-# The acceptance criterion says workers should be able to copy-paste
-# the smoke tests into their first bash call. So there should be a
-# single fenced bash block somewhere in the file that contains all
-# three checks together.
+# This section previously asserted the OPPOSITE — that a single fenced
+# bash block aggregated all four smokes into one copy-pasteable "first
+# bash call". That aggregator is exactly what the worktree-isolation
+# harness REFUSES to run. Empirically, from inside an isolation
+# worktree (evidence gathered by the loom-ta1w worker):
+#
+#   ACCEPTED  pwd
+#   ACCEPTED  realpath .
+#   ACCEPTED  git merge-base HEAD main
+#   ACCEPTED  git show main:<path>
+#   ACCEPTED  cat f 2>/dev/null || echo "..."      (simple || RHS)
+#   ACCEPTED  python3 -c 'import x; print(x)'      (quoted ; in args)
+#   REFUSED   realpath "$(pwd)"                    "too complex to verify"
+#   REFUSED   cmd || { echo ...; exit 1; }         "too complex to verify"
+#   REFUSED   git -C /home/frank/repos/loom ...    "redirects git ... via -C"
+#
+# So the harness rejects COMMAND SUBSTITUTION and BRACE-GROUPING, and
+# rejects `git -C` into the shared checkout. A battery a worker cannot
+# run gets improvised, and an improvised battery is one nobody
+# verified. Per gate-don't-advise (loom-wj26.1) this is a correctness
+# invariant, so it gates here rather than living as prose nobody
+# re-checks.
+#
+# Scope: bash blocks inside the "Pre-flight smoke battery" section,
+# plus any block introduced by a "Pre-flight smoke test" label. Source
+# EXAMPLES elsewhere in the file (the Mode 6 source-ladder snippet, the
+# loom-worktree-python before/after) are deliberately out of scope —
+# they are code to read, not commands a worker runs.
 
-echo "==> First-bash-call aggregator block present"
-# Look for a block that names all four smoke commands within a
-# reasonable proximity (a single fenced bash block).
-if awk '
-  /^```bash/ { in_block=1; block=""; next }
-  /^```/ && in_block { in_block=0;
-    if (block ~ /git rev-parse --show-toplevel/ &&
-        block ~ /import / &&
-        block ~ /bd list -n 1/ &&
-        block ~ /git merge-base[[:space:]]+HEAD[[:space:]]+main/ &&
-        block ~ /git rev-parse[[:space:]]+main/) { found=1 }
-    block=""; next
+echo "==> Battery steps are discrete, harness-runnable commands"
+battery_violations=$(awk '
+  /^## / { section = substr($0, 4); sub(/[[:space:]]+$/, "", section); next }
+  /^```bash/ {
+    inblock = 1
+    checking = (section ~ /^Pre-flight smoke battery/ || smokelabel)
+    cmdcount = 0
+    blockno++
+    next
   }
-  in_block { block = block "\n" $0 }
-  END { exit (found ? 0 : 1) }
-' "$RULE_FILE"; then
-  pass "single fenced bash block contains all four smoke commands"
+  /^```/ && inblock {
+    if (checking && cmdcount != 1) {
+      printf "block %d (section: %s) has %d command lines; expected exactly 1\n", blockno, section, cmdcount
+    }
+    inblock = 0; checking = 0; smokelabel = 0
+    next
+  }
+  inblock {
+    if (!checking) next
+    if ($0 ~ /^[[:space:]]*#/) next
+    if ($0 ~ /^[[:space:]]*$/) next
+    cmdcount++
+    if ($0 ~ /\$\(/)   printf "block %d: command substitution $( ): %s\n", blockno, $0
+    if ($0 ~ /`/)      printf "block %d: backtick substitution: %s\n", blockno, $0
+    if ($0 ~ /[{}]/)   printf "block %d: brace grouping: %s\n", blockno, $0
+    if ($0 ~ /git -C/) printf "block %d: git -C redirect: %s\n", blockno, $0
+    if ($0 ~ /^[[:space:]]*(if|then|elif|else|fi|for|while|do|done)([[:space:]]|$)/) \
+      printf "block %d: multi-statement shell keyword: %s\n", blockno, $0
+    next
+  }
+  /Pre-flight smoke test/ { smokelabel = 1 }
+' "$RULE_FILE")
+
+if [ -z "$battery_violations" ]; then
+  pass "every battery/smoke block is a single harness-runnable command"
 else
-  fail "no single fenced bash block aggregates pwd + import + bd-list + base-freshness smokes"
+  fail "battery contains blocks the isolation harness would refuse" \
+    "$battery_violations"
 fi
+
+# The file must not prescribe `git -C <absolute main path>` ANYWHERE —
+# that is the refusal three workers (vr6k, 8ztk, qo4j) each improvised
+# a different ad-hoc fallback around.
+assert_not_contains "no git -C into an absolute main-checkout path" \
+  'git -C[[:space:]]+/'
+
+# Brief authors must be told to present the steps as separate calls,
+# since every loom worker brief pastes this battery.
+assert_contains "prose tells brief authors to present steps as separate calls" \
+  '[Ss]eparate [Bb]ash call|separate calls|one call per step|its own Bash call'
 
 # =====================================================================
 # 6. Anti-pattern: do NOT tell workers to "use relative paths"
@@ -226,6 +281,33 @@ assert_file_contains "dispatch-middle return contract carries Processed: X of Y"
   "$SKILL_FILE" 'Processed:[[:space:]]*X of Y|Processed: X of Y'
 assert_file_contains "dispatch-middle clause names sampled_of_total" \
   "$SKILL_FILE" 'sampled_of_total|sample.*total|sampled.*of.*total'
+
+# =====================================================================
+# 10. Worker-side leak check is EXECUTABLE from the worktree (loom-ta1w)
+# =====================================================================
+#
+# A worker cannot inspect the main checkout: `git -C <main>` is refused
+# by the isolation harness, and any absolute main path is refused by
+# hooks/edit-write-pwd-guard.sh on the write-class tools. The worker's
+# leak check must therefore go through git REFS, which are visible from
+# inside the worktree, not through the main WORKING TREE path.
+
+echo "==> Worker-side leak check section — executable from the worktree"
+assert_contains "section: worker-side leak check" \
+  '^## Worker-side leak check'
+assert_contains "leak check uses branch-footprint diff against main ref" \
+  'git diff --stat main HEAD'
+assert_contains "leak check uses git show against the main REF for absence" \
+  'git show main:'
+assert_contains "leak-check section names the -C refusal it replaces" \
+  'git -C|shared checkout'
+assert_contains "leak-check section cites loom-ta1w" 'loom-ta1w'
+
+# The Bash-level `git -C` refusal (harness) and the Edit/Write pwd
+# guard (loom's own hook) are DIFFERENT mechanisms. Conflating them
+# would teach workers to bypass a guard that is doing its job.
+assert_contains "keeps harness-refusal distinct from the edit-write-pwd-guard" \
+  'DISTINCT from the Edit/Write'
 
 # =====================================================================
 # Summary
