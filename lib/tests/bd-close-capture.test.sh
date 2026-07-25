@@ -119,6 +119,22 @@ mk_proj_full() {
   echo "$dir"
 }
 
+# Make a project dir with a CONTROLLED directory basename (loom-lwg4).
+# The repo-directory name is the second rung of the wing-candidate chain,
+# so a fixture that exercises it needs to own its own basename — which
+# `mktemp -d` does not give. `git init` makes the repo-root resolution
+# deterministic rather than depending on whether /tmp happens to sit
+# inside someone's checkout.
+mk_proj_named() {
+  local name="$1"
+  local base; base=$(mktemp -d)
+  local dir="$base/$name"
+  mkdir -p "$dir/.claude"
+  echo '{"v":1,"mode":"full"}' > "$dir/.claude/workflow.json"
+  git -C "$dir" init -q >/dev/null 2>&1 || true
+  echo "$dir"
+}
+
 # Fixture bd binary that emits canned `bd memories` output.
 mk_bd_stub() {
   local memories_text="$1"
@@ -593,6 +609,141 @@ if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
 else
   fail 'brace-expansion bd close "${id}" wrongly hard-blocked' "$out ... (exit=$rc)"
 fi
+
+# ---------------------------------------------------------------------------
+# 12. Wing derivation for HYPHENATED project prefixes (loom-lwg4)
+# ---------------------------------------------------------------------------
+#
+# INVARIANT: for a bead id whose project prefix contains hyphens
+# (`e2e-api-tests-e70`) the derived MemPalace wing is the FULL prefix
+# (`e2e-api-tests`), not the first hyphen-delimited token; underscore
+# prefixes (`liza_base-6r49` -> `liza_base`) keep working.
+#
+# THE BUG (live, measured 2026-07-25). The hook derived the wing with
+# `bead.split("-", 1)`, i.e. split at the FIRST hyphen. That is
+# underscore-safe but hyphen-UNSAFE:
+#
+#   e2e-api-tests-e70  ->  split('-', 1)[0] == "e2e"
+#
+# The real `e2e-api-tests` wing holds thousands of drawers; the `e2e`
+# wing holds zero. Because this hook is a BLOCKING gate (exit 2 in mode
+# `full`), it had been failing to find capture evidence that demonstrably
+# EXISTS, in a live project, for its entire life. Other hyphenated wings
+# at risk: golden-path, home-network, malleus-protocollum,
+# dreamer-engine, hundred-acre-woods.
+#
+# THE FIX. Derive the wing from the LITERAL full prefix via
+# `bd_id_prefix_of` from lib/bd-id-extract.sh (loom-6mf7) — split at the
+# LAST hyphen preceding the 3+-alnum suffix, never the first — and fall
+# back to the repo directory name for the prefix != wing case.
+
+echo "==> 12. Hyphenated-prefix wing derivation (loom-lwg4)"
+
+# 12a. THE LIVE BUG. A drawer in the real `e2e-api-tests` wing naming the
+#      bead must satisfy capture. Under `split('-', 1)` the hook looked in
+#      wing `e2e` (empty) and blocked a legitimate close.
+E2E_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$E2E_PALACE" e2e-api-tests decisions e2e-api-tests-e70 \
+  "e2e-api-tests-e70 landed the first API smoke suite."
+out=$(run_hook "$PROJ" 'bd close e2e-api-tests-e70' "$E2E_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "hyphenated prefix: drawer in e2e-api-tests wing → allows"
+else
+  fail "hyphenated prefix: full-prefix wing not derived (exit=$rc)" "$out"
+fi
+rm -rf "$E2E_PALACE"
+
+# 12b. The block message must NAME the full wing. A truncated wing in the
+#      diagnostic sends the reader looking in a wing that does not exist.
+out=$(run_hook "$PROJ" 'bd close e2e-api-tests-e70' "$NULL_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ] && echo "$out" | grep -qF 'Drawer in e2e-api-tests/*' \
+   && ! echo "$out" | grep -qF 'Drawer in e2e/*'; then
+  pass "block message names the FULL wing (e2e-api-tests, not e2e)"
+else
+  fail "block message names a truncated wing" "$out"
+fi
+
+# 12c. REGRESSION: underscore prefixes must keep working unchanged.
+LIZA_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$LIZA_PALACE" liza_base decisions liza_base-6r49 \
+  "liza_base-6r49 locked the complaint-notebook shape."
+out=$(run_hook "$PROJ" 'bd close liza_base-6r49' "$LIZA_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "underscore prefix (liza_base-6r49 → liza_base) still allows"
+else
+  fail "underscore prefix regressed (exit=$rc)" "$out"
+fi
+rm -rf "$LIZA_PALACE"
+
+# 12d. Short-form drawer body under a hyphenated prefix. The short suffix
+#      is the segment after the LAST hyphen (`abc1`), not after the first
+#      (`path-abc1`), so the short-form fallback has to split the same way
+#      the wing does.
+GP_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$GP_PALACE" golden-path decisions "abc1-note" \
+  "ABC1 shipped the Hugo pipeline rewrite."
+out=$(run_hook "$PROJ" 'bd close golden-path-abc1' "$GP_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "hyphenated prefix: short-form drawer (abc1 in golden-path) → allows"
+else
+  fail "hyphenated prefix: short suffix mis-split (exit=$rc)" "$out"
+fi
+rm -rf "$GP_PALACE"
+
+# 12e. Diary short-form under a hyphenated prefix: the wing-name-in-doc
+#      guard must look for the FULL wing name.
+GP_DIARY=$(mktemp -d)
+mk_palace_with_drawer "$GP_DIARY" wing_claude-opus diary "abc1-session" \
+  "SESSION:2026-07-25|golden-path: abc1 docs rebuild landed|stage:wrap-up"
+out=$(run_hook "$PROJ" 'bd close golden-path-abc1' "$GP_DIARY" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "hyphenated prefix: short-form diary naming golden-path → allows"
+else
+  fail "hyphenated prefix: diary wing-scope guard mis-split (exit=$rc)" "$out"
+fi
+rm -rf "$GP_DIARY"
+
+# 12f. BUG-CLASS: widening the wing derivation must NOT widen it to
+#      everything. A short-form mention in an unrelated wing still blocks.
+GP_CROSS=$(mktemp -d)
+mk_palace_with_drawer "$GP_CROSS" some-other-project decisions "abc1-note" \
+  "Note: abc1 mentioned but this drawer belongs to another project."
+out=$(run_hook "$PROJ" 'bd close golden-path-abc1' "$GP_CROSS" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "hyphenated prefix: short-form in a foreign wing still blocks"
+else
+  fail "wing scoping leaked after widening (exit=$rc)" "$out"
+fi
+rm -rf "$GP_CROSS"
+
+# 12g. prefix != wing. `dreamer-engine`'s bd prefix is `dream` while its
+#      MemPalace wing is `dreamer-engine`, so NO literal split of the bead
+#      ID — of any shape — yields the wing. Second rung of the candidate
+#      chain: the repo directory name.
+DREAM_PROJ=$(mk_proj_named dreamer-engine)
+DREAM_PALACE=$(mktemp -d)
+mk_palace_with_drawer "$DREAM_PALACE" dreamer-engine decisions dream-xyz1 \
+  "dream-xyz1 locked the narrative-loop contract."
+out=$(run_hook "$DREAM_PROJ" 'bd close dream-xyz1' "$DREAM_PALACE" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "prefix != wing: repo-dir fallback (dream-* → dreamer-engine) → allows"
+else
+  fail "prefix != wing: repo-dir fallback missing (exit=$rc)" "$out"
+fi
+rm -rf "$DREAM_PALACE"
+
+# 12h. BUG-CLASS: the repo-dir fallback is a second CANDIDATE, not a
+#      blanket pass. A drawer in a third, unrelated wing still blocks.
+DREAM_CROSS=$(mktemp -d)
+mk_palace_with_drawer "$DREAM_CROSS" some-other-project decisions dream-xyz1 \
+  "dream-xyz1 mentioned in an unrelated project's wing."
+out=$(run_hook "$DREAM_PROJ" 'bd close dream-xyz1' "$DREAM_CROSS" "$NULL_BD"); rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "repo-dir fallback stays wing-scoped (foreign wing still blocks)"
+else
+  fail "repo-dir fallback became a blanket pass (exit=$rc)" "$out"
+fi
+rm -rf "$DREAM_CROSS" "$(dirname "$DREAM_PROJ")"
 
 # ---------------------------------------------------------------------------
 # Summary
