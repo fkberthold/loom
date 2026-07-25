@@ -53,8 +53,11 @@
 #     that most needs the nudge — by definition it has received nothing.
 #     (Live instance: ~/repos/liza_base carried no stamp while its
 #     priming drifted 26+ days.)
-#   * stamp present (with OR WITHOUT `workflow.json`) → the hash
-#     comparison below (stale → nudge, matching → silent). The
+#   * stamp present (with OR WITHOUT `workflow.json`) → the
+#     `last_synced` comparison below (stale → nudge, matching →
+#     silent; no `last_synced` at all → the never-synced nudge, since
+#     the loom-uh4i branch keys on that field's ABSENCE, not on the
+#     stamp file's). The
 #     without-`workflow.json` half of that is deliberate BACKWARD
 #     COMPAT: every project that nudged before this change had a stamp,
 #     and some carry no `workflow.json`; requiring both signals would
@@ -63,10 +66,44 @@
 #     lib/tests/loom-drift-nudge.test.sh pin exactly that grandfathered
 #     stamped-but-no-workflow.json shape and would go red.
 #
-# The two nudges are deliberately worded differently: the never-synced
-# one names the ABSENT stamp and asks for a first sync; the stale one
-# names both hashes and asks for a resync. Same fix command
-# (`/audit-project --apply-drift`), different emphasis.
+# CHECKED vs SYNCED — which field this hook compares (loom-uh4i).
+# `.claude/.loom-sync` carries TWO facts, and this hook reads exactly
+# one of them:
+#
+#   last_synced / last_synced_date   — written ONLY by an
+#     `/audit-project` invocation that actually APPLIED remediation.
+#     THIS is what the comparison below uses.
+#   last_checked / last_checked_date — written by ANY invocation,
+#     including a read-only `--check=` run. Purely informational; this
+#     hook never compares it, and only reads it to tell "checked but
+#     never synced" apart from a malformed stamp.
+#
+# THE BUG THIS CLOSES. The stamp used to carry a single `hash=`,
+# rewritten unconditionally on every `/audit-project` invocation. A
+# read-only `--check=drift` that applied nothing therefore stamped
+# loom's CURRENT hash, this hook's comparison matched, and the nudge
+# went silent — the detector could be quieted by LOOKING at it.
+# Measured 2026-07-25: ~/repos/liza_base stamped 14:23:51 with a hash
+# matching loom exactly, nudge silent, zero remediation applied, its
+# CLAUDE.md (mtime 07-15) and .claude/rules/dispatched-agents.md
+# (mtime 07-10) byte-unchanged and still missing every current
+# convention.
+#
+# LEGACY MIGRATION. A pre-loom-uh4i stamp carries only `hash=`/`date=`.
+# It is read as `last_synced`/`last_synced_date` — NOT as last_checked
+# — because under the old semantics that write happened at what was
+# called a sync. Grandfathering it any other way would take every
+# already-stamped project from silent to nudging overnight. This is the
+# same rule scripts/loom-sync-stamp applies on the write side, so no
+# downstream project needs any action; its next `/audit-project` run
+# rewrites the stamp in the v2 shape.
+#
+# The three nudges are deliberately worded differently: the never-synced
+# one names the ABSENT stamp and asks for a first sync; the
+# checked-but-never-synced one names the check date and the missing
+# last_synced record; the stale one names both hashes and asks for a
+# resync. Same fix command (`/audit-project --apply-drift`), different
+# emphasis.
 #
 # The never-synced branch does NOT compute loom's current manifest hash
 # — there is nothing to compare it against, and skipping it keeps the
@@ -206,11 +243,43 @@ if [ ! -f "$STAMP" ]; then
   exit 0
 fi
 
-STAMPED_HASH=$(grep '^hash=' "$STAMP" 2>/dev/null | head -1 | cut -d= -f2-)
-STAMPED_DATE=$(grep '^date=' "$STAMP" 2>/dev/null | head -1 | cut -d= -f2-)
-# A stamp file with no parseable hash= line is malformed — fail open
-# silent rather than guess.
-[ -n "$STAMPED_HASH" ] || exit 0
+# 4c. Read the stamp's SYNC record — see the CHECKED vs SYNCED header
+#     note. `last_synced` is the only field this hook compares; a
+#     `last_checked` written by a read-only audit must never silence it.
+stamp_field() {
+  grep "^$1=" "$STAMP" 2>/dev/null | head -1 | cut -d= -f2-
+}
+STAMPED_HASH=$(stamp_field last_synced)
+STAMPED_DATE=$(stamp_field last_synced_date)
+# LEGACY MIGRATION: a pre-loom-uh4i stamp carries only `hash=`/`date=`.
+# Grandfather it as last_synced (see the header note) — reading it any
+# other way would take every already-stamped project from silent to
+# nudging overnight and would break loom-oktm's stamped-but-no-
+# workflow.json fixtures.
+if [ -z "$STAMPED_HASH" ]; then
+  STAMPED_HASH=$(stamp_field hash)
+  STAMPED_DATE=$(stamp_field date)
+fi
+
+if [ -z "$STAMPED_HASH" ]; then
+  # No sync record. Two sub-states, distinguished by whether the stamp
+  # carries a CHECK record:
+  CHECKED_HASH=$(stamp_field last_checked)
+  CHECKED_DATE=$(stamp_field last_checked_date)
+  if [ -n "$CHECKED_HASH" ] || [ -n "$CHECKED_DATE" ]; then
+    # CHECKED BUT NEVER SYNCED — the loom-uh4i state. Somebody ran
+    # `/audit-project` against this project, but no remediation ever
+    # landed. Before the checked/synced split this looked identical to
+    # "fully in sync". It is the never-synced case, so it gets the
+    # never-synced nudge, with the check date named so the user can see
+    # that looking already happened and did not count.
+    emit_nudge_once "[loom-drift-nudge] INFO: this loom-managed project has been checked (last checked ${CHECKED_DATE:-unknown}) but has never been synced against loom's conventions (no last_synced record in .claude/.loom-sync — no remediation has ever been applied) — run \`/audit-project --apply-drift\` to sync it."
+    exit 0
+  fi
+  # Neither a sync nor a check record — a malformed or hand-edited
+  # stamp. Fail open silent rather than guess.
+  exit 0
+fi
 
 # 5. Resolve loom's own checkout root, then compute the CURRENT
 #    manifest hash against it (see HASH COMPUTATION header note).

@@ -11,15 +11,15 @@ For the mechanism underneath this flow, see
 ## Precondition
 
 - The project is **loom-managed** — it carries a
-  `<root>/.claude/workflow.json`, or it has synced against loom at least
-  once via `install.sh` (loom's own bootstrap) or a prior
+  `<root>/.claude/workflow.json`, or it has been audited against loom at
+  least once via `install.sh` (loom's own bootstrap) or a prior
   `/audit-project` run of any kind. Every `/audit-project` invocation,
-  regardless of `--check=` mode, stamps `<root>/.claude/.loom-sync`.
-  A loom-managed project that has **never** been audited has no stamp
-  and gets the *never-synced* variant of the nudge below, pointing at
-  this same procedure — that first run is exactly what writes its stamp
-  (`loom-oktm`). Only a project that is loom-managed by **neither**
-  signal stays silent.
+  regardless of `--check=` mode, writes a `last_checked` record into
+  `<root>/.claude/.loom-sync`. A loom-managed project that has **never**
+  been synced — no stamp at all, or a stamp carrying only
+  `last_checked` — gets the *never-synced* variant of the nudge below,
+  pointing at this same procedure (`loom-oktm`, `loom-uh4i`). Only a
+  project that is loom-managed by **neither** signal stays silent.
 - You're working from the loom-managed project's root (or pass
   `--root <path>` / `--wing <wing>` explicitly, same precedence chain
   as every other `/audit-project` mode).
@@ -62,10 +62,12 @@ For the mechanism underneath this flow, see
    you'll see `no convention drift detected` and there is nothing
    further to do.
 
-   This run also **re-stamps** `.claude/.loom-sync` with today's date
-   and loom's current hash — that happens on every `/audit-project`
-   invocation, not just this one. Running the audit at all *is* the
-   sync event.
+   This run also records a **check** in `.claude/.loom-sync`
+   (`last_checked` + today's date) — that happens on every
+   `/audit-project` invocation, not just this one. It does **not**
+   record a sync, and it does **not** silence the nudge: looking at a
+   project is not the same as remediating it (`loom-uh4i`). Only step 3
+   can write the `last_synced` record.
 
 3. **Queue the drifted files for review.**
 
@@ -140,15 +142,26 @@ Re-run the check:
 /audit-project --check=drift
 ```
 
-Since every `/audit-project` invocation re-stamps `.claude/.loom-sync`
-with loom's *current* hash, the stamp always shows "in sync"
-immediately after any run — including one where you `skip`ped every
-item. The stamp records that the project was **looked at**, not that
-every drifted file was folded in. If you deliberately skipped
-something, the drift for that specific file won't resurface as a
-`[DRIFT]` line next time (the stamp has moved past it) — track any
-skipped work the ordinary way, e.g. a follow-up bead, if you intend to
-come back to it.
+The stamp shows "in sync" only if step 3 actually **applied** at least
+one item. A run where you `skip`ped every item applies nothing, leaves
+the project byte-identical, and therefore leaves the nudge firing —
+zero applied is a *check*, not a sync (`loom-uh4i`). This is
+deliberate: before that fix, merely *looking* at a project marked it
+synced, so the detector could be quieted without a single file
+changing.
+
+If you applied **some** items and skipped others, the run does count as
+a sync: you were shown loom's current convention set and acted on it.
+The stamp records loom's whole current hash, so the files you
+deliberately skipped won't resurface as `[DRIFT]` lines next time —
+track any skipped work the ordinary way, e.g. a follow-up bead, if you
+intend to come back to it.
+
+If you've decided you don't want loom's conventions in this project at
+all, opt out explicitly with `LOOM_DRIFT_NUDGE_SKIP=1` in the
+project's environment rather than by skipping items — an opt-out
+inferred from a skip is exactly the silent-silencing behavior
+`loom-uh4i` removed.
 
 ## Related
 
