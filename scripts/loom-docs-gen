@@ -94,6 +94,7 @@ curated_page() {
     hooks:constitution-enforce)     echo "constitution-enforce-hook.md" ;;
     hooks:cwd-drift-guard)          echo "cwd-drift-guard.md" ;;
     hooks:edit-write-pwd-guard)     echo "edit-write-pwd-guard.md" ;;
+    hooks:main-checkout-edit-guard) echo "main-checkout-edit-guard.md" ;;
     hooks:bd-worktree-preseed)      echo "bd-worktree-preseed.md" ;;
     hooks:bd-prime-wrapper)         echo "bd-prime-wrapper.md" ;;
     hooks:bd-remember-guest-guard)  echo "bd-remember-guest-guard.md" ;;
