@@ -21,6 +21,18 @@
 #   light  → never blocks (informational); writes state on close.
 #   off    → silent; writes state on close.
 #
+# Wing derivation (loom-lwg4). The wing a bead's drawers live in is
+# derived from the bead ID via `bd_id_prefix_of` (lib/bd-id-extract.sh,
+# loom-6mf7) — the LITERAL full prefix, split at the LAST hyphen before
+# the 3+-alnum suffix. The earlier `bead.split("-", 1)[0]` split at the
+# FIRST hyphen, which truncated every hyphenated project prefix
+# (`e2e-api-tests-e70` -> `e2e`, a wing that does not exist) and silently
+# blocked legitimate closes in those projects. Because bd prefix and wing
+# name are not the same thing in general (dreamer-engine's prefix is
+# `dream`), the repo directory name is tried as a second CANDIDATE wing.
+# Both are candidates, not overrides: a drawer in ANY candidate wing
+# satisfies the matcher, and a drawer in no candidate wing still blocks.
+#
 # Test injection points:
 #   MEMPALACE_HOME — palace dir (default: ~/.mempalace)
 #   BD_BIN          — bd binary (default: bd)
@@ -169,6 +181,67 @@ EOF
   exit 2
 fi
 
+# --- Wing candidates per bead (loom-lwg4) ---------------------------------
+
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR > installed copy > repo-relative.
+# `bd-id-extract.sh` is dual-mode (loom-6mf7): sourcing defines
+# bd_id_prefix_of / bd_id_detect_prefix / bd_id_pattern / bd_id_scan and
+# runs nothing.
+# shellcheck source=../lib/bd-id-extract.sh
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/bd-id-extract.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/bd-id-extract.sh"
+elif [ -f "$HOME/.claude/lib/bd-id-extract.sh" ]; then
+  . "$HOME/.claude/lib/bd-id-extract.sh"
+else
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/bd-id-extract.sh"
+fi
+
+# shellcheck source=../lib/worktree-detect.sh
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/worktree-detect.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/worktree-detect.sh"
+elif [ -f "$HOME/.claude/lib/worktree-detect.sh" ]; then
+  . "$HOME/.claude/lib/worktree-detect.sh"
+else
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/worktree-detect.sh"
+fi
+
+# Defensive shim: this hook BLOCKS, so a missing helper must not silently
+# degrade the wing to something narrower than the truth. Mirrors
+# bd_id_prefix_of's contract (strip a dotted sub-suffix, then take
+# everything before the LAST hyphen).
+if ! declare -F bd_id_prefix_of >/dev/null 2>&1; then
+  bd_id_prefix_of() {
+    local stripped="${1%%.*}"
+    local suffix="${stripped##*-}" prefix="${stripped%-*}"
+    if printf '%s' "$suffix" | grep -qE '^[a-z0-9]{3,}$' && [ -n "$prefix" ]; then
+      printf '%s' "$prefix"; return 0
+    fi
+    return 1
+  }
+fi
+
+# Second candidate: the repo directory name. bd prefix and MemPalace wing
+# are not the same thing in general — dreamer-engine's bd prefix is
+# `dream` while its wing is `dreamer-engine` — so no literal split of the
+# bead ID, of any shape, reaches that wing. The repo dir name does, and it
+# is what loom's other wing-deriving sites already use
+# (scripts/loom-mine-history, scripts/loom-audit-resolve). Worktree-aware
+# so a dispatched worker in .claude/worktrees/agent-<id>/ resolves the
+# MAIN checkout's name rather than `agent-<id>`.
+REPO_WING=""
+if declare -F loom_worktree_main_dir >/dev/null 2>&1; then
+  REPO_WING=$(loom_worktree_main_dir "$PWD" 2>/dev/null || true)
+fi
+[ -n "$REPO_WING" ] || REPO_WING="$PWD"
+REPO_WING=$(basename "$REPO_WING")
+
+# bead<TAB>prefix-wing, one per line. The python kernel appends REPO_WING
+# as the second candidate.
+BEAD_WING_MAP=""
+for id in $BEAD_IDS; do
+  BEAD_WING_MAP+="$(printf '%s\t%s' "$id" "$(bd_id_prefix_of "$id" 2>/dev/null || true)")"$'\n'
+done
+
 # --- 5-matcher verification (Bug B fix) -----------------------------------
 
 # Pre-compute bd memories output once per bead (cheap; CLI call).
@@ -203,6 +276,8 @@ MATRIX=$(BEAD_IDS="$BEAD_IDS" \
          MEMPALACE_HOME="$MEMPALACE_HOME" \
          BD_MEM_DUMP="$BD_MEM_DUMP" \
          REASON_TEXT="$REASON_TEXT" \
+         BEAD_WING_MAP="$BEAD_WING_MAP" \
+         REPO_WING="$REPO_WING" \
          python3 - <<'PY'
 import os, re, sqlite3
 
@@ -210,6 +285,45 @@ bead_ids = os.environ.get("BEAD_IDS", "").split()
 palace_home = os.environ["MEMPALACE_HOME"]
 mem_dump = os.environ.get("BD_MEM_DUMP", "")
 reason = os.environ.get("REASON_TEXT", "")
+repo_wing = os.environ.get("REPO_WING", "").strip()
+
+# bead -> literal full prefix, computed bash-side by bd_id_prefix_of
+# (lib/bd-id-extract.sh, loom-6mf7).
+prefix_wing = {}
+for line in os.environ.get("BEAD_WING_MAP", "").splitlines():
+    if "\t" not in line:
+        continue
+    b, w = line.split("\t", 1)
+    if b:
+        prefix_wing[b] = w.strip()
+
+
+def bead_short(bead):
+    """The suffix after the LAST hyphen (`e2e-api-tests-e70` -> `e70`).
+
+    Splitting at the FIRST hyphen was the loom-lwg4 bug: it yielded
+    `api-tests-e70`, which no drawer body contains.
+    """
+    return bead.rsplit("-", 1)[1] if "-" in bead else ""
+
+
+def wings_for(bead):
+    """Ordered, deduped candidate wings for one bead.
+
+    1. the literal full bd prefix (the wing in the overwhelming majority
+       of projects), and
+    2. the repo directory name, which is the only rung that reaches a
+       wing whose name differs from the bd prefix (dreamer-engine's
+       prefix is `dream`).
+
+    A drawer in ANY candidate satisfies the matcher; a drawer in none
+    still blocks, so this widens the search without weakening the gate.
+    """
+    out = []
+    for cand in (prefix_wing.get(bead) or bead.rsplit("-", 1)[0], repo_wing):
+        if cand and cand not in out:
+            out.append(cand)
+    return out
 
 chroma_db = os.path.join(palace_home, "palace", "chroma.sqlite3")
 kg_db = os.path.join(palace_home, "palace", "knowledge_graph.sqlite3")
@@ -277,32 +391,36 @@ def palace_match(needle, wing_filter=None, exclude_room=None,
 # Drawer matcher: try the full bead ID first; fall back to the short
 # suffix scoped to the bead's wing. Wing-scoping makes the short form
 # unambiguous within a single project's drawers (loom-b20 sub-issue 2).
-def has_drawer(bead, wing):
-    if palace_match(bead, wing_filter=wing, exclude_room="diary"):
-        return True
-    short = bead.split("-", 1)[1] if "-" in bead else ""
-    if len(short) >= 3 and palace_match(
-            short, wing_filter=wing, exclude_room="diary",
-            require_needle_in_doc=True):
-        return True
+# Each candidate wing (loom-lwg4) is tried in turn.
+def has_drawer(bead, wings):
+    for wing in wings:
+        if palace_match(bead, wing_filter=wing, exclude_room="diary"):
+            return True
+    short = bead_short(bead)
+    if len(short) >= 3:
+        for wing in wings:
+            if palace_match(short, wing_filter=wing, exclude_room="diary",
+                            require_needle_in_doc=True):
+                return True
     return False
 
 # Diary matcher: try the full bead ID first; fall back to the short
-# suffix when the diary doc body ALSO names the bead's wing (the diary
-# room is global across wings, so a `b33` mention in a different
-# project's diary entry must not satisfy `liza_base-b33`).
-def has_diary(bead):
+# suffix when the diary doc body ALSO names one of the bead's candidate
+# wings (the diary room is global across wings, so a `b33` mention in a
+# different project's diary entry must not satisfy `liza_base-b33`).
+def has_diary(bead, wings):
     if palace_match(bead, wing_filter=None, only_room="diary",
                     require_needle_in_doc=True):
         return True
-    if "-" not in bead:
-        return False
-    wing, short = bead.split("-", 1)
+    short = bead_short(bead)
     if len(short) < 3:
         return False
-    return palace_match(short, wing_filter=None, only_room="diary",
+    for wing in wings:
+        if palace_match(short, wing_filter=None, only_room="diary",
                         require_needle_in_doc=True,
-                        require_wing_in_doc=wing)
+                        require_wing_in_doc=wing):
+            return True
+    return False
 
 def has_kg(bead):
     if kg is None:
@@ -339,13 +457,15 @@ def has_substantive_reason():
 reason_ok = has_substantive_reason()
 
 for bead in bead_ids:
-    wing = bead.split("-", 1)[0]
-    m1 = "Y" if has_drawer(bead, wing) else "N"
+    wings = wings_for(bead)
+    wing = wings[0]
+    others = ", ".join(wings[1:])
+    m1 = "Y" if has_drawer(bead, wings) else "N"
     m2 = "Y" if has_kg(bead) else "N"
-    m3 = "Y" if has_diary(bead) else "N"
+    m3 = "Y" if has_diary(bead, wings) else "N"
     m4 = "Y" if has_bd_memory(bead) else "N"
     m5 = "Y" if reason_ok else "N"
-    print(f"{bead}|{wing}|{m1}|{m2}|{m3}|{m4}|{m5}")
+    print(f"{bead}|{wing}|{others}|{m1}|{m2}|{m3}|{m4}|{m5}")
 PY
 )
 
@@ -355,7 +475,7 @@ ALL_PASS=1
 BLOCK_REPORT=""
 WARN_REPORT=""
 
-while IFS='|' read -r bead wing m1 m2 m3 m4 m5; do
+while IFS='|' read -r bead wing others m1 m2 m3 m4 m5; do
   [ -n "$bead" ] || continue
   evidence_count=0
   for v in "$m1" "$m2" "$m3" "$m4" "$m5"; do
@@ -373,6 +493,8 @@ while IFS='|' read -r bead wing m1 m2 m3 m4 m5; do
     BLOCK_REPORT+=$'\n'"[bd-close-capture hook] No capture evidence found for ${bead}."$'\n\n'
     BLOCK_REPORT+="Looked for (need ANY ONE):"$'\n'
     BLOCK_REPORT+="  ${s1} Drawer in ${wing}/* mentioning ${bead}"$'\n'
+    [ -n "$others" ] && \
+      BLOCK_REPORT+="       (also searched wing(s): ${others})"$'\n'
     BLOCK_REPORT+="  ${s2} KG triple referencing ${bead}"$'\n'
     BLOCK_REPORT+="  ${s3} Diary entry mentioning ${bead}"$'\n'
     BLOCK_REPORT+="  ${s4} bd memory tagged with ${bead}"$'\n'
