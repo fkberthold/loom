@@ -42,6 +42,9 @@
 #   N. loom-managed + no stamp: SKIP=1 and subagent payload still bypass.
 #   O. loom-managed + MATCHING stamp → still silent (managed-ness alone
 #      never nudges a current project).
+#   P. unwritable sentinel path (nonexistent $XDG_RUNTIME_DIR) → the
+#      nudge is still EXACTLY one clean line, no shell redirection
+#      complaint leaking to stderr.
 #
 # Run:  bash lib/tests/loom-drift-nudge.test.sh
 
@@ -314,6 +317,20 @@ else
   fail "managed + matching hash should be silent" "rc=$rc out=$out"
 fi
 rm -rf "$P" "$SESS_O"
+
+# =========================================================================
+echo "==> P. unwritable sentinel path → still exactly one clean line"
+P=$(mk_managed_project)
+SESS_P=$(mktemp -d)
+rmdir "$SESS_P"          # XDG_RUNTIME_DIR now points at a nonexistent dir
+out=$(run_hook "$P" "$FROOT" "$SESS_P" '{}'); rc=$?
+n=$(printf '%s\n' "$out" | grep -c .)
+if [ "$rc" -eq 0 ] && [ "$n" -eq 1 ] && echo "$out" | grep -q 'loom-drift-nudge'; then
+  pass "unwritable sentinel: exactly one clean nudge line, no redirection complaint"
+else
+  fail "unwritable sentinel leaked shell noise" "rc=$rc lines=$n out=$out"
+fi
+rm -rf "$P"
 
 rm -rf "$FROOT"
 
