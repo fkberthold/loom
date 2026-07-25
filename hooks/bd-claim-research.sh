@@ -51,8 +51,43 @@ fi
 MODE=$(workflow_resolve_mode "$PWD")
 [ "$MODE" = "full" ] || exit 0
 
+# Lib ladder (loom-8ztk): LOOM_TEST_LIB_DIR first, as everywhere. This
+# rung is fail-open — if lib/bd-id-extract.sh cannot be found the hook
+# falls back to the generic pattern below rather than dying, since it is
+# advisory and must never block a claim.
+# shellcheck source=../lib/bd-id-extract.sh
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/bd-id-extract.sh" ]; then
+  . "$LOOM_TEST_LIB_DIR/bd-id-extract.sh"
+elif [ -f "$HOME/.claude/lib/bd-id-extract.sh" ]; then
+  . "$HOME/.claude/lib/bd-id-extract.sh"
+elif [ -f "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/bd-id-extract.sh" ]; then
+  . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/bd-id-extract.sh"
+fi
+
 # Extract bead-id (best-effort).
-BEAD_ID=$(echo "$CMD" | grep -oE '[a-z][a-z0-9-]*-[a-z0-9]+\.?[a-z0-9]*' 2>/dev/null | head -1 || true)
+#
+# Preferred path (loom-6mf7): anchor the scan on the project's LITERAL
+# bd prefix via lib/bd-id-extract.sh. A literal prefix is immune by
+# construction to the shape question that broke every hand-rolled class
+# before it — `liza_base-6r49` no longer truncates to `base-6r49`, and
+# `loom-z3m.1.4` keeps its full dotted tail.
+#
+# Fallback (prefix undetectable — no .beads/issues.jsonl and no usable
+# `bd list`): a generic pattern that is underscore-aware AND carries the
+# {3,} suffix minimum, so a `[a-z]` grep literal sitting in the command
+# no longer parses as the bead ID "a-z" (observed live, loom-bbq7).
+BEAD_ID=""
+if command -v bd_id_detect_prefix >/dev/null 2>&1; then
+  BD_PREFIX=$(bd_id_detect_prefix "$PWD" 2>/dev/null || true)
+  if [ -n "$BD_PREFIX" ]; then
+    BEAD_ID=$(printf '%s' "$CMD" | bd_id_scan "$BD_PREFIX" 2>/dev/null | head -1 || true)
+  fi
+fi
+if [ -z "$BEAD_ID" ]; then
+  BEAD_ID=$(printf '%s' "$CMD" \
+    | grep -oE '[a-z][a-z0-9_-]*-[a-z0-9]{3,}(\.[a-z0-9]+)*' 2>/dev/null \
+    | head -1 || true)
+fi
 
 # Update state file: best-effort activity from bd type, plus bead + stage=claim.
 if [ -n "${BEAD_ID:-}" ]; then
