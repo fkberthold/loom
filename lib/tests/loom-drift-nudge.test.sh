@@ -21,7 +21,8 @@
 #   A. stale stamp (hash mismatch) → exactly ONE nudge, names the drift,
 #      points at /audit-project --apply-drift, exit 0.
 #   B. matching hash → NO nudge, exit 0.
-#   C. no .claude/.loom-sync at all → SILENT no-op, exit 0.
+#   C. no .claude/.loom-sync at all in a NON-loom-managed project (no
+#      .claude/workflow.json) → SILENT no-op, exit 0.
 #   D. second invocation, SAME session (same XDG_RUNTIME_DIR), same
 #      stale project → does NOT repeat the nudge (one-shot sentinel).
 #   E. second invocation, DIFFERENT session (fresh XDG_RUNTIME_DIR) →
@@ -32,6 +33,15 @@
 #   I. malformed stamp (no hash= line) → fail-open silent.
 #   J. settings.snippet.json registers the hook in the SessionStart
 #      group (additive — siblings still present).
+#   K. loom-managed (.claude/workflow.json) + NO stamp → exactly ONE
+#      never-synced nudge, exit 0 (loom-oktm).
+#   L. the never-synced nudge is DISTINGUISHABLE from the stale-stamp
+#      nudge (different states, different remediation emphasis).
+#   M. loom-managed + no stamp: one-time-per-session sentinel applies
+#      (second same-session call silent; fresh session nudges again).
+#   N. loom-managed + no stamp: SKIP=1 and subagent payload still bypass.
+#   O. loom-managed + MATCHING stamp → still silent (managed-ness alone
+#      never nudges a current project).
 #
 # Run:  bash lib/tests/loom-drift-nudge.test.sh
 
@@ -122,14 +132,14 @@ fi
 rm -rf "$P" "$SESS_B"
 
 # =========================================================================
-echo "==> C. no .claude/.loom-sync at all → silent no-op"
+echo "==> C. no stamp AND not loom-managed (no workflow.json) → silent no-op"
 P=$(mk_fixture_project "")   # no hash → mk_fixture_project skips writing the file
 SESS_C=$(mktemp -d)
 out=$(run_hook "$P" "$FROOT" "$SESS_C" '{}'); rc=$?
 if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
-  pass "no stamp file → silent no-op, exit 0"
+  pass "no stamp + not loom-managed → silent no-op, exit 0"
 else
-  fail "no-stamp path should be silent" "rc=$rc out=$out"
+  fail "unmanaged no-stamp path should be silent" "rc=$rc out=$out"
 fi
 rm -rf "$P" "$SESS_C"
 
@@ -209,6 +219,101 @@ else
   fail "malformed stamp should fail open silent" "rc=$rc out=$out"
 fi
 rm -rf "$P" "$SESS_I"
+
+# =========================================================================
+# loom-oktm — the NEVER-SYNCED case. Before this, "no stamp" collapsed two
+# very different states into one silence: a project that is CURRENT and a
+# project that has NEVER received loom's conventions at all. The
+# never-synced case is the one that most needs the nudge. The loom-managed
+# test is `.claude/workflow.json` — the same signal session-startup step 1f
+# uses for its constitution nudge — so unmanaged projects stay silent.
+mk_managed_project() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.claude"
+  printf '{"mode": "standard"}\n' > "$d/.claude/workflow.json"
+  echo "$d"
+}
+
+echo "==> K. loom-managed + NO stamp → exactly one never-synced nudge"
+P=$(mk_managed_project)
+SESS_K=$(mktemp -d)
+out=$(run_hook "$P" "$FROOT" "$SESS_K" '{}'); rc=$?
+lines=$(printf '%s\n' "$out" | grep -c 'loom-drift-nudge')
+if [ "$rc" -eq 0 ] && [ "$lines" -eq 1 ] \
+   && echo "$out" | grep -q 'never been synced' \
+   && echo "$out" | grep -q '\.claude/\.loom-sync' \
+   && echo "$out" | grep -q '/audit-project --apply-drift'; then
+  pass "loom-managed + no stamp: exactly one never-synced nudge pointing at the fix, exit 0"
+else
+  fail "never-synced nudge shape" "rc=$rc lines=$lines out=$out"
+fi
+MISSING_OUT="$out"
+rm -rf "$P" "$SESS_K"
+
+# =========================================================================
+echo "==> L. never-synced nudge is distinguishable from the stale-stamp nudge"
+P=$(mk_fixture_project "deadbeefdeadbeef00000000" "2026-01-01")
+SESS_L=$(mktemp -d)
+STALE_OUT=$(run_hook "$P" "$FROOT" "$SESS_L" '{}')
+if [ -n "$MISSING_OUT" ] && [ "$MISSING_OUT" != "$STALE_OUT" ] \
+   && echo "$MISSING_OUT" | grep -q 'loom-drift-nudge' \
+   && echo "$STALE_OUT" | grep -q 'hash=' \
+   && ! echo "$STALE_OUT" | grep -q 'never been synced' \
+   && ! echo "$MISSING_OUT" | grep -q 'hash='; then
+  pass "never-synced and stale-stamp messages are distinct (stale names hashes; never-synced names the absent stamp)"
+else
+  fail "missing- vs stale-stamp messages not distinguishable" "missing=$MISSING_OUT stale=$STALE_OUT"
+fi
+rm -rf "$P" "$SESS_L"
+
+# =========================================================================
+echo "==> M. loom-managed + no stamp: one-shot per session, re-fires next session"
+P=$(mk_managed_project)
+SESS_M1=$(mktemp -d)
+SESS_M2=$(mktemp -d)
+out1=$(run_hook "$P" "$FROOT" "$SESS_M1" '{}')
+out2=$(run_hook "$P" "$FROOT" "$SESS_M1" '{}')
+out3=$(run_hook "$P" "$FROOT" "$SESS_M2" '{}')
+if echo "$out1" | grep -q 'loom-drift-nudge' && [ -z "$out2" ] \
+   && echo "$out3" | grep -q 'loom-drift-nudge'; then
+  pass "never-synced nudge honors the one-time-per-session sentinel (and re-fires in a fresh session)"
+else
+  fail "never-synced sentinel" "out1=$out1 out2=$out2 out3=$out3"
+fi
+rm -rf "$P" "$SESS_M1" "$SESS_M2"
+
+# =========================================================================
+echo "==> N. loom-managed + no stamp: SKIP=1 and subagent payload still bypass"
+P=$(mk_managed_project)
+SESS_N1=$(mktemp -d)
+SESS_N2=$(mktemp -d)
+SESS_N3=$(mktemp -d)
+out_skip=$(run_hook "$P" "$FROOT" "$SESS_N1" '{}' LOOM_DRIFT_NUDGE_SKIP=1); rc_skip=$?
+out_sub=$(run_hook "$P" "$FROOT" "$SESS_N2" '{"isSidechain": true}'); rc_sub=$?
+# Control: the SAME fixture with no bypass DOES nudge — so the two
+# silences above are the bypasses working, not a vacuous pass.
+out_ctl=$(run_hook "$P" "$FROOT" "$SESS_N3" '{}')
+if [ "$rc_skip" -eq 0 ] && [ -z "$out_skip" ] \
+   && [ "$rc_sub" -eq 0 ] && [ -z "$out_sub" ] \
+   && echo "$out_ctl" | grep -q 'loom-drift-nudge'; then
+  pass "never-synced path respects LOOM_DRIFT_NUDGE_SKIP=1 and the subagent silent no-op (control fixture nudges)"
+else
+  fail "never-synced bypass posture" "skip: rc=$rc_skip out=$out_skip | sub: rc=$rc_sub out=$out_sub | ctl=$out_ctl"
+fi
+rm -rf "$P" "$SESS_N1" "$SESS_N2" "$SESS_N3"
+
+# =========================================================================
+echo "==> O. loom-managed + MATCHING stamp → still silent"
+P=$(mk_managed_project)
+printf 'hash=%s\ndate=%s\n' "$CURRENT_HASH" "2026-07-17" > "$P/.claude/.loom-sync"
+SESS_O=$(mktemp -d)
+out=$(run_hook "$P" "$FROOT" "$SESS_O" '{}'); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass "loom-managed + matching hash → silent (managed-ness alone never nudges a current project)"
+else
+  fail "managed + matching hash should be silent" "rc=$rc out=$out"
+fi
+rm -rf "$P" "$SESS_O"
 
 rm -rf "$FROOT"
 
