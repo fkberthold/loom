@@ -74,7 +74,7 @@ loom-rebase-worktree main
 
 ## Files
 
-- Script: `scripts/loom-rebase-worktree` (157 lines, +x)
+- Script: `loom/scripts/loom-rebase-worktree` (157 lines, +x)
 - Tests: `lib/tests/loom-rebase-worktree.test.sh` (9 fixture cases)
 
 ## When to use this vs plain `git rebase`
@@ -97,7 +97,7 @@ brief should recommend the wrapper when rebase is needed:
 
 ```
 If rebasing onto a newer base ref, use
-  scripts/loom-rebase-worktree <upstream>
+  ~/.claude/scripts/loom-rebase-worktree <upstream>
 instead of plain `git rebase`. This preserves any untracked WIP
 files (test reconstructions, draft files) across the rebase.
 ```

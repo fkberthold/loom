@@ -99,7 +99,7 @@ bead's division of labor between the test-author and the implementer.
 **Across-bead** parallelism (multiple independent ready beads worked
 as a wave) is a different axis: use the fan-out detector via
 [`/working-a-bead`](./claim-a-bead.md), backed by
-`scripts/loom-fanout-detect`, which proposes a wave of file-disjoint
+`~/.claude/scripts/loom-fanout-detect`, which proposes a wave of file-disjoint
 beads. The two compose orthogonally — each bead in a fan-out wave runs
 its own middle through `/dispatch-middle`.
 

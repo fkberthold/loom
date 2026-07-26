@@ -866,7 +866,7 @@ for the full feature-shaped pipeline.
 
 There are two axes of parallelism, and they compose:
 
-- **Across beads** — the fan-out detector (`scripts/loom-fanout-detect`,
+- **Across beads** — the fan-out detector (`~/.claude/scripts/loom-fanout-detect`,
   surfaced at selection by session-startup step 6a and the
   `/working-a-bead` router) checks the three beads' `Files:` lines. If
   no two share a file and none depends on another, it proposes a wave

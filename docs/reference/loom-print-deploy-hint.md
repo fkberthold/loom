@@ -106,7 +106,7 @@ to a silent exit-0 rather than an error.
 ```
 
 Symlinked there by `install.sh` from the repo's
-`scripts/loom-print-deploy-hint`, alongside the other `loom-*`
+`loom/scripts/loom-print-deploy-hint`, alongside the other `loom-*`
 helper scripts.
 
 ## Lineage

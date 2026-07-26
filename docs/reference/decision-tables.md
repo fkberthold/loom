@@ -32,14 +32,14 @@ loom-shipped surface that handles it.
 
 Two ready beads are wave-compatible iff they have NO dependency edge
 between them AND their declared `Files:` sets are DISJOINT.
-`scripts/loom-fanout-detect` computes this from each bead's `Files:`
+`~/.claude/scripts/loom-fanout-detect` computes this from each bead's `Files:`
 line (loom-asr) and surfaces a proposed wave at selection time; a
 bead with no `Files:` line is treated as footprint-unknown and
 excluded from any wave (degrades conservative).
 
 | Situation | Use |
 |---|---|
-| 2+ unblocked beads, disjoint `Files:` sets, no dependency edge | `superpowers:dispatching-parallel-agents` (wave proposed by `scripts/loom-fanout-detect`) |
+| 2+ unblocked beads, disjoint `Files:` sets, no dependency edge | `superpowers:dispatching-parallel-agents` (wave proposed by `~/.claude/scripts/loom-fanout-detect`) |
 | Beads share files or have a dependency edge | Sequential (one recipe per bead) |
 | A bead with no `Files:` line declared | Excluded from any proposed wave until the line is added |
 

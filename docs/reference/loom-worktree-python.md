@@ -40,13 +40,13 @@ Drop-in replacement for `python3` inside a worktree. Examples:
 
 ```bash
 # Pytest
-scripts/loom-worktree-python -m pytest tests/
+~/.claude/scripts/loom-worktree-python -m pytest tests/
 
 # One-liner smoke test
-scripts/loom-worktree-python -c 'import myproj; print(myproj.__file__)'
+~/.claude/scripts/loom-worktree-python -c 'import myproj; print(myproj.__file__)'
 
 # Run a script
-scripts/loom-worktree-python tools/migrate.py
+~/.claude/scripts/loom-worktree-python tools/migrate.py
 ```
 
 ## What the wrapper does
@@ -98,7 +98,7 @@ pre-flight battery for dispatched workers.
 
 ## Files
 
-- Script: `scripts/loom-worktree-python`
+- Script: `loom/scripts/loom-worktree-python`
 - Tests: `lib/tests/loom-worktree-python.test.sh` (13 fixture cases)
 - Worker convention: `.claude/rules/dispatched-agents.md`
 
