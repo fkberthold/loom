@@ -235,6 +235,39 @@ the orphaned children kept racing on git/bd state and yielded a **false
 and after a `TaskStop` confirm no orphan `bd-post-rewrite` (or other
 grandchild) processes survived before trusting any suite number.
 
+### Cross-repo dispatch is UNSUPPORTED (loom-stdi)
+
+**`isolation: "worktree"` worktrees the DISPATCHING SESSION's repo.**
+It never reads the brief, and there is no parameter that selects a
+different repo. So: **to dispatch a worker into project X, the
+dispatching session must be in project X.** Cross-repo dispatch is
+UNSUPPORTED — there is no brief wording, path convention, or flag that
+achieves it. If work is needed in another project, open a session
+there.
+
+This is a *brief-authoring* rule, because that is where it goes wrong.
+On 2026-07-25 central — session cwd `/home/frank/repos/loom` —
+dispatched a `liza_base` bead with a brief opening *"Dispatched worker
+in an isolated git worktree of liza_base (NOT loom)"*. The harness made
+a worktree of **loom**. The brief was simply false about where the
+worker was, and nothing in the harness or in loom's hooks contradicted
+it. Had the worker followed the brief's relative-path instruction, it
+would have overwritten **loom's own `CLAUDE.md`** — relative-path
+discipline, loom's headline mitigation for the absolute-path leak
+(loom-tag), is what would have caused the damage, because a relative
+path resolves against the wrong repo's real files.
+
+**When a brief states which repo the worker is in, state it from the
+output of `git rev-parse --show-toplevel`, not from memory of where the
+session started.** The 2026-07-25 brief asserted its repo from central's
+*intent*; intent was the thing that was wrong.
+
+Backstop: battery **step 1 (repo identity)** has the worker compare
+`git remote -v` against the repo its brief names and **ABORT on
+mismatch**. See the "Repo identity" section of
+`.claude/rules/dispatched-agents.md`, which also records why
+mechanical central-side pre-detection was considered and rejected.
+
 ---
 
 ## Central's sequence
@@ -248,7 +281,9 @@ the Dispatch-mode section above, dispatches each with
 
 Unlike the original design, central does NOT pre-create one shared
 worktree. Each dispatched agent gets its OWN auto-named
-`isolation: "worktree"` from the `Agent` tool. Central's only job
+`isolation: "worktree"` from the `Agent` tool — a worktree of
+**central's own repo**, always (see "Cross-repo dispatch is
+UNSUPPORTED" above). Central's only job
 between dispatches is to **relay the verbatim RED-test content** the
 test-author returns into the implementer's brief — the content-bridge.
 
@@ -368,7 +403,11 @@ worktree). Write the RED test only. Do NOT implement.
 
 STEP 0 — Run the pre-flight smoke battery from
 .claude/rules/dispatched-agents.md as your FIRST bash call. Abort and
-report if any check FAILs. Use relative paths for all Edit/Write.
+report if any check FAILs. You are in the <repo-name> repo (central
+read this from `git rev-parse --show-toplevel`); battery step 1 has you
+confirm that against `git remote -v` — if it disagrees, ABORT and
+report, do not adapt. Only once identity is confirmed: use relative
+paths for all Edit/Write.
 
 CONTRACT (the bead's RED: line / M1 spec / acceptance — pin EXACTLY
 this, nothing more):
@@ -408,7 +447,11 @@ with the minimal change.
 
 STEP 0 — Run the pre-flight smoke battery from
 .claude/rules/dispatched-agents.md as your FIRST bash call. Abort and
-report if any check FAILs. Use relative paths for all Edit/Write.
+report if any check FAILs. You are in the <repo-name> repo (central
+read this from `git rev-parse --show-toplevel`); battery step 1 has you
+confirm that against `git remote -v` — if it disagrees, ABORT and
+report, do not adapt. Only once identity is confirmed: use relative
+paths for all Edit/Write.
 
 RED TEST (your only spec — treat it as an ARTIFACT; recreate the file
 EXACTLY from this verbatim content, character-for-character):

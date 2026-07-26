@@ -176,6 +176,27 @@ slash commands.
   verify with `git diff --stat` in BOTH the worktree and main to
   detect leaks. See `drawer_loom_decisions_df73c725b47dd67832935e3a`
   (loom-tag, 2026-05-04) for the full finding.
+- **Cross-repo dispatch is UNSUPPORTED (loom-stdi).**
+  `Agent({isolation: "worktree"})` worktrees the **dispatching
+  session's** repo. It does not read the brief, and no parameter
+  selects a different repo — so **to dispatch a worker into project X,
+  the dispatching session must be in project X.** On 2026-07-25 central
+  (cwd `~/repos/loom`) dispatched a liza_base bead with a brief opening
+  "an isolated git worktree of liza_base (NOT loom)"; the harness made
+  a worktree of **loom**, and nothing caught it. Note the inversion
+  against the bullet above: had that worker followed the relative-path
+  instruction, it would have overwritten **loom's own `CLAUDE.md`** —
+  relative-path discipline assumes the worktree is of the *intended*
+  repo, and this is the case where that assumption fails. When a brief
+  states which repo the worker is in, state it from the output of
+  `git rev-parse --show-toplevel`, not from memory. Backstop: battery
+  **step 1 (repo identity)** compares `git remote -v` against the repo
+  the brief names and **ABORTS on mismatch**. Mechanical central-side
+  pre-detection was considered and rejected as unreliable (a brief that
+  legitimately *discusses* another project is indistinguishable from
+  one that wrongly *targets* it). See the "Repo identity" and
+  "Central-side pre-dispatch repo check" sections of
+  `.claude/rules/dispatched-agents.md`.
 - **Parallel worker dispatch — stale-base hygiene.**
   `Agent({isolation: "worktree"})` does not guarantee that the
   worktree branches off the latest local `main`. In sessions with
@@ -186,7 +207,7 @@ slash commands.
   harness's base-ref behavior is opaque to loom. Worker briefs
   should run the pre-flight smoke battery in
   `.claude/rules/dispatched-agents.md` as the first bash call;
-  step 4 of that battery compares `git merge-base HEAD main`
+  step 5 of that battery compares `git merge-base HEAD main`
   against `git rev-parse main` and auto-rebases when stale.
 
   `git rebase main` alone is NOT sufficient — on an empty-branch
@@ -194,7 +215,7 @@ slash commands.
   base trails main, and the staleness only surfaces post-commit as
   unrelated files in `git diff --stat main HEAD`. Surfaced by
   loom-b1l worker 2026-05-15, fixed in loom-6zi. The smoke battery's
-  step 4 does the explicit merge-base check + conditional rebase
+  step 5 does the explicit merge-base check + conditional rebase
   that catches this.
 
   For WIP preservation across the rebase (mid-flight crashes that
