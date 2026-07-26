@@ -96,11 +96,57 @@ For the mechanism underneath this flow, see
    engine itself, not just by the skill's prose, so it holds even if
    you drive the script by hand outside an agent session.
 
+## The one file that IS applied live
+
+Most items resolve into a mirror (next section). **One does not.**
+
+`.claude/rules/loom-conventions.md` is a file **loom owns outright** —
+loom's project-agnostic working conventions (dispatch defaults, the
+`Files:` / `RED:` / `AUTOFAN-EXCLUDE:` bead lines, the splitting
+heuristic, drawer-first capture, gate-don't-advise, the
+explore → design → build ladder). It carries no variable
+substitutions, it says "do not edit" in its own header, and you are
+never expected to hand-edit it. So `--apply-drift` queues it at its
+**real path** and an `approve` writes it there:
+
+```text
+Item: <root>/.claude/rules/loom-conventions.md (queued from
+<loom>/templates/rules/loom-conventions.md). Apply? (approve/skip/quit):
+```
+
+This is also how the file gets **seeded** the first time. A project
+that has never carried it reports:
+
+```text
+[DRIFT] <root>/.claude/rules/loom-conventions.md (absent — never seeded from templates/rules/loom-conventions.md)
+```
+
+— and the same `approve` creates it, parent directories included. Your
+own `CLAUDE.md` gets a one-line pointer to it from
+`/audit-project --apply-onboarding` (the
+`[AUTOFIX:loom-conventions-pointer]` item), and stays 100%
+project-owned otherwise: loom appends that pointer and touches nothing
+else in it, ever.
+
+If you disagree with something in the conventions file, **do not patch
+your copy** — the next resync overwrites it and takes your
+disagreement with it. Raise it against loom instead. If you want none
+of it, decline the item; declining is remembered by nothing, so the
+nudge keeps offering, which is deliberate (an opt-out should be
+explicit — set `LOOM_DRIFT_NUDGE_SKIP=1` — never silently inferred
+from a skip).
+
+Note this check does **not** consult the sync stamp. It compares the
+bytes on disk against loom's current copy, so a project whose stamp
+says "in sync" is still reported as drifted when its actual file
+trails. That combination is not hypothetical — it is exactly the
+failure this check was added for.
+
 ## The mirror, not a live resync
 
-**`--apply-drift` does not touch your project's real files.** An
-`approve` writes loom's current template content to a project-local
-**mirror** path:
+**For every OTHER item, `--apply-drift` does not touch your project's
+real files.** An `approve` writes loom's current template content to a
+project-local **mirror** path:
 
 ```text
 <root>/.claude/loom-templates/<relpath>

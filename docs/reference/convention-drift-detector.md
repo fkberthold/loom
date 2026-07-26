@@ -33,6 +33,7 @@ epic loom-ig3p).
 | `hooks/loom-drift-nudge.sh` | SessionStart hook — non-blocking, once-per-session drift nudge | loom-ig3p.3 |
 | `/audit-project --check=drift` / `--apply-drift` | On-demand deep diff + per-item human-reviewed apply | loom-ig3p.4 |
 | `lib/tests/convention-drift-gates.test.sh` | Correctness-class gates wired into `script/test` | loom-ig3p.5 |
+| `scripts/loom-owned-templates` | Registry of templates loom owns outright + byte-wise drift check over their live copies | loom-f59h |
 
 The first three form the **detect** half — cheap, automatic,
 opt-in-by-stamp. The fourth is the **remediate** half — deliberately
@@ -40,7 +41,9 @@ reuses `/audit-project` rather than a new command. The fifth is a
 different thing entirely: not drift detection over a project's
 *copies*, but drift detection over loom's *own* internal consistency
 (does a skill invoke a script by the right path; does a hook
-registration point at a file that exists).
+registration point at a file that exists). The sixth covers the one
+channel the stamp cannot see at all — see
+[Owned vs scaffold templates](#owned-vs-scaffold-templates).
 
 ## Convention manifest — `scripts/loom-convention-manifest`
 
@@ -255,15 +258,117 @@ This reference page covers the *mechanism*; the full step-by-step flow
 for a downstream user is
 [How to: resync a managed project's conventions](../how-to/resync-managed-project.md).
 The one fact worth stating here because it shapes every other design
-choice: **`--apply-drift` never overwrites your project's live files.**
-It stages loom's current template versions into a project-local
-mirror at `<root>/.claude/loom-templates/<relpath>` — a
+choice: **`--apply-drift` never overwrites a file your project owns.**
+For a SCAFFOLD template it stages loom's current version into a
+project-local mirror at `<root>/.claude/loom-templates/<relpath>` — a
 human-reconciliation aid you diff against your own copy — not an
 automatic in-place resync. A live, cross-project template
 reconciliation engine was explicitly ruled out of scope (YAGNI, per
 the design drawer's "Question / Scope" section): a project's
 scaffolded files carry per-file variable substitution and human edits
 this detector does not attempt to understand.
+
+The exception is a template **loom owns outright**, which by
+construction has neither property. Those apply at their live path.
+
+## Owned vs scaffold templates
+
+Loom-managed projects receive two structurally different kinds of file
+from `templates/`, and the difference decides everything about how
+each is checked and applied.
+
+| | **Scaffold** template | **Owned** template |
+|---|---|---|
+| Examples | `templates/diataxis/**`, `templates/design-doc/**`, `templates/project-constitution.md` | `templates/rules/loom-conventions.md` |
+| Carries `{{ substitutions }}` | yes | no |
+| Expected to be hand-edited | yes — that's the point | **no** — stated in the file's own header |
+| Can loom byte-diff the project's copy? | no | yes |
+| `--apply-drift` target | mirror: `<root>/.claude/loom-templates/<relpath>` | **live**: the file's real path |
+| Drift signal | loom's template changed (git log since the stamp) | the project's actual file is absent or differs |
+
+Membership in the `OWNED_TEMPLATES` array inside
+`scripts/loom-owned-templates` **is** the distinction — listed means
+live-apply, unlisted means mirror-apply. Existing scaffold templates
+were deliberately not converted: live-applying one would clobber
+customized files loom does not understand.
+
+### Why the owned kind had to exist (loom-f59h)
+
+loom-pogc named two channels by which loom pushes conventions
+downstream:
+
+1. **Globally symlinked** skills, hooks, and commands under
+   `~/.claude/` — a managed project always sees loom's *current* copy,
+   so these cannot drift.
+2. **Per-project priming** — the project's own `CLAUDE.md` and
+   `.claude/rules/`. loom-pogc's words: *"this is the STEERING WHEEL,
+   and nothing forces it to re-sync."*
+
+The machinery above covers a **third** thing: `templates/`-derived
+scaffolds. So channel (2) went uncovered, and the gap was measured
+rather than theorized — a managed project on 2026-07-25 carried a
+`.claude/.loom-sync` stamp matching loom's manifest hash *exactly*
+(nudge silent, audit clean) while its priming was 15 days stale and
+mentioned none of loom's current conventions.
+
+A hash stamp records what a project was **told**. Only reading the
+project's actual file records what it **has**. That is the whole
+argument for the owned kind, and for `--check=drift` running the
+byte comparison (Step 3.3a) even on the branch where the manifest
+hash matches and the manifest half returns early.
+
+Two options were rejected on the way:
+
+- **Marker-delimited region inside the project's `CLAUDE.md`** — the
+  detector would have to parse project prose, and markers drift.
+- **Keyword-presence nudge** ("does the priming *mention* the current
+  conventions?") — advisory-only and undiffable, which fails
+  [gate-don't-advise](../explanation/gate-dont-advise.md) for what is
+  a correctness invariant.
+
+### `scripts/loom-owned-templates`
+
+```bash
+loom-owned-templates --list [--loom <dir>]
+loom-owned-templates --check --root <dir> [--loom <dir>]
+loom-owned-templates --items --root <dir> [--loom <dir>]
+```
+
+- `--list` prints the registry as `<template-relpath>\t<live-target-relpath>`.
+- `--check` prints one line per entry and **exits 1 if any drifted**:
+
+  ```
+  [DRIFT] <root>/.claude/rules/loom-conventions.md (absent — never seeded from templates/rules/loom-conventions.md)
+  [DRIFT] <root>/.claude/rules/loom-conventions.md (content differs from templates/rules/loom-conventions.md — trails loom's current convention set)
+  [OK]    <root>/.claude/rules/loom-conventions.md (matches loom's current copy of templates/rules/loom-conventions.md)
+  ```
+
+  A `[FAIL]` line means loom's own source is missing — a loom bug, not
+  a project gap.
+- `--items` prints a `loom-drift-resolve` queue (absolute
+  `<target>\t<source>`) for the drifted entries only, and exits 0
+  either way: it is a queue *builder*, not a verdict. It never writes.
+
+**Seeding falls out for free.** A project that has never carried the
+file reports `[DRIFT] (absent)`, `--items` queues it, and
+`loom-drift-resolve`'s `approve` path creates the parent directories
+and copies — through the same per-item review gate as every other
+item, with never-auto-apply intact. There is no separate seeding path.
+
+The `CLAUDE.md` **pointer** that sends a reader to the file is the
+other half of seeding, and it lives in the *onboarding* path
+(`[AUTOFIX:loom-conventions-pointer]`, onboarder item 24) rather than
+in `--apply-drift` — because it edits a **project-owned** file, which
+the drift path must never do. The pointer text is fixed and
+append-only, which is what keeps it clear of loom-d50's
+never-author-project-rules constraint.
+
+**Stamp independence.** The owned check does not read or write
+`.claude/.loom-sync`. A current `last_synced` cannot silence it, and
+re-stamping cannot mark it resolved — only applying the file does.
+Same fail-toward-nudging polarity loom-uh4i chose: the stamp is a
+claim about the past, the byte comparison is a fact about the present,
+and where they disagree the fact wins.
 
 ### `scripts/loom-drift-resolve` — the apply engine
 

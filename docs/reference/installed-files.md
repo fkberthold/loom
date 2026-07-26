@@ -90,8 +90,16 @@ are generated from the filesystem at build time, so they never drift.
     ├── design-doc/               # L2 design-doc drawer scaffold
     │   └── DESIGN-DOC.md.template
     ├── project-constitution.md   # per-project constitution scaffold
+    ├── rules/                    # LOOM-OWNED, applied live (not a scaffold)
+    │   └── loom-conventions.md   # → <root>/.claude/rules/loom-conventions.md
     └── diataxis/                 # Diataxis docs/ tree (used by /docs-scaffold)
 ```
+
+Everything under `templates/` is a **scaffold** source — instantiated
+once, with variable substitution, then owned and edited by the project
+— **except `templates/rules/`**, which loom owns outright and applies
+at its live path on every resync. See
+[Owned vs scaffold templates](convention-drift-detector.md#owned-vs-scaffold-templates).
 
 The full list of skills, commands, agents, and hooks shipped at any
 given commit is auto-included on the catalogue pages
