@@ -114,6 +114,10 @@ audit. This is a deliberately user-pulled workflow.
   onboarding scan nor the docs check. D2 of the design cycle
   (`drawer_loom_decisions_4d3918198c51bb65ceaebf90`): remediation
   REUSES `/audit-project`, not a new `/loom-sync`. (loom-ig3p.4.)
+  This mode ALSO runs the **owned-template byte check** (Step 3.3a) —
+  a direct comparison of the project's live
+  `.claude/rules/loom-conventions.md` against loom's current copy,
+  independent of the stamp entirely. (loom-f59h.)
 - `--apply-drift` — for each file `--check=drift` reports as drifted,
   queue it for **per-item human review** via `scripts/loom-drift-
   resolve`, mirroring `--apply-onboarding`'s per-item AUTOFIX gate.
@@ -161,6 +165,13 @@ audit. This is a deliberately user-pulled workflow.
     that does not touch the backup. Counters the harness's
     competing TaskCreate / MEMORY.md defaults on the per-project
     layer (loom-7ro).
+  - `[AUTOFIX:loom-conventions-pointer]` (item 24 MISS) — appends a
+    fixed one-line pointer to `<root>/CLAUDE.md` sending readers to
+    `.claude/rules/loom-conventions.md`, the file loom owns and
+    keeps synced. Idempotent (a `CLAUDE.md` already naming that
+    path is PASS, so the recipe never fires twice). The pointer
+    text is fixed and loom-owned, so this authors no project
+    content and does not cross loom-d50 (loom-f59h).
   - `[AUTOFIX:loom-upstream-gc-handoff]` (item 17 INFO) — handoff
     recipe for orphan clones under `~/.loom/upstream/<owner>/<repo>/`
     with no matching open `upstream:watch` bead. The recipe does
@@ -1315,6 +1326,57 @@ against a project-local MIRROR of the changed loom templates, not the
 live scaffolded files — see that section for the exact target path
 and the human-reconciliation handoff.
 
+**The one exception is the OWNED templates — Step 3.3a below.**
+
+### Step 3.3a — owned-template byte check (`--check=drift`; loom-f59h)
+
+**Runs unconditionally whenever Step 3.3 runs — including on the
+`$prior_hash == $current_hash` "no convention drift detected" branch,
+which returns early for the manifest half.** That early return is
+exactly the failure this step exists to catch: a managed project was
+measured (2026-07-25) with a stamp matching loom's manifest hash
+byte-for-byte — nudge silent, audit clean — while its priming carried
+none of loom's current conventions. A stamp records what a project was
+*told*; only reading the project's actual file records what it *has*.
+
+This step reads the file.
+
+```bash
+bash <loom>/scripts/loom-owned-templates --check --root <root>
+```
+
+Fold its output verbatim into the `## Convention drift detection`
+report section. Each line is one of:
+
+```
+[DRIFT] <root>/.claude/rules/loom-conventions.md (absent — never seeded from templates/rules/loom-conventions.md)
+[DRIFT] <root>/.claude/rules/loom-conventions.md (content differs from templates/rules/loom-conventions.md — trails loom's current convention set)
+[OK]    <root>/.claude/rules/loom-conventions.md (matches loom's current copy of templates/rules/loom-conventions.md)
+```
+
+Exit 1 means at least one owned file drifted; exit 0 means all are
+current. A `[FAIL]` line means loom's OWN source is missing — a loom
+bug, not a project gap; report it as such and do not queue the item.
+
+**Why this one CAN be byte-diffed when no scaffold template can.**
+`scripts/loom-owned-templates`'s `OWNED_TEMPLATES` array is the
+registry of templates loom owns **outright**: no `{{ substitutions }}`,
+no expectation of per-project edits, and a do-not-edit contract stated
+in the file's own header. Scaffold templates have the opposite
+properties, which is why Step 3.5 stages *them* into a mirror. Listed
+in that array = live-apply; unlisted = mirror-apply, unchanged. Do not
+add an entry without the file itself satisfying both properties.
+
+**Channel coverage.** loom-pogc named two channels by which loom
+pushes conventions downstream — globally symlinked skills/hooks (which
+cannot drift) and per-project priming (which does, with nothing forcing
+a re-sync). loom-ig3p's manifest hash covers a third thing entirely,
+`templates/`-derived scaffolds. Step 3.3a is the priming channel's
+coverage: the owned file is a real `.claude/rules/` entry the project's
+`CLAUDE.md` points at, so keeping it current keeps the steering wheel
+current. Onboarder item 24 covers the pointer; this step covers the
+file.
+
 ### Step 3.5 — apply tagged items (only when --apply-trivial / --apply-onboarding / --apply-drift set)
 
 If none of the three flags is set, skip this step entirely; every
@@ -1384,6 +1446,36 @@ form), apply the recipe:
   existing state (only one of the two lines present) results in
   exactly the missing line being appended; the already-present
   line is never duplicated.
+
+- **`[AUTOFIX:loom-conventions-pointer]`** — gate first
+  (`refuse_if_guest AUTOFIX:loom-conventions-pointer`), then re-read
+  `<root>/CLAUDE.md`. If it already contains the literal string
+  `.claude/rules/loom-conventions.md`, skip with a note (the pointer
+  raced in between scan and apply, or the row was stale). Otherwise
+  append this fixed block, verbatim, to the end of the file:
+
+  ```markdown
+
+  ## Loom's shipped conventions
+
+  Loom's project-agnostic working conventions — dispatch defaults, the
+  `Files:` / `RED:` / `AUTOFAN-EXCLUDE:` bead lines, the splitting
+  heuristic, drawer-first capture, gate-don't-advise, and the
+  explore → design → build ladder — live in
+  [`.claude/rules/loom-conventions.md`](.claude/rules/loom-conventions.md).
+
+  **Do not edit that file.** Loom owns it and overwrites it in place on
+  every resync (`/audit-project --apply-drift`). Project-specific rules
+  belong here in `CLAUDE.md` and in your own `.claude/rules/*.md`, which
+  loom never touches.
+  ```
+
+  Two properties make this safe to auto-apply where item 7's rules
+  content is not: the text is FIXED (no project-specific judgment is
+  being made on the human's behalf) and it is APPEND-ONLY (no existing
+  `CLAUDE.md` prose is read, rewritten, or reordered). It creates no
+  `CLAUDE.md` — if the file is absent, item 6 owns that gap and this
+  recipe skips with a note (loom-f59h).
 
 - **`[AUTOFIX:loom-env-block]`** — gate first
   (`refuse_if_guest AUTOFIX:loom-env-block`), then deep-merge the
@@ -1584,17 +1676,49 @@ inline per-recipe logic, because the drift queue is uniform (every
 item is "sync one file from loom's current template") rather than a
 grab-bag of distinct recipes.
 
-Skip this subsection entirely if Step 3.3 found no drift (empty `##
-Convention drift detection` section, or the "no convention drift
-detected" line).
+Skip this subsection entirely only if BOTH halves of Step 3.3 came back
+clean — an empty `## Convention drift detection` section, or the "no
+convention drift detected" line, **and** no `[DRIFT]` line from Step
+3.3a. A clean manifest hash with a drifted owned file is the common
+case this bead exists for; do not let the first half's early return
+skip the second half's queue.
 
-1. **Build the items file.** For each `[DRIFT] templates/<relpath>
-   changed since <date>` line from Step 3.3, add ONE line to a
-   temporary items file (`<target>\t<source>`):
+1. **Build the items file — OWNED entries first.** Step 3.3a's drifted
+   owned templates are live-applied, so their queue lines come straight
+   from the registry rather than being hand-assembled:
+
+   ```bash
+   bash <loom>/scripts/loom-owned-templates --items --root <root> \
+     >> <items-file>
+   ```
+
+   That emits `<root>/.claude/rules/loom-conventions.md\t<loom>/
+   templates/rules/loom-conventions.md` — **the LIVE path**, not a
+   mirror path — for each owned template that is absent or stale, and
+   nothing at all when they are current. It exits 0 either way (it is
+   a queue builder, not a verdict), so no `|| true` is needed.
+
+   This is also the whole **seeding** story for a project that has
+   never carried the file: absent counts as drifted, so it queues, and
+   the engine's `approve` path creates the parent directories and
+   copies. No separate seeding machinery, and the per-item review gate
+   is the same one every other item goes through. (The `CLAUDE.md`
+   POINTER that sends a reader to the file is seeded elsewhere — see
+   `[AUTOFIX:loom-conventions-pointer]` under `--apply-onboarding`,
+   which is the right home because it edits a PROJECT-OWNED file and
+   this path must never do that.)
+
+2. **Then the SCAFFOLD entries.** For each `[DRIFT] templates/<relpath>
+   changed since <date>` line from Step 3.3, add ONE line to the same
+   items file (`<target>\t<source>`):
 
    ```
    <root>/.claude/loom-templates/<relpath>	<loom>/templates/<relpath>
    ```
+
+   Skip any `<relpath>` that `scripts/loom-owned-templates --list`
+   already claims — an owned template must be queued once, at its live
+   path, never also into the mirror.
 
    `<root>/.claude/loom-templates/<relpath>` is a project-local,
    READ-ONLY-BY-CONVENTION **mirror** of the loom template the
@@ -1608,7 +1732,7 @@ detected" line).
    `/docs-scaffold`'s own per-file substitution+approval flow and
    `--check=constitution`'s dedicated field-level diff.
 
-2. **Drive the engine:**
+3. **Drive the engine:**
 
    ```bash
    bash <loom>/scripts/loom-drift-resolve --items <items-file>
@@ -1624,18 +1748,18 @@ detected" line).
    `--decisions <file>` or the env var (see
    `lib/tests/loom-drift-resolve.test.sh`).
 
-3. **Never-auto-apply, by construction.** An item the user does not
+4. **Never-auto-apply, by construction.** An item the user does not
    explicitly `approve` (skip, quit, or simply never reached because
    an earlier item was `quit`) is left completely untouched — this is
    enforced by `scripts/loom-drift-resolve` itself, not by SKILL.md
    prose discipline, so it holds even outside an agent-driven session
    (e.g. a human running the script by hand).
 
-4. Fold the engine's `[APPLY]` / `[SKIP]` / `[FAIL]` / `[QUIT]`
+5. Fold the engine's `[APPLY]` / `[SKIP]` / `[FAIL]` / `[QUIT]`
    output verbatim into the `## Auto-applied` section (below) under a
    `--apply-drift` subheading.
 
-5. **Record the SYNC — but only if remediation actually landed
+6. **Record the SYNC — but only if remediation actually landed
    (loom-uh4i).** This is the ONLY place `last_synced` is ever
    written. The engine's last line is always
 
@@ -1679,6 +1803,15 @@ detected" line).
    and `--apply-trivial` never do: the manifest hash is computed over
    `<loom>/templates/`, and neither an onboarding AUTOFIX nor a
    doc-cardinality fix carries a template into the project.
+
+   **The owned-template check does not participate in this stamp at
+   all (loom-f59h).** Step 3.3a reads the project's live file directly,
+   so a current `last_synced` can never silence it and a re-stamp here
+   can never mark it resolved — only actually applying the file does.
+   That is deliberate, and it is the same fail-toward-nudging polarity
+   loom-uh4i chose: the stamp is a claim about the past, the byte
+   comparison is a fact about the present, and where they disagree the
+   fact wins.
 
    A user who has deliberately reviewed every drift item and rejected
    them all is, correctly, still nudged. The right remedy for "I've
@@ -1729,10 +1862,12 @@ Print a `## Auto-applied` section listing every change made:
   - merged env block: CLAUDE_CODE_ENABLE_TASKS=false (added),
     CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 (added)
 
---apply-drift @ <root>/.claude/loom-templates/
+--apply-drift @ <root>
+  [APPLY] <root>/.claude/rules/loom-conventions.md <- <loom>/templates/rules/loom-conventions.md
   [APPLY] <root>/.claude/loom-templates/diataxis/mkdocs.yml.template <- <loom>/templates/diataxis/mkdocs.yml.template
   [SKIP] <root>/.claude/loom-templates/design-doc/DESIGN-DOC.md.template (explicit skip)
-  resolved: 1 applied, 1 skipped, 0 failed
+  resolved: 2 applied, 1 skipped, 0 failed
+  [SYNC] recorded <root>/.claude/.loom-sync (last_synced=<hash>, date=<date>) — 2 item(s) applied
 
 [DOC FIX][TRIVIAL] cardinality @ README.md:42
   - s/(105 dirs)/(106 dirs)/

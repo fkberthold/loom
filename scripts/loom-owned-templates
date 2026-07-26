@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# loom-owned-templates — the OWNED-template registry, and the byte-wise
+# drift check over a managed project's live copies (loom-f59h).
+#
+# THE PROBLEM this closes. loom-pogc diagnosed TWO channels by which
+# loom pushes conventions downstream:
+#
+#   (1) GLOBAL symlinked skills/hooks/commands — a managed project
+#       always sees loom's CURRENT copy live; these cannot drift.
+#   (2) PER-PROJECT PRIMING — the project's own CLAUDE.md and
+#       .claude/rules/. loom-pogc's words: "this is the STEERING WHEEL,
+#       and nothing forces it to re-sync."
+#
+# loom-ig3p then built the convention-drift detector over a THIRD thing
+# — templates/-derived scaffolds — so channel (2) was never covered.
+# Measured on a managed project 2026-07-25: its .claude/.loom-sync hash
+# matched loom's manifest hash EXACTLY (nudge silent, "in sync") while
+# its priming was 15 days stale and mentioned none of the current
+# conventions. In sync by the stamp; badly drifted in fact.
+#
+# THE OWNED-vs-SCAFFOLD DISTINCTION (the design this script encodes).
+# `/audit-project --apply-drift` stages changed templates into a
+# project-local MIRROR (<root>/.claude/loom-templates/<relpath>) and
+# never writes a live path. That is CORRECT for SCAFFOLD templates: they
+# carry {{ substitutions }} and per-project hand edits, so loom can
+# neither byte-diff them nor overwrite them without clobbering work it
+# does not understand.
+#
+# An OWNED template has NEITHER property. Loom owns it outright, the
+# file says so in its own header, and a managed project is never
+# supposed to edit it. That makes two things true that are false for
+# every scaffold template:
+#
+#   - it CAN be byte-diffed against the project's live copy, so
+#     "absent, or trailing loom's current set" is decidable; and
+#   - it SHOULD land at its LIVE path, because a convention file parked
+#     in a mirror nobody reads never reaches the priming channel at all
+#     — which is precisely the failure loom-f59h exists to fix.
+#
+# Membership in OWNED_TEMPLATES below IS the distinction: listed =
+# live-apply, unlisted = mirror-apply (unchanged, still the default).
+# The existing scaffold templates are deliberately NOT converted.
+#
+# CONTRACT.
+#   Usage:
+#     loom-owned-templates --list [--loom <dir>]
+#     loom-owned-templates --check --root <dir> [--loom <dir>]
+#     loom-owned-templates --items --root <dir> [--loom <dir>]
+#
+#   --list    print the owned-set declaration, one entry per line:
+#               <template-relpath>\t<live-target-relpath>
+#             Both paths are relative — the first to <loom>, the second
+#             to a managed project's root.
+#
+#   --check   compare each owned template against the project's live
+#             copy and print one line per entry:
+#               [DRIFT] <root>/<target> (absent — never seeded from …)
+#               [DRIFT] <root>/<target> (content differs from …)
+#               [OK]    <root>/<target> (matches loom's current copy)
+#             Exit 1 if ANY entry drifted, 0 if all are current. This is
+#             the loom-f59h RED invariant in executable form.
+#
+#   --items   print a `loom-drift-resolve --items` queue covering ONLY
+#             the drifted entries, as absolute paths:
+#               <root>/<target>\t<loom>/<template-relpath>
+#             Empty output (exit 0) when nothing drifted. Feeding this
+#             to loom-drift-resolve preserves that engine's per-item
+#             approve/skip/quit prompting and its never-auto-apply
+#             invariant unchanged — this script queues, it never writes.
+#
+#   --root <dir>  the managed project's root. Required by --check and
+#                 --items; a missing or nonexistent value is a usage
+#                 error (exit 2).
+#   --loom <dir>  resolve owned templates under <dir> instead of this
+#                 script's own repo root (tests point this at an
+#                 isolated fixture so the real repo is never read).
+#
+#   SEEDING falls out for free. A project that has never carried the
+#   file reports [DRIFT] (absent), --items queues it, and
+#   loom-drift-resolve's `approve` path creates parent dirs and copies
+#   — no separate seeding machinery. The CLAUDE.md POINTER that sends a
+#   reader here is the other half of seeding, and it lives in
+#   /audit-project's onboarding path ([AUTOFIX:loom-conventions-pointer])
+#   because it edits a PROJECT-OWNED file, which the drift path must
+#   never do.
+#
+# Run:  scripts/loom-owned-templates --list
+#       bash lib/tests/loom-owned-templates.test.sh
+
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: loom-owned-templates --list [--loom <dir>]
+       loom-owned-templates --check --root <dir> [--loom <dir>]
+       loom-owned-templates --items --root <dir> [--loom <dir>]
+
+  --list         print `<template-relpath>\t<live-target-relpath>` per
+                 owned template
+  --check        report [DRIFT]/[OK] per owned template against <root>'s
+                 live copy; exit 1 if any drifted
+  --items        print a loom-drift-resolve items queue (absolute
+                 `<target>\t<source>`) for the drifted entries only
+  --root <dir>   the managed project's root (required by --check/--items)
+  --loom <dir>   resolve owned templates under <dir> instead of this
+                 script's own repo root
+
+Owned templates are live-applied at their real path; every OTHER
+template stays mirror-applied into <root>/.claude/loom-templates/.
+EOF
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_LOOM="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# --- the owned set (see THE OWNED-vs-SCAFFOLD DISTINCTION above) -------
+# One entry per line: <template-relpath>=<live-target-relpath>.
+# Listed here = loom owns the file outright and applies it LIVE.
+# Everything else under templates/ stays a scaffold (mirror-applied).
+#
+# Adding an entry is a real commitment: loom will overwrite that path in
+# every managed project that approves the item, so the file must carry
+# NO variable substitution and NO expectation of per-project edits, and
+# must say so in its own header.
+OWNED_TEMPLATES=(
+  "templates/rules/loom-conventions.md=.claude/rules/loom-conventions.md"
+)
+
+LOOM_DIR="$DEFAULT_LOOM"
+ROOT=""
+MODE=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --list)  MODE="list" ;;
+    --check) MODE="check" ;;
+    --items) MODE="items" ;;
+    --root=*) ROOT="${1#--root=}" ;;
+    --root)   shift; ROOT="${1:-}" ;;
+    --loom=*) LOOM_DIR="${1#--loom=}" ;;
+    --loom)   shift; LOOM_DIR="${1:-}" ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      echo "loom-owned-templates: unrecognized argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$MODE" ]; then
+  echo "loom-owned-templates: one of --list / --check / --items is required" >&2
+  usage >&2
+  exit 2
+fi
+
+if [ -z "$LOOM_DIR" ] || [ ! -d "$LOOM_DIR" ]; then
+  echo "loom-owned-templates: --loom not a directory: '$LOOM_DIR'" >&2
+  exit 2
+fi
+LOOM_DIR="$(cd "$LOOM_DIR" && pwd)"
+
+if [ "$MODE" = "check" ] || [ "$MODE" = "items" ]; then
+  if [ -z "$ROOT" ]; then
+    echo "loom-owned-templates: --root <dir> is required by --$MODE" >&2
+    usage >&2
+    exit 2
+  fi
+  if [ ! -d "$ROOT" ]; then
+    echo "loom-owned-templates: --root not a directory: '$ROOT'" >&2
+    exit 2
+  fi
+  ROOT="$(cd "$ROOT" && pwd)"
+fi
+
+drifted=0
+
+for entry in "${OWNED_TEMPLATES[@]}"; do
+  tmpl="${entry%%=*}"
+  target="${entry#*=}"
+  src="$LOOM_DIR/$tmpl"
+
+  case "$MODE" in
+    list)
+      printf '%s\t%s\n' "$tmpl" "$target"
+      continue
+      ;;
+  esac
+
+  dst="$ROOT/$target"
+
+  # Reason resolution. A missing SOURCE is loom's own problem, not the
+  # project's — report it distinctly rather than silently reporting the
+  # project as current (which would be a false green on the invariant).
+  if [ ! -f "$src" ]; then
+    if [ "$MODE" = "check" ]; then
+      echo "[FAIL] $dst (loom source missing: $src)"
+    fi
+    drifted=1
+    continue
+  fi
+
+  if [ ! -e "$dst" ]; then
+    if [ "$MODE" = "check" ]; then
+      echo "[DRIFT] $dst (absent — never seeded from $tmpl)"
+    else
+      printf '%s\t%s\n' "$dst" "$src"
+    fi
+    drifted=1
+  elif ! cmp -s "$dst" "$src"; then
+    if [ "$MODE" = "check" ]; then
+      echo "[DRIFT] $dst (content differs from $tmpl — trails loom's current convention set)"
+    else
+      printf '%s\t%s\n' "$dst" "$src"
+    fi
+    drifted=1
+  else
+    if [ "$MODE" = "check" ]; then
+      echo "[OK] $dst (matches loom's current copy of $tmpl)"
+    fi
+  fi
+done
+
+# --items is a queue BUILDER, not a verdict — it exits 0 even when it
+# queued something, so a caller can pipe it straight into an items file
+# without `|| true`. Only --check carries the drift verdict.
+if [ "$MODE" = "check" ]; then
+  exit "$drifted"
+fi
+exit 0

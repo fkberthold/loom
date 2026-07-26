@@ -254,6 +254,52 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Embed the recognized dir name (`script` or `scripts`) and the per-script PASS/WARN/MISS roll-up in the report so the user can see exactly which scripts need wiring.
     - Lineage: loom-oxs.4 (2026-06-09), umbrella epic loom-oxs (the `script/` convention). Canonical skeleton: loom-oxs.1 (`templates/scripts/`). Resolver: loom-oxs.2 (`lib/loom-script-resolve.sh`, `loom_resolve_command`). `canonical_commands.deploy` schema field: loom-oxs.3. Design: the loom-adm `script/`-convention decision drawer.
 
+24. **`CLAUDE.md` points at the loom-owned convention file**
+    - Loom ships ONE file it owns outright in a managed project:
+      `<root>/.claude/rules/loom-conventions.md`, synced verbatim from
+      `templates/rules/loom-conventions.md`. It carries loom's
+      project-agnostic working conventions (dispatch defaults, the
+      `Files:`/`RED:`/`AUTOFAN-EXCLUDE:` bead lines, the splitting
+      heuristic, drawer-first capture, gate-don't-advise, the
+      explore → design → build ladder). The project's own `CLAUDE.md`
+      stays 100% project-owned and merely POINTS at it.
+    - Read `<root>/CLAUDE.md` and search for a literal reference to
+      `.claude/rules/loom-conventions.md`.
+      - **PASS** = `CLAUDE.md` contains the reference (the pointer is
+        already seeded), or a skip memo for `loom-conventions-pointer`
+        exists in `.claude/loom-audit-state.json`.
+      - **MISS** = `CLAUDE.md` exists but carries no reference → the
+        priming channel has no route to loom's convention set, so a
+        session reading `CLAUDE.md` never learns any of it.
+      - **INFO** = no `CLAUDE.md` at all → item 6 already covers the
+        absent-file gap; do not double-report it here.
+    - Suggested fix on MISS: append a one-line pointer to `CLAUDE.md`.
+      Tag it `[AUTOFIX:loom-conventions-pointer]`.
+    - **This is the ONE exception to the loom-d50 never-author-rules
+      rule, and only because of who owns the text.** loom-d50 forbids
+      the audit drafting `.claude/rules/<x>.md` CONTENT because that
+      text encodes PROJECT conventions a human must author. This item
+      authors no project content whatsoever: the rules file is
+      LOOM-authored and loom-owned (synced, never hand-edited), and the
+      only thing written into the project's own file is a fixed
+      one-line pointer with no project-specific judgment in it. Do NOT
+      generalize this into permission to draft any other rules file.
+    - The convention file ITSELF is not seeded here — that is
+      `--apply-drift`'s job (see item 25 / the skill's Step 3.3), which
+      already has per-item review and a byte-wise drift check. This
+      item covers only the pointer.
+    - Lineage: loom-f59h (2026-07-25), closing loom-pogc's channel (2)
+      — the per-project priming channel loom-ig3p never covered.
+
+25. **Loom-owned convention file present + current (informational)**
+    - Run `bash <loom>/scripts/loom-owned-templates --check --root <root>`
+      and report its `[DRIFT]` / `[OK]` lines verbatim.
+    - INFO only — never WARN/MISS. Remediation is
+      `/audit-project --apply-drift`, which owns the per-item review;
+      duplicating a verdict here would just add a second nagging
+      surface for the same fact.
+    - Skip the row entirely when `<loom>` could not be resolved.
+
 ## Output format
 
 Cap at 250 lines; one blank line between items.
@@ -270,7 +316,7 @@ Resolved branch: `<branch>` · uncommitted: `<count>`
    - <one-sentence rationale>
    - Suggested fix (if not PASS): <one-line>
 
-(... continue through item 23; item 20 only under --check=constitution ...)
+(... continue through item 25; item 20 only under --check=constitution ...)
 
 ## Summary
 
@@ -281,7 +327,7 @@ Top 3 gaps to fix first (most blocking → least): <ordered short list>
 
 ### AUTOFIX tags on suggested-fix lines
 
-For deterministic one-command remediations (items 3, 4, 11, 16), interactive-handoff items (17, 18), and the item-12 duplicate-hook resolution paths (loom-jnn), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
+For deterministic one-command remediations (items 3, 4, 11, 16, 24), interactive-handoff items (17, 18), and the item-12 duplicate-hook resolution paths (loom-jnn), append `[AUTOFIX:<recipe-id>]` to the suggested-fix line so the `audit-project` skill's `--apply-onboarding` flag can identify safe-to-apply items. Do NOT tag items needing real human choice (2 `bd init`, 5 wing creation, 6 CLAUDE.md authoring, 7 rules content). Recognised ids:
 
 - `bd-hooks` — item 3 MISS, runs `bd hooks install` + the absorbing commit two-step (loom-cka).
 - `workflow-json` — item 4 MISS, writes `{"v":1,"mode":"full"}` to `<root>/.claude/workflow.json`.
@@ -290,6 +336,7 @@ For deterministic one-command remediations (items 3, 4, 11, 16), interactive-han
 - `loom-upstream-gc-handoff` — item 17 INFO, handoff to `/loom-upstream-gc` for interactive orphan-clone prune. Recipe prints the handoff message rather than pruning directly — actual removal is per-clone y/N gated inside the slash command (loom-k2g).
 - `gh-auth-prompt` — item 18 WARN, handoff to interactive `gh auth login`. Recipe prints the login instruction rather than attempting the OAuth flow inside the audit (loom-k2g).
 - `dedup-hook-skip-worktree` — item 12 WARN, the DEFAULT duplicate-hook resolution. Per-user, reversible: `git update-index --skip-worktree` the tracked `.claude/settings.json`, strip the dup hook locally, log the recovery snippet to `.claude/loom-audit-state.json`. Never touches shared content (loom-jnn).
+- `loom-conventions-pointer` — item 24 MISS, appends a fixed one-line pointer to `<root>/CLAUDE.md` sending readers to `.claude/rules/loom-conventions.md`. Idempotent (a `CLAUDE.md` that already names the path is PASS, so the recipe never runs twice). Writes no project-authored content — the pointer text is fixed and loom-owned (loom-f59h).
 - `dedup-hook-commit` — item 12 WARN, the opt-in duplicate-hook resolution. Removes the dup from the tracked `.claude/settings.json` and commits — gated behind an explicit y/N confirmation the skill drives (it changes shared content, so the binary apply shape doesn't fit). Never auto-applies without the typed `y` (loom-jnn).
 
 Example shape:

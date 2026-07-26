@@ -337,6 +337,34 @@ slash commands.
   `docs/how-to/author-project-constitution.md`, the field reference
   `docs/reference/project-constitution.md`, and the hook reference
   `docs/reference/constitution-enforce-hook.md`.
+- **Owned vs scaffold templates (loom-f59h).** `templates/` holds two
+  structurally different kinds of file. A **scaffold** template
+  (`templates/diataxis/**`, `templates/design-doc/**`,
+  `templates/project-constitution.md`) carries `{{ substitutions }}`
+  and is expected to be hand-edited after instantiation, so loom can
+  neither byte-diff it nor overwrite it — `/audit-project
+  --apply-drift` stages those into a project-local MIRROR
+  (`<root>/.claude/loom-templates/<relpath>`). An **owned** template
+  (today: `templates/rules/loom-conventions.md`) has neither property:
+  loom owns it outright, it states its own do-not-edit contract, and it
+  is therefore both byte-diffable and safe to apply at its LIVE path
+  (`<root>/.claude/rules/loom-conventions.md`). Membership in
+  `scripts/loom-owned-templates`'s `OWNED_TEMPLATES` array IS the
+  distinction — listed = live-apply, unlisted = mirror-apply. This is
+  what covers loom-pogc's channel (2), the per-project PRIMING channel
+  that the loom-ig3p manifest hash never touched (a managed project was
+  measured 2026-07-25 with a stamp matching loom's hash exactly while
+  its priming was 15 days stale). The check is deliberately
+  STAMP-INDEPENDENT: it reads the project's bytes, so a current
+  `last_synced` can never silence it. **Do NOT convert existing
+  scaffold templates to owned** — live-applying one clobbers
+  customized files loom does not understand. The project-agnostic bar
+  for the owned file is hard: a downstream project must be able to
+  adopt it verbatim, so nothing loom-specific (this repo's bead
+  tracker, the `loom/decisions` wing, bash-flavoured TDD, loom's file
+  layout, `frank/` branch prefixes) may leak into it — pinned by
+  `lib/tests/loom-owned-templates.test.sh`. Full reference:
+  `docs/reference/convention-drift-detector.md`.
 - **Gate, don't advise (loom-wj26.1).** Every loom drift-detector or
   correctness check MUST be wired to a real enforcement gate — a suite
   test (`script/test`), a pre-push hook, or CI — never left as an
