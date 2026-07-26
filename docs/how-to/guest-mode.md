@@ -39,9 +39,9 @@ are *meant* to be committed, and the guardrails will get in your way.
    /loom-guest on
    ```
 
-   The slash command delegates to `scripts/loom-guest on` (or
-   `~/.claude/scripts/loom-guest on` if you installed loom globally —
-   both resolve to the same script).
+   The slash command delegates to `~/.claude/scripts/loom-guest on` —
+   the installed global path, which is what resolves from a host repo
+   that is not the loom checkout.
 
 2. **Answer the bd-mode prompt if it fires.** If the host has no
    `.beads/` directory, the script refuses to default and asks you to

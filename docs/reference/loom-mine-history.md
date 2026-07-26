@@ -17,7 +17,7 @@ loom way. `/loom-mine-history` recovers that rationale.
 The work is split across a **firm seam**:
 
 - **The bash engine** (`lib/loom-mine-history.sh`, driven by the
-  `scripts/loom-mine-history` wrapper) harvests PRs + commits + tags,
+  `loom/scripts/loom-mine-history` wrapper) harvests PRs + commits + tags,
   gates them down to plausible decision candidates, runs an LLM
   salience+draft pass, and writes a manifest to disk. It owns
   repo+wing resolution and engine invocation. It **cannot** file into
@@ -151,7 +151,7 @@ names the wing explicitly so you know where to search next.
 | Why mined drawers carry `provenance:mined` and share the `decisions` room | [Provenance](../explanation/provenance.md) |
 | The MCP filing surface the skill drives | [MemPalace MCP](mempalace-mcp.md) |
 | Command (user door) | `commands/loom-mine-history.md` |
-| Wrapper + engine (executable seam) | `scripts/loom-mine-history`, `lib/loom-mine-history.sh` |
+| Wrapper + engine (executable seam) | `loom/scripts/loom-mine-history`, `lib/loom-mine-history.sh` |
 
 ## Skill source
 

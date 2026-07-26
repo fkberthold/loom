@@ -15,7 +15,7 @@ follow these steps.
 ## Steps
 
 1. **Let the fan-out detector confirm independence.** Run
-   `scripts/loom-fanout-detect` (or take the wave from session-startup
+   `~/.claude/scripts/loom-fanout-detect` (or take the wave from session-startup
    step 6a / `/working-a-bead`). It reads each ready bead's
    dependencies and `Files:` line and emits one wave per line: a group
    of beads with **no dependency edge between them AND disjoint
@@ -50,7 +50,7 @@ follow these steps.
    # ...
    ```
    If a worker branched off a stale base, rebase it onto current main
-   with `scripts/loom-rebase-worktree main` (preserves untracked WIP)
+   with `~/.claude/scripts/loom-rebase-worktree main` (preserves untracked WIP)
    before merging.
 
 5. **Run the full suite once across the merged state.** Fix any

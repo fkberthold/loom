@@ -69,7 +69,7 @@ beads are parked mid-flight.
 5. **Rebase with WIP preservation if the base is stale.** The parked
    worktree's base may now trail `main`. Do **not** plain
    `git rebase main` — on a branch with bare untracked files that can
-   lose them. Use `scripts/loom-rebase-worktree main`, which snapshots
+   lose them. Use `~/.claude/scripts/loom-rebase-worktree main`, which snapshots
    untracked files, pre-detects collisions, rebases, and restores the
    files afterward. See
    [reference: loom-rebase-worktree](../reference/loom-rebase-worktree.md).
