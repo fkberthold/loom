@@ -5,7 +5,7 @@
 > exploration drawers, `.claude/project-constitution.md` — have fallen
 > behind loom's *currently shipped* `templates/` tree: a deterministic
 > manifest hash, a per-project sync stamp, a non-blocking SessionStart
-> nudge, an on-demand deep diff, a per-item apply engine, and two
+> nudge, an on-demand deep diff, a per-item apply engine, and three
 > correctness gates that keep the machinery itself from rotting.
 
 ## Why this exists
@@ -504,9 +504,8 @@ detect-function / RED-case / GREEN-case / LIVE-case shape:
   file in the repo.
 - **Gate 3 — the same class as Gate 1, in `docs/`.** Gate 1 scans
   `skills/` and `commands/` only, but `docs/` is followed by downstream
-  users too: a how-to that says "run `scripts/loom-rebase-worktree
-  main`" is read by someone sitting in *their* project, where that path
-  does not exist. Gate 3 calls the *same* matcher Gate 1 calls (shared
+  users too: a how-to that says "run `scripts/<name>`" is read by
+  someone sitting in *their* project, where that path does not exist. Gate 3 calls the *same* matcher Gate 1 calls (shared
   `cdg_bare_scan` helper — identical GLOBAL_ONLY set, anchor, and
   filters, so the two cannot drift apart) across `docs/**/*.md`. See
   [the three accepted forms](#the-three-accepted-forms-in-docs) below.
@@ -530,9 +529,9 @@ two roles and only one is a defect:
 Anything else is an offender.
 
 Form 2 is what keeps this gate from mangling loom's own reference
-docs: rewriting "Script: `scripts/loom-rebase-worktree`" to the
-installed global path would make the page factually **wrong** about the
-repo it documents. The `loom/` prefix names *which* repo's `scripts/`
+docs: rewriting a `## Files` entry reading "Script: `scripts/<name>`" to
+the installed global path would make the page factually **wrong** about
+the repo it documents. The `loom/` prefix names *which* repo's `scripts/`
 is meant — ambiguous by default in a project-agnostic page — and it
 costs zero extra gate machinery, because the shared matcher's
 `[^/.~]` anchor already skips any `scripts/` preceded by `/`. Sibling
@@ -550,6 +549,18 @@ wrapper is always wrong — the next `script/gen` reverts it, and
 content comes from the source primitive, which **Gate 1 already
 scans**, so excluding them loses no coverage. Fix the source
 primitive, never the rendered page.
+
+The exclusion matches the **anchored** start-of-line HTML-comment form
+the generator emits, never a loose substring. A substring match
+self-defeats: *this page* has to name the marker in prose to document
+the rule, and a loose match would therefore exclude this whole page
+from the scan — silently blinding Gate 3 to every offender on it. That
+is not hypothetical; it happened during loom-pty2 and hid two live
+offenders until the raw grep count disagreed with the gate. Case E of
+the gate pins the property. It is the same mid-prose-vs-anchored-line
+distinction [loom-2y6x](../explanation/gate-dont-advise.md) locked for
+the `AUTOFAN-EXCLUDE:` marker: a marker that *excludes* things must be
+matched strictly enough that merely *mentioning* it cannot.
 
 ## Scope note (v1, intentional)
 
