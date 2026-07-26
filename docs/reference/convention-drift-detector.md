@@ -215,17 +215,78 @@ each managed project it opens in:
    `~/.claude/hooks/` symlink install.sh creates, not the real loom
    checkout, and the manifest script's own root-resolution needs the
    real one.
-5. Matching hash → in sync → silent no-op.
-6. Mismatched hash → emits **one** stderr line, gated by a
-   once-per-session sentinel under `$XDG_RUNTIME_DIR` (falling back to
-   `$TMPDIR`), keyed on the stamp path:
+5. Mismatched hash → emits the **stale-stamp** nudge (below) and stops.
+6. Matching hash → the *stamp* says in sync. Before believing it, runs
+   the **stamp-independent owned-file check** (loom-5od2, see
+   [Two signals](#two-signals-hash-and-bytes)) — one
+   `scripts/loom-owned-templates --check` subprocess against the
+   project. Any `[DRIFT]` entry → the **owned-file** nudge. Otherwise
+   silent no-op.
 
-   ```text
-   [loom-drift-nudge] INFO: this project's loom-convention stamp
-   (hash=abc123456789..., synced 2026-06-01) is behind loom's current
-   conventions (hash=def987654321...) — run `/audit-project
-   --apply-drift` to resync.
-   ```
+Every nudge is **one** stderr line, gated by a once-per-session
+sentinel under `$XDG_RUNTIME_DIR` (falling back to `$TMPDIR`), keyed on
+the stamp path. Same fix command throughout, different emphasis — and a
+reader can tell which condition tripped from the line alone, because
+only the stale one prints hashes and only the owned-file one prints a
+path:
+
+```text
+[loom-drift-nudge] INFO: this project's loom-convention stamp
+(hash=abc123456789..., synced 2026-06-01) is behind loom's current
+conventions (hash=def987654321...) — run `/audit-project
+--apply-drift` to resync.
+```
+
+```text
+[loom-drift-nudge] INFO: this project's loom-OWNED convention file(s)
+do not match loom's current copies — .claude/rules/loom-conventions.md
+(absent — never seeded from templates/rules/loom-conventions.md). The
+sync stamp says current, but this is a byte comparison of the files
+themselves, so the stamp cannot vouch for them — run `/audit-project
+--apply-drift` to apply loom's copy.
+```
+
+### Two signals: hash and bytes
+
+The hook nudges if **either** signal fires.
+
+| | Manifest hash | Owned-file bytes |
+|---|---|---|
+| Compares | the stamped `last_synced` vs loom's current manifest hash | loom's owned templates vs the project's live copies |
+| Reads the stamp? | yes — it *is* the stamp | **no** |
+| Answers | "was this project ever told about loom's current conventions?" | "does this project actually *have* them?" |
+| Nudge names | both hashes | the drifted path(s) + reason |
+
+The stamp is a **claim about the past**; the bytes are a **fact about
+the present**, and the fact wins. That is loom-f59h's framing, and
+before loom-5od2 it only held inside `/audit-project` step 3.3a — on
+manual invocation. The hole: per [the checked/synced
+split](#legacy-migration), an `--apply-drift` run with ≥1 item applied
+re-stamps `last_synced` at loom's **full** current hash. A user who
+applies some items and **skips** the `loom-conventions.md` one ends up
+stamped-current with the owned file absent, and the SessionStart nudge
+stayed silent until the next convention change happened to move the
+hash — a smaller version of exactly the false-green loom-uh4i fixed,
+one layer along.
+
+Three properties of the check, all pinned by
+`lib/tests/loom-drift-nudge.test.sh` (cases V–AC):
+
+- **Cheap.** Exactly ONE subprocess regardless of the owned set's size
+  — the registry loops internally. At today's owned count of one it is
+  a single `cmp` on top of the manifest hash the hook already computes.
+- **Degrades to hash-only, silently.** A missing or non-executable
+  `scripts/loom-owned-templates` (an older checkout, a partial install)
+  → the hook behaves exactly as it did before, and says nothing about
+  the degradation. There is nothing the user could act on.
+- **`[FAIL]` is not `[DRIFT]`.** The registry reports `[FAIL]` — and
+  exits non-zero — when **loom's own** copy of an owned template is
+  missing. That is loom's problem, not the project's, so the hook keys
+  on `[DRIFT]` lines specifically and never on the exit code. Nudging a
+  project to apply a file loom cannot supply would be a false positive.
+
+A hash mismatch takes precedence when both fire: the two carry the same
+fix command, and one nudge per session is the loudness budget.
 
 **Never blocks.** The hook always exits 0 — see
 [Gate, don't advise](../explanation/gate-dont-advise.md) for why this
@@ -369,6 +430,11 @@ re-stamping cannot mark it resolved — only applying the file does.
 Same fail-toward-nudging polarity loom-uh4i chose: the stamp is a
 claim about the past, the byte comparison is a fact about the present,
 and where they disagree the fact wins.
+
+Since loom-5od2 the [SessionStart nudge](#sessionstart-nudge--hooksloom-drift-nudgesh)
+runs this check too, so the property holds unattended and not only when
+someone remembers to invoke `/audit-project` — see
+[Two signals](#two-signals-hash-and-bytes).
 
 ### `scripts/loom-drift-resolve` — the apply engine
 

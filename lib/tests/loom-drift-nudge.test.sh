@@ -56,6 +56,10 @@
 #   U. end-to-end through the REAL scripts/loom-sync-stamp: stale →
 #      nudge; read-only check (== all-[SKIP] apply) → still nudge;
 #      real apply (--synced) → silent.
+#   V-AC. loom-5od2 — the STAMP-INDEPENDENT owned-file signal. A
+#      matching last_synced is a claim about the PAST; the owned
+#      template's bytes on disk are a fact about the PRESENT, and the
+#      fact wins. See the block header above case V.
 #
 # Run:  bash lib/tests/loom-drift-nudge.test.sh
 
@@ -468,6 +472,223 @@ fi
 rm -rf "$P" "$SESS_U1" "$SESS_U2" "$SESS_U3"
 
 rm -rf "$FROOT"
+
+# =========================================================================
+# loom-5od2 — the STAMP-INDEPENDENT OWNED-FILE SIGNAL.
+#
+# THE GAP. Everything above compares ONE number: the project's stamped
+# `last_synced` against loom's current manifest hash. loom-f59h added a
+# second, structurally different signal — a BYTE comparison of loom's
+# OWNED templates (`scripts/loom-owned-templates`) against the project's
+# live copies — whose whole point is that it does not consult the stamp:
+# *the stamp is a claim about the past; the bytes are a fact about the
+# present, and the fact wins.* But that check ran only inside
+# `/audit-project` step 3.3a, i.e. on manual invocation.
+#
+# The hole that leaves: per loom-uh4i, an `--apply-drift` run with N>=1
+# items applied re-stamps `last_synced` at loom's FULL current hash. A
+# user who applies some items and SKIPS the `loom-conventions.md` item
+# therefore ends up stamped-CURRENT with the owned file still absent —
+# and the SessionStart nudge stays silent until the next convention
+# change happens to move the hash. That is a smaller version of exactly
+# the false-green loom-uh4i fixed, one layer along.
+#
+# THE FIX: the hook nudges if EITHER signal fires — hash mismatch OR an
+# owned file absent/stale — with distinguishable wording per condition.
+#
+# Fixture "loom repo" carrying BOTH scripts (manifest + owned-template
+# registry) and a real owned template under templates/rules/.
+OWNED_BIN="$LOOM_ROOT/scripts/loom-owned-templates"
+if [ ! -x "$OWNED_BIN" ]; then
+  fail "dependency scripts/loom-owned-templates exists+executable" "not found at $OWNED_BIN (loom-f59h not merged?)"
+  echo; echo "Tests: $passed passed, $failed failed"; exit 1
+fi
+
+# mk_owned_loom_root [--no-registry] [--no-source]
+#   --no-registry  omit scripts/loom-owned-templates entirely (the
+#                  "registry unresolvable" degradation case)
+#   --no-source    ship the registry but NOT templates/rules/loom-conventions.md
+#                  (loom's OWN copy missing → --check reports [FAIL], not [DRIFT])
+mk_owned_loom_root() {
+  local d registry=1 source=1
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --no-registry) registry=0 ;;
+      --no-source)   source=0 ;;
+    esac
+    shift
+  done
+  d=$(mktemp -d)
+  mkdir -p "$d/scripts" "$d/templates/rules"
+  cp "$MANIFEST_BIN" "$d/scripts/loom-convention-manifest"
+  chmod +x "$d/scripts/loom-convention-manifest"
+  if [ "$registry" -eq 1 ]; then
+    cp "$OWNED_BIN" "$d/scripts/loom-owned-templates"
+    chmod +x "$d/scripts/loom-owned-templates"
+  fi
+  echo "convention v1" > "$d/templates/foo.md"
+  if [ "$source" -eq 1 ]; then
+    printf 'loom-owned conventions, current revision\n' > "$d/templates/rules/loom-conventions.md"
+  fi
+  echo "$d"
+}
+
+# mk_owned_project <synced-hash> <live-owned-content|""|"@current"> [loom-root]
+#   ""          → the owned file is ABSENT (never seeded)
+#   "@current"  → a BYTE-IDENTICAL copy of [loom-root]'s owned template.
+#                 Copied, never round-tripped through `$(cat)`, which
+#                 would strip the trailing newline and make a "current"
+#                 fixture spuriously differ by one byte.
+#   otherwise   → written verbatim (a stale/divergent copy)
+mk_owned_project() {
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/.claude"
+  printf '{"mode": "standard"}\n' > "$d/.claude/workflow.json"
+  printf 'last_synced=%s\nlast_synced_date=%s\n' "$1" "2026-07-25" > "$d/.claude/.loom-sync"
+  if [ -n "${2:-}" ]; then
+    mkdir -p "$d/.claude/rules"
+    if [ "$2" = "@current" ]; then
+      cp "${3:?@current needs a loom root}/templates/rules/loom-conventions.md" \
+         "$d/.claude/rules/loom-conventions.md"
+    else
+      printf '%s' "$2" > "$d/.claude/rules/loom-conventions.md"
+    fi
+  fi
+  echo "$d"
+}
+
+OFROOT=$(mk_owned_loom_root)
+OHASH=$("$OFROOT/scripts/loom-convention-manifest" --root "$OFROOT")
+
+echo "==> V. stamp MATCHES + owned file ABSENT → nudge anyway"
+P=$(mk_owned_project "$OHASH" "")
+SESS_V=$(mktemp -d)
+out=$(run_hook "$P" "$OFROOT" "$SESS_V" '{}'); rc=$?
+lines=$(printf '%s\n' "$out" | grep -c 'loom-drift-nudge')
+if [ "$rc" -eq 0 ] && [ "$lines" -eq 1 ] \
+   && echo "$out" | grep -q '\.claude/rules/loom-conventions\.md' \
+   && echo "$out" | grep -q 'absent' \
+   && echo "$out" | grep -q '/audit-project --apply-drift'; then
+  pass "matching stamp + absent owned file → exactly one nudge naming the live path, exit 0"
+else
+  fail "owned-absent nudge shape" "rc=$rc lines=$lines out=$out"
+fi
+OWNED_OUT="$out"
+rm -rf "$P" "$SESS_V"
+
+echo "==> W. stamp MATCHES + owned file CONTENT DIFFERS → nudge anyway"
+P=$(mk_owned_project "$OHASH" "an older revision of the conventions")
+SESS_W=$(mktemp -d)
+out=$(run_hook "$P" "$OFROOT" "$SESS_W" '{}'); rc=$?
+lines=$(printf '%s\n' "$out" | grep -c 'loom-drift-nudge')
+if [ "$rc" -eq 0 ] && [ "$lines" -eq 1 ] \
+   && echo "$out" | grep -q '\.claude/rules/loom-conventions\.md' \
+   && echo "$out" | grep -q 'differs' \
+   && echo "$out" | grep -q '/audit-project --apply-drift'; then
+  pass "matching stamp + stale owned file → exactly one nudge naming the content difference"
+else
+  fail "owned-stale nudge shape" "rc=$rc lines=$lines out=$out"
+fi
+rm -rf "$P" "$SESS_W"
+
+echo "==> X. stamp MATCHES + owned file byte-identical → silent"
+P=$(mk_owned_project "$OHASH" "@current" "$OFROOT")
+SESS_X=$(mktemp -d)
+out=$(run_hook "$P" "$OFROOT" "$SESS_X" '{}'); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass "matching stamp + byte-identical owned file → silent (no false positive)"
+else
+  fail "fully-current project should stay silent" "rc=$rc out=$out"
+fi
+rm -rf "$P" "$SESS_X"
+
+echo "==> Y. owned-drift nudge is distinguishable from BOTH other variants"
+# A reader must be able to tell WHICH condition tripped: the stale-stamp
+# nudge names hashes, the never-synced one names the absent stamp, and
+# the owned-file one names the FILE — and says so in stamp-independent
+# terms, because its whole point is that the stamp says "current".
+P=$(mk_fixture_project "deadbeefdeadbeef00000000" "2026-01-01")
+SESS_Y1=$(mktemp -d)
+STALE_OUT=$(run_hook "$P" "$OFROOT" "$SESS_Y1" '{}')
+rm -rf "$P"
+P=$(mk_managed_project)
+SESS_Y2=$(mktemp -d)
+NEVER_OUT=$(run_hook "$P" "$OFROOT" "$SESS_Y2" '{}')
+if [ -n "$OWNED_OUT" ] \
+   && [ "$OWNED_OUT" != "$STALE_OUT" ] && [ "$OWNED_OUT" != "$NEVER_OUT" ] \
+   && ! echo "$OWNED_OUT" | grep -q 'hash=' \
+   && ! echo "$OWNED_OUT" | grep -q 'never been synced' \
+   && echo "$OWNED_OUT" | grep -qi 'byte' \
+   && ! echo "$STALE_OUT" | grep -q 'loom-conventions\.md' \
+   && ! echo "$NEVER_OUT" | grep -q 'loom-conventions\.md'; then
+  pass "owned-file nudge is distinct from stale-stamp and never-synced (names the file + the byte comparison, never a hash)"
+else
+  fail "nudge variants not distinguishable" "owned=$OWNED_OUT
+stale=$STALE_OUT
+never=$NEVER_OUT"
+fi
+rm -rf "$P" "$SESS_Y1" "$SESS_Y2"
+
+echo "==> Z. registry script unresolvable → degrade to hash-only, silently"
+# A loom checkout without scripts/loom-owned-templates (an older install,
+# a partial checkout) must not error, must not nudge, and must not
+# announce the degradation. It just falls back to the hash comparison.
+NOREG=$(mk_owned_loom_root --no-registry)
+NOREG_HASH=$("$NOREG/scripts/loom-convention-manifest" --root "$NOREG")
+P=$(mk_owned_project "$NOREG_HASH" "")   # owned file absent — and unnoticeable
+SESS_Z=$(mktemp -d)
+out=$(run_hook "$P" "$NOREG" "$SESS_Z" '{}'); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass "missing scripts/loom-owned-templates → silent hash-only degradation, exit 0"
+else
+  fail "unresolvable registry should degrade silently" "rc=$rc out=$out"
+fi
+rm -rf "$P" "$SESS_Z" "$NOREG"
+
+echo "==> AA. loom's OWN owned-template source missing → silent (not the project's fault)"
+NOSRC=$(mk_owned_loom_root --no-source)
+NOSRC_HASH=$("$NOSRC/scripts/loom-convention-manifest" --root "$NOSRC")
+P=$(mk_owned_project "$NOSRC_HASH" "")
+SESS_AA=$(mktemp -d)
+out=$(run_hook "$P" "$NOSRC" "$SESS_AA" '{}'); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  pass "registry [FAIL] (loom source missing) is not project drift → silent, exit 0"
+else
+  fail "loom-side source gap wrongly nudged the project" "rc=$rc out=$out"
+fi
+rm -rf "$P" "$SESS_AA" "$NOSRC"
+
+echo "==> AB. BOTH signals fire → exactly ONE nudge, and it is the stale-stamp one"
+P=$(mk_owned_project "deadbeefdeadbeef00000000" "")
+SESS_AB=$(mktemp -d)
+out=$(run_hook "$P" "$OFROOT" "$SESS_AB" '{}'); rc=$?
+lines=$(printf '%s\n' "$out" | grep -c 'loom-drift-nudge')
+if [ "$rc" -eq 0 ] && [ "$lines" -eq 1 ] && echo "$out" | grep -q 'deadbeefdead'; then
+  pass "hash mismatch + owned drift → one nudge (the stale-stamp one; same fix command, no double-nudge)"
+else
+  fail "double-nudge when both signals fire" "rc=$rc lines=$lines out=$out"
+fi
+rm -rf "$P" "$SESS_AB"
+
+echo "==> AC. owned-drift nudge honors the sentinel, SKIP=1, and the subagent no-op"
+P=$(mk_owned_project "$OHASH" "")
+SESS_AC1=$(mktemp -d); SESS_AC2=$(mktemp -d)
+SESS_AC3=$(mktemp -d); SESS_AC4=$(mktemp -d)
+out1=$(run_hook "$P" "$OFROOT" "$SESS_AC1" '{}')
+out2=$(run_hook "$P" "$OFROOT" "$SESS_AC1" '{}')
+out3=$(run_hook "$P" "$OFROOT" "$SESS_AC2" '{}')
+out_skip=$(run_hook "$P" "$OFROOT" "$SESS_AC3" '{}' LOOM_DRIFT_NUDGE_SKIP=1)
+out_sub=$(run_hook "$P" "$OFROOT" "$SESS_AC4" '{"isSidechain": true}')
+if echo "$out1" | grep -q 'loom-drift-nudge' && [ -z "$out2" ] \
+   && echo "$out3" | grep -q 'loom-drift-nudge' \
+   && [ -z "$out_skip" ] && [ -z "$out_sub" ]; then
+  pass "owned-drift nudge: one-shot per session, re-fires next session, bypassed by SKIP=1 and by a subagent payload"
+else
+  fail "owned-drift nudge bypass/sentinel posture" "out1=$out1 out2=$out2 out3=$out3 skip=$out_skip sub=$out_sub"
+fi
+rm -rf "$P" "$SESS_AC1" "$SESS_AC2" "$SESS_AC3" "$SESS_AC4"
+
+rm -rf "$OFROOT"
 
 # =========================================================================
 echo "==> J. settings.snippet.json registers the hook in SessionStart (additive)"
