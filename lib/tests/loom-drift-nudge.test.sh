@@ -533,8 +533,13 @@ mk_owned_loom_root() {
   echo "$d"
 }
 
-# mk_owned_project <synced-hash> <live-owned-content|"">
-#   "" for the content → the owned file is ABSENT (never seeded).
+# mk_owned_project <synced-hash> <live-owned-content|""|"@current"> [loom-root]
+#   ""          → the owned file is ABSENT (never seeded)
+#   "@current"  → a BYTE-IDENTICAL copy of [loom-root]'s owned template.
+#                 Copied, never round-tripped through `$(cat)`, which
+#                 would strip the trailing newline and make a "current"
+#                 fixture spuriously differ by one byte.
+#   otherwise   → written verbatim (a stale/divergent copy)
 mk_owned_project() {
   local d; d=$(mktemp -d)
   mkdir -p "$d/.claude"
@@ -542,14 +547,18 @@ mk_owned_project() {
   printf 'last_synced=%s\nlast_synced_date=%s\n' "$1" "2026-07-25" > "$d/.claude/.loom-sync"
   if [ -n "${2:-}" ]; then
     mkdir -p "$d/.claude/rules"
-    printf '%s' "$2" > "$d/.claude/rules/loom-conventions.md"
+    if [ "$2" = "@current" ]; then
+      cp "${3:?@current needs a loom root}/templates/rules/loom-conventions.md" \
+         "$d/.claude/rules/loom-conventions.md"
+    else
+      printf '%s' "$2" > "$d/.claude/rules/loom-conventions.md"
+    fi
   fi
   echo "$d"
 }
 
 OFROOT=$(mk_owned_loom_root)
 OHASH=$("$OFROOT/scripts/loom-convention-manifest" --root "$OFROOT")
-OWNED_CURRENT=$(cat "$OFROOT/templates/rules/loom-conventions.md")
 
 echo "==> V. stamp MATCHES + owned file ABSENT → nudge anyway"
 P=$(mk_owned_project "$OHASH" "")
@@ -583,7 +592,7 @@ fi
 rm -rf "$P" "$SESS_W"
 
 echo "==> X. stamp MATCHES + owned file byte-identical → silent"
-P=$(mk_owned_project "$OHASH" "$OWNED_CURRENT")
+P=$(mk_owned_project "$OHASH" "@current" "$OFROOT")
 SESS_X=$(mktemp -d)
 out=$(run_hook "$P" "$OFROOT" "$SESS_X" '{}'); rc=$?
 if [ "$rc" -eq 0 ] && [ -z "$out" ]; then

@@ -98,12 +98,38 @@
 # downstream project needs any action; its next `/audit-project` run
 # rewrites the stamp in the v2 shape.
 #
-# The three nudges are deliberately worded differently: the never-synced
+# TWO SIGNALS, NOT ONE (loom-5od2). The manifest-hash comparison above
+# is a comparison of NUMBERS: what loom's conventions hashed to when the
+# project last applied remediation, vs what they hash to now. loom-f59h
+# added a structurally different second signal — a BYTE comparison of
+# loom's OWNED templates (`scripts/loom-owned-templates`) against the
+# project's live copies — whose entire point is that it does not consult
+# the stamp: the stamp is a CLAIM ABOUT THE PAST, the bytes are a FACT
+# ABOUT THE PRESENT, and the fact wins. That check previously ran only
+# inside `/audit-project` step 3.3a, i.e. on manual invocation.
+#
+# The hole that left: per loom-uh4i, an `--apply-drift` run with N>=1
+# items applied re-stamps `last_synced` at loom's FULL current hash. A
+# user who applies some items and SKIPS the `loom-conventions.md` item
+# therefore ends up STAMPED-CURRENT with the owned file still absent —
+# and this hook stayed silent until the next convention change happened
+# to move the hash. That is a smaller version of exactly the false-green
+# loom-uh4i fixed, one layer along.
+#
+# So step 6 no longer exits on a matching hash. It falls through to the
+# owned-file check, and the hook nudges if EITHER signal fires. A hash
+# mismatch takes precedence (see step 6) — both conditions carry the
+# same fix command, and one nudge per session is the D4 loudness budget.
+#
+# The four nudges are deliberately worded differently: the never-synced
 # one names the ABSENT stamp and asks for a first sync; the
 # checked-but-never-synced one names the check date and the missing
 # last_synced record; the stale one names both hashes and asks for a
-# resync. Same fix command (`/audit-project --apply-drift`), different
-# emphasis.
+# resync; the owned-file one names the FILE and says explicitly that the
+# stamp is current but the bytes disagree. Same fix command
+# (`/audit-project --apply-drift`), different emphasis — a reader can
+# tell which condition tripped from the nudge alone, because only the
+# stale one prints hashes and only the owned-file one prints a path.
 #
 # The never-synced branch does NOT compute loom's current manifest hash
 # — there is nothing to compare it against, and skipping it keeps the
@@ -297,8 +323,60 @@ MANIFEST_BIN="$LOOM_SELF_ROOT/scripts/loom-convention-manifest"
 CURRENT_HASH=$("$MANIFEST_BIN" --root "$LOOM_SELF_ROOT" 2>/dev/null) || exit 0
 [ -n "$CURRENT_HASH" ] || exit 0
 
-# 6. Compare. Matching hash → in sync → silent no-op.
-[ "$STAMPED_HASH" = "$CURRENT_HASH" ] && exit 0
+# --- STAMP-INDEPENDENT owned-file check (loom-5od2) ----------------------
+# Second signal (see the TWO SIGNALS header note): byte-compare loom's
+# OWNED templates against the project's live copies via
+# `scripts/loom-owned-templates --check`.
+#
+# CHEAPNESS. Exactly ONE subprocess, regardless of how many templates
+# are in the owned set — the registry loops internally and prints one
+# line per entry, so this does not shell out per file. At today's owned
+# count of one it is a single `cmp` on top of the manifest hash this
+# hook already computes.
+#
+# DEGRADATION. A missing or non-executable registry (an older loom
+# checkout, a partial install) → return 0 and stay SILENT about it. The
+# hook falls back to the hash-only behavior it had before; announcing
+# the degradation would put a line on every session start in exchange
+# for nothing the user can act on.
+#
+# [FAIL] vs [DRIFT]. The registry emits `[FAIL]` when LOOM's OWN copy of
+# an owned template is missing, and exits non-zero for that too. That is
+# loom's problem, not the project's — nudging the project to
+# `--apply-drift` a file loom cannot supply would be a false positive.
+# So this keys on `[DRIFT]` lines specifically, never on the exit code.
+check_owned_drift() {
+  local bin="$LOOM_SELF_ROOT/scripts/loom-owned-templates"
+  [ -x "$bin" ] || return 0
+
+  local out line rest drifted=""
+  out=$("$bin" --check --root "$CWD" --loom "$LOOM_SELF_ROOT" 2>/dev/null) || true
+  [ -n "$out" ] || return 0
+
+  while IFS= read -r line; do
+    case "$line" in
+      "[DRIFT] "*) ;;
+      *) continue ;;
+    esac
+    # `[DRIFT] <abs-target> (<reason>)` → project-relative, reason kept.
+    rest="${line#\[DRIFT\] }"
+    rest="${rest#"$CWD"/}"
+    if [ -n "$drifted" ]; then drifted="$drifted; $rest"; else drifted="$rest"; fi
+  done <<<"$out"
+
+  [ -n "$drifted" ] || return 0
+
+  emit_nudge_once "[loom-drift-nudge] INFO: this project's loom-OWNED convention file(s) do not match loom's current copies — $drifted. The sync stamp says current, but this is a byte comparison of the files themselves, so the stamp cannot vouch for them — run \`/audit-project --apply-drift\` to apply loom's copy."
+}
+
+# 6. Compare. A matching hash means the STAMP says in sync — which is a
+#    claim about the past. Before believing it, run the byte-level
+#    owned-file check (loom-5od2); it is the signal a partial
+#    `--apply-drift` can leave firing while the hash reads current.
+if [ "$STAMPED_HASH" = "$CURRENT_HASH" ]; then
+  check_owned_drift
+  exit 0
+fi
 
 # 7. STALE STAMP: emit the drift nudge, once per session. Names the
 #    drift (stamped vs current hash, short form) and points at the fix
