@@ -44,7 +44,24 @@ context (information, not action; loom-ld4). An absent file is fine.
 cat .claude/project-constitution.md 2>/dev/null || echo "(no .claude/project-constitution.md — proceeding without a pinned profile)"
 ```
 
-**Step 1 — path.** The worktree root, canonicalized through symlinks
+**Step 1 — repo identity.** The checkout you are in must BE the repo
+your brief names. `isolation: "worktree"` worktrees the **dispatching
+session's** repo, whatever the brief claims (loom-stdi). **Compare the
+remote's repository name against the repo your brief names — if they
+differ, ABORT and report the mismatch. Do not proceed, do not adapt,
+do not write anything.**
+
+```bash
+git remote -v
+```
+
+Corroborate with two signals you already have: step 0's constitution
+(a different project's runtime/package-manager profile is a mismatch)
+and step 4's bd id prefix (`loom-…` vs `liza_base-…`). A repo with no
+remote configured falls back to those two plus the step-2 toplevel
+path.
+
+**Step 2 — path.** The worktree root, canonicalized through symlinks
 (`realpath .` is `pwd` with symlinks resolved), then git's idea of the
 toplevel. **The two outputs must be identical**; if they differ, stop
 and escalate.
@@ -57,24 +74,25 @@ realpath .
 git rev-parse --show-toplevel
 ```
 
-**Step 2 — import.** The project's Python (if any) must resolve inside
+**Step 3 — import.** The project's Python (if any) must resolve inside
 the worktree. Substitute `<project_name>`; skip entirely if the
-project has no Python. **The printed path must start with the step-1
+project has no Python. **The printed path must start with the step-2
 toplevel** — if it points at MAIN, the shadow is active.
 
 ```bash
 python3 -c 'import <project_name>; print(<project_name>.__file__)'
 ```
 
-**Step 3 — bd state.** The worktree's bd dolt must be non-empty. An
+**Step 4 — bd state.** The worktree's bd dolt must be non-empty. An
 error or an empty listing means the next write-class `bd` call will
-wipe `issues.jsonl` on merge — stop and escalate.
+wipe `issues.jsonl` on merge — stop and escalate. Read the id prefix
+too — it is step 1's corroborating identity signal.
 
 ```bash
 bd list -n 1
 ```
 
-**Step 4 — base freshness.** The branch base must match main's tip.
+**Step 5 — base freshness.** The branch base must match main's tip.
 **Compare the two SHAs**; they must be identical.
 
 ```bash
@@ -86,7 +104,7 @@ git rev-parse main
 ```
 
 If they differ the base is STALE — rebase before doing any work, then
-re-run step 4 to confirm. (Use `scripts/loom-rebase-worktree main`
+re-run step 5 to confirm. (Use `scripts/loom-rebase-worktree main`
 instead when untracked WIP from a prior crash needs preserving; see
 the Base-freshness section below.)
 
@@ -97,7 +115,7 @@ git rebase main
 Each section below documents the failure mode that motivates one
 smoke test, plus the mechanical-fix hook that backstops it. The
 sections form a single pre-flight battery: step 0 (constitution
-read) + pwd + import + bd state + base-freshness.
+read) + repo identity + pwd + import + bd state + base-freshness.
 
 ## Step 0 — read the constitution (loom-ld4)
 
@@ -119,7 +137,117 @@ constitution yet, and a dispatched worker is the wrong place to nudge
 the file is missing, the `cat` falls through to a one-line note and
 the battery proceeds. Step 0 runs first precisely because it is
 information for every step that follows: the worker reads the profile,
-THEN verifies pwd / import / bd-state / base-freshness.
+THEN verifies repo-identity / pwd / import / bd-state / base-freshness.
+
+One consequence worth stating: because step 0 loads the project's
+identity along with its tooling, a constitution belonging to a
+*different project than the brief names* is the cheapest possible
+signal of the Mode 7 wrong-repo dispatch below. That is exactly how the
+2026-07-25 incident was caught. Step 1 promotes that accident into a
+deliberate check.
+
+## Repo identity (loom-stdi)
+
+**Risk (Mode 7 — isolation honored, WRONG REPO).** `isolation:
+"worktree"` creates a worktree of the **dispatching session's** repo.
+It does not read the brief, and there is no parameter that says which
+repo to worktree. A brief that names a different project is simply
+*wrong about where the worker is*, and nothing in the harness or in
+loom's hooks contradicts it.
+
+This is the third silent-failure shape for `isolation: "worktree"`,
+alongside the two already documented above (isolation bypassed by an
+absolute path — Mode 1; isolation honored but verification dishonest —
+Modes 5/6). Here isolation is honored *perfectly*. The worktree is
+real, the guard hook is live, every write lands inside the worktree —
+and it is the wrong repo's worktree.
+
+**What happened (2026-07-25, central's own error).** Central's session
+cwd was `/home/frank/repos/loom`. It dispatched a `liza_base` bead with
+`isolation: "worktree"` and a brief opening *"Dispatched worker in an
+isolated git worktree of liza_base (NOT loom)"*. The harness made a
+worktree of **loom**. The brief's claim was false and nothing caught
+it.
+
+**The inversion — this is the finding.** Had the worker followed the
+brief's relative-path instruction, it would have overwritten **loom's
+own `CLAUDE.md`** with a liza_base reconciliation. Relative-path
+discipline is loom's headline mitigation for the absolute-path leak
+(Mode 1, loom-tag) — and under Mode 7 it is precisely what causes the
+damage, because a relative path resolves to the wrong repo's *real*
+file of that name. The two guards are not unconditionally
+complementary: loom-tag's mitigation assumes the worktree is of the
+intended repo, and Mode 7 is the case where that assumption fails. No
+existing guard covers it, because every existing guard reasons about
+*where* a path resolves, never about *which project* the tree is.
+
+**What saved it.** Battery step 0 returned loom's constitution
+(`package_manager: none`, `runtime: bash`) instead of liza_base's
+Python profile, and the bd-state step returned `loom-*` ids. The worker
+recognized the mismatch and recovered without bypassing anything — it
+registered a real liza_base worktree at a path *inside* the granted
+worktree root so `hooks/edit-write-pwd-guard.sh` still governed its
+writes, and probed that guard first to confirm it was live.
+
+**Pre-flight smoke test** (battery step 1):
+
+```bash
+git remote -v
+```
+
+**Why the remote is the signal.** Four candidates were considered:
+
+- **`git remote -v` (chosen).** It is the repo's identity as the *repo*
+  declares it, independent of filesystem layout, and a worktree
+  inherits its parent repo's remote config, so it reads identically
+  from inside one. It is a read-only git command with no substitution,
+  so the isolation harness accepts it.
+- **Toplevel basename.** Useless alone inside a worktree: the basename
+  is `agent-<hash>`. The *enclosing* path does embed the repo name
+  today, but that is a filesystem accident of where worktrees are
+  parked, not an identity the repo asserts.
+- **Constitution project identity.** The constitution's front matter
+  has no structured project-name field — only a prose comment header.
+  Parsing that would be fragile. It stays a *corroborating* signal,
+  which is the role it actually played in the incident.
+- **bd id prefix.** A genuinely good signal, and it also caught the
+  incident — but the battery already runs `bd list -n 1`, so promoting
+  it to primary would add no new evidence. It stays corroborating.
+
+The fallback for a repo with **no remote** is those two corroborating
+signals plus the step-2 toplevel path. Say so in the report rather than
+silently skipping the step.
+
+**ABORT, do not adapt.** On mismatch the worker stops and reports.
+It does not creatively route around the problem — the recovery in the
+incident (registering a nested worktree of the correct repo) was sound
+under supervision but is *not* the prescribed response, because a
+worker that adapts silently produces a branch in a repo central is not
+tracking.
+
+**Cross-repo dispatch is UNSUPPORTED.** To dispatch a worker into
+project X, **the dispatching session must be in project X.** There is
+no brief wording, no path convention, and no flag that makes
+`isolation: "worktree"` target another repo. If work is needed in
+another project, open a session there. A brief that names a repo other
+than the dispatching session's is a bug in the brief.
+
+**No mechanical fix — and why this one earns a battery step.** Contrast
+with Mode 6 (bash lib resolution, loom-8ztk), which deliberately added
+**no** battery step: a bash-lib shadow is a property of the hooks
+themselves, so it is settled **once, in the repo, by a gate**, and
+every worker inherits the fix by running the suite. Repo identity is
+the opposite kind of property. It is **per-dispatch** — it depends on
+where the dispatching session happened to be sitting when it called
+`Agent`, which no repo-side gate can observe and no committed file can
+settle. A check that must re-run on every dispatch, against a fact that
+varies per dispatch, has to live in the battery. The file now holds one
+example of each: **settled-once → gate it, add no step; per-dispatch →
+add a step.** That is the test for whether a new failure mode belongs
+in the battery.
+
+Central-side pre-detection was considered and rejected as a mechanical
+guard — see "Central-side pre-dispatch repo check" below.
 
 ## Pwd verification
 
@@ -137,7 +265,7 @@ This is why the older "prefer-relative-paths-in-briefs" prescription
 was dropped: relative paths alone are not sufficient. Verify the cwd
 directly, canonicalized through realpath.
 
-**Pre-flight smoke test** (battery step 1 — two separate calls, whose
+**Pre-flight smoke test** (battery step 2 — two separate calls, whose
 outputs the worker compares):
 
 ```bash
@@ -173,7 +301,7 @@ worktree's modifications — tests pass against MAIN's behavior while
 pretending to verify the worktree's changes. Silent and
 post-merge-only.
 
-**Pre-flight smoke test** (battery step 2):
+**Pre-flight smoke test** (battery step 3):
 
 ```bash
 python3 -c 'import <project_name>; print(<project_name>.__file__)'
@@ -284,7 +412,7 @@ state to the empty dolt AND auto-exports `.beads/issues.jsonl`,
 overwriting the worktree's full checked-in copy. On merge to main,
 **all other issues in issues.jsonl are silently lost**.
 
-**Pre-flight smoke test** (battery step 3):
+**Pre-flight smoke test** (battery step 4):
 
 ```bash
 bd list -n 1
@@ -330,7 +458,7 @@ rebase against a partially-typed change set. Catch it pre-flight by
 comparing merge-base against main's tip directly, before any work
 begins.
 
-**Pre-flight smoke test** (battery step 4 — two separate calls, whose
+**Pre-flight smoke test** (battery step 5 — two separate calls, whose
 SHAs the worker compares):
 
 ```bash
@@ -398,7 +526,7 @@ git diff --stat main HEAD
 
 The listed paths must match the bead's declared `Files:` (plus any
 footprint expansion the worker is about to declare in its report).
-Unrelated files here mean either a stale base (re-run battery step 4)
+Unrelated files here mean either a stale base (re-run battery step 5)
 or a genuine leak.
 
 *Should this path be absent from main?* Compare against the main
@@ -455,6 +583,43 @@ the worker might reasonably sample it — so the obligation is briefed
 in, not relied on as an afterthought. This is the worker-report
 analogue of the smoke battery: a single structured line a downstream
 consumer (the user, or central) reads to know scope at a glance.
+
+## Central-side pre-dispatch repo check (loom-stdi — considered, not built)
+
+Catching a Mode 7 brief *before* dispatch would be cheaper than
+catching it worker-side. A mechanical version was considered and
+**deliberately not built**, because it cannot be made reliable.
+
+The proposal was: scan the brief for a named repo, compare against the
+dispatching session's toplevel, warn on mismatch. The failure is in the
+first step — a brief is free-form prose, and "names a repo" is not a
+decidable property of it. The counterexample is this bead's own brief:
+`loom-stdi` is a legitimate **loom** dispatch whose brief mentions
+`liza_base` a dozen times, because liza_base is the subject of the
+incident being documented. Any scanner that would have fired on the
+2026-07-25 brief fires on this one too. A guard that cries wolf on
+correct briefs is worse than no guard: it trains central to dismiss it,
+and the one real hit arrives pre-dismissed.
+
+Nor can the check be sharpened by requiring an explicit target-repo
+field in every brief. Central would fill that field from its own cwd,
+so it would be correct by construction and would never disagree with
+reality — the contradiction would still only be visible against the
+brief's *prose*, which is the undecidable part again.
+
+**What is prescribed instead** is an authoring convention, not a
+detector: when a brief states which repo the worker is in, central
+states it from the **output of `git rev-parse --show-toplevel`**, not
+from memory of where the session started. The 2026-07-25 brief asserted
+`liza_base` from central's intent rather than from its cwd, and intent
+is exactly what was wrong.
+
+That is advisory by design and does not violate gate-don't-advise
+(loom-wj26.1). The correctness invariant here — *the battery contains a
+repo-identity step that aborts on mismatch* — **is** gated, by
+`lib/tests/dispatched-agents-rule.test.sh` in `script/test`. What stays
+advisory is the brief-authoring habit, which is an attended judgment a
+human or central makes per dispatch: the nudge case, not the gate case.
 
 ## Central-side cwd verification (after worker dispatch returns)
 
@@ -519,7 +684,7 @@ also catch it mechanically; the convention is the read-only
 diagnostic.
 
 The hook composes with the worker-side battery: workers use the
-four-section pre-flight smoke test above; central uses the
+six-step pre-flight smoke battery above; central uses the
 cwd-drift hook on returning from each dispatch wave. Defense in
 depth.
 
@@ -659,7 +824,7 @@ finish what's left"**:
 2. **Preserve untracked WIP across any rebase.** The crashed worktree's
    base may now trail `main`. Do NOT plain `git rebase main` — on a
    branch with bare untracked files that can lose them, and the smoke
-   battery's step 4 rebase only handles the no-WIP case. Use
+   battery's step 5 rebase only handles the no-WIP case. Use
    **`scripts/loom-rebase-worktree main`** (loom-azt): it snapshots
    untracked files, pre-detects collisions, rebases, and restores the
    files afterward. This is the same WIP-preservation the smoke battery

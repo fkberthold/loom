@@ -27,6 +27,7 @@ set -uo pipefail
 LOOM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RULE_FILE="$LOOM_ROOT/.claude/rules/dispatched-agents.md"
 SKILL_FILE="$LOOM_ROOT/skills/dispatch-middle/SKILL.md"
+CLAUDE_FILE="$LOOM_ROOT/CLAUDE.md"
 
 passed=0
 failed=0
@@ -308,6 +309,70 @@ assert_contains "leak-check section cites loom-ta1w" 'loom-ta1w'
 # would teach workers to bypass a guard that is doing its job.
 assert_contains "keeps harness-refusal distinct from the edit-write-pwd-guard" \
   'DISTINCT from the Edit/Write'
+
+# =====================================================================
+# 11. Repo-identity battery step + cross-repo dispatch UNSUPPORTED
+#     (loom-stdi)
+# =====================================================================
+#
+# `isolation: "worktree"` worktrees the DISPATCHING SESSION's repo —
+# never whatever repo the brief happens to name. On 2026-07-25 central
+# (cwd /home/frank/repos/loom) dispatched a liza_base bead with a brief
+# opening "an isolated git worktree of liza_base (NOT loom)". The
+# harness made a worktree of LOOM. Nothing caught it: not the harness,
+# not any loom hook, not any battery step. Had the worker followed the
+# brief's relative-path instruction it would have overwritten loom's own
+# CLAUDE.md with a liza_base reconciliation.
+#
+# So the battery needs a step whose job is repo IDENTITY: the worker
+# asserts the checkout it is in IS the repo its brief names, and ABORTS
+# on mismatch. And the convention files must say, where brief authors
+# read them, that cross-repo dispatch is UNSUPPORTED.
+
+echo "==> Repo-identity battery step (loom-stdi)"
+assert_contains "section: Repo identity" '^## Repo identity'
+assert_contains "battery carries a numbered repo-identity step" \
+  '[Ss]tep [0-9]+ — repo identity'
+assert_contains "repo-identity smoke uses git remote -v" \
+  'git remote -v'
+assert_contains "repo-identity step ABORTS on mismatch" \
+  'ABORT'
+assert_contains "risk names the wrong-repo silent-failure shape" \
+  'wrong repo|WRONG REPO'
+assert_contains "wrong-repo shape is numbered as a Mode alongside 1-6" \
+  'Mode 7'
+assert_contains "repo-identity section cites loom-stdi" 'loom-stdi'
+
+echo "==> Cross-repo dispatch declared UNSUPPORTED where brief authors read"
+assert_contains "rule file declares cross-repo dispatch UNSUPPORTED" \
+  '[Cc]ross-repo dispatch[^.]*UNSUPPORTED'
+assert_contains "rule file states the dispatching session must be in the target repo" \
+  'dispatching session must'
+assert_file_contains "dispatch-middle declares cross-repo dispatch UNSUPPORTED" \
+  "$SKILL_FILE" '[Cc]ross-repo dispatch[^.]*UNSUPPORTED'
+assert_file_contains "CLAUDE.md carries the cross-repo dispatch convention" \
+  "$CLAUDE_FILE" '[Cc]ross-repo dispatch'
+assert_file_contains "CLAUDE.md cites loom-stdi" "$CLAUDE_FILE" 'loom-stdi'
+
+# The inversion is the point: relative-path discipline (loom-tag's
+# headline mitigation for the absolute-path leak) is what would have
+# CAUSED the damage here, because it aims writes at the wrong repo's
+# real files. The rule file must say so, or the next reader will treat
+# the two guards as unconditionally complementary.
+echo "==> Relative-path inversion is named, not left implicit"
+assert_contains "repo-identity section names the loom-tag inversion" 'loom-tag'
+
+# Contrast with Mode 6 (loom-8ztk), which deliberately added NO battery
+# step: a bash-lib shadow is a property of the hooks, settled once in
+# the repo by a gate. Repo identity is the opposite — a PER-DISPATCH
+# property no repo-side gate can settle, because it depends on where the
+# dispatching session happened to be sitting. The file now holds one
+# example of each, so it must make the contrast explicit.
+echo "==> Mode-6 contrast: per-dispatch vs settled-once-by-a-gate"
+assert_contains "repo identity framed as a per-dispatch property" \
+  'per-dispatch'
+assert_contains "contrast explicitly references the Mode 6 / loom-8ztk case" \
+  'loom-8ztk'
 
 # =====================================================================
 # Summary
