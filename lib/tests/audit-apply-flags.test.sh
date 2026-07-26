@@ -496,14 +496,21 @@ echo "==> loom-ann: SKILL lists the documented AUTOFIX recipes"
 # seventh (dedup-hook-skip-worktree, the DEFAULT per-user reversible
 # resolution) and eighth (dedup-hook-commit, behind an explicit y/N
 # confirmation that names the shared-content consequence) for item 12's
-# duplicate-hook resolution gap. Update this guard only after a future
-# bead deliberately adds a new AUTOFIX:<recipe-id> with documented
-# determinism rationale.
+# duplicate-hook resolution gap. loom-f59h added the NINTH
+# (loom-conventions-pointer) for item 24 — appending a FIXED, loom-owned
+# one-line pointer to <root>/CLAUDE.md sending readers to
+# .claude/rules/loom-conventions.md. Its determinism rationale: the text
+# is fixed (no project-specific judgment is made on the human's behalf)
+# and the write is append-only (no existing CLAUDE.md prose is read,
+# rewritten, or reordered) — which is also what keeps it clear of
+# loom-d50's never-author-project-rules constraint. Update this guard
+# only after a future bead deliberately adds a new AUTOFIX:<recipe-id>
+# with documented determinism rationale.
 autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
-if [ "$autofix_recipe_count" = "8" ]; then
-  pass "SKILL AUTOFIX inventory is 8 (bd-hooks, workflow-json, gitignore-worktrees, loom-env-block, loom-upstream-gc-handoff, gh-auth-prompt, dedup-hook-skip-worktree, dedup-hook-commit)"
+if [ "$autofix_recipe_count" = "9" ]; then
+  pass "SKILL AUTOFIX inventory is 9 (bd-hooks, workflow-json, gitignore-worktrees, loom-conventions-pointer, loom-env-block, loom-upstream-gc-handoff, gh-auth-prompt, dedup-hook-skip-worktree, dedup-hook-commit)"
 else
-  fail "SKILL AUTOFIX inventory should be 8 not $autofix_recipe_count" \
+  fail "SKILL AUTOFIX inventory should be 9 not $autofix_recipe_count" \
     "(if a new AUTOFIX recipe was added deliberately, update this guard)"
 fi
 
@@ -988,14 +995,15 @@ assert_contains "SKILL cites loom-z3m lineage on item 15" \
 # loom-7ro added the fourth (loom-env-block) for item 16, NOT item 15;
 # loom-k2g.6 added the fifth + sixth (loom-upstream-gc-handoff, gh-auth-prompt)
 # for items 17 + 18, NOT item 15; loom-jnn added the seventh + eighth
-# (dedup-hook-skip-worktree, dedup-hook-commit) for item 12, NOT item 15.
-# Item 15 remains informational/suggest-only.
+# (dedup-hook-skip-worktree, dedup-hook-commit) for item 12, NOT item 15;
+# loom-f59h added the ninth (loom-conventions-pointer) for item 24, NOT
+# item 15. Item 15 remains informational/suggest-only.
 autofix_recipe_count=$(grep -cE '^\s*-\s*`\[AUTOFIX:' "$SKILL_FILE" || true)
-if [ "$autofix_recipe_count" = "8" ]; then
-  pass "SKILL AUTOFIX inventory is 8 (item 15 correctly remains informational-only; loom-7ro added item 16; loom-k2g.6 added items 17+18; loom-jnn added item 12's two recipes)"
+if [ "$autofix_recipe_count" = "9" ]; then
+  pass "SKILL AUTOFIX inventory is 9 (item 15 correctly remains informational-only; loom-7ro added item 16; loom-k2g.6 added items 17+18; loom-jnn added item 12's two recipes; loom-f59h added item 24's pointer recipe)"
 else
-  fail "SKILL AUTOFIX inventory should be 8 not $autofix_recipe_count" \
-    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only; loom-7ro adds item 16 loom-env-block; loom-k2g.6 adds items 17+18 handoff recipes; loom-jnn adds item 12's dedup-hook recipes)"
+  fail "SKILL AUTOFIX inventory should be 9 not $autofix_recipe_count" \
+    "(item 15 must NOT add an AUTOFIX recipe — it is suggest-only; loom-7ro adds item 16 loom-env-block; loom-k2g.6 adds items 17+18 handoff recipes; loom-jnn adds item 12's dedup-hook recipes; loom-f59h adds item 24's loom-conventions-pointer)"
 fi
 
 echo "==> loom-z3m.11: agents/project-onboarder.md item 15 declaration"
