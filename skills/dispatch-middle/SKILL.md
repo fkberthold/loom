@@ -365,6 +365,23 @@ implementer recreated it faithfully over the content-bridge (the cheap
 guard the on-disk shared file used to give for free). Central does not
 re-do the middle; it integrates what the pipeline produced.
 
+**Also as part of verify, run the claim-provenance reader over the
+pipeline's worker transcripts** (loom-myhi, D3/D4) — the same returns,
+checked for provenance rather than for counts:
+
+```bash
+~/.claude/scripts/loom-claim-provenance agent-<test-author-id> agent-<implementer-id>
+```
+
+It FAILS on exactly two mechanical conditions: a final report carrying
+zero evidence slots, or a report citing a command absent from that
+worker's own tool calls. It never judges whether an `INFERRED` claim is
+TRUE — those come back as a worklist for central. **This is NOT the
+Step 4 verifier**, which reviews a *diff* and stays optional; the
+reader is not a code review, and checks only whether the *report*
+carried its premises. What central then does with the worklist is
+`bead-lifecycle-shell`'s file-before-acting rule.
+
 If the implementer hit a stop-and-report (the test looked wrong),
 central resolves the contract dispute — re-brief the test-author or
 re-lock the contract — rather than letting the implementer weaken the
