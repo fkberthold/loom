@@ -48,7 +48,7 @@ Numbered list, each item a JSON-shaped triple ready to copy into `mempalace_kg_a
 
 Cap at 5 triples. KG noise makes future queries harder; one well-chosen triple beats five forgettable ones.
 
-## Evidence slot (required) — loom-myhi
+## Evidence slot (required)
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. Each triple's `evidence:` field is that slot, and so is each entry under Invalidations to consider. `*Why*` still carries the reasoning; `evidence:` says where the relationship was read from.
 

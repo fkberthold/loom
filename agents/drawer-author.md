@@ -77,7 +77,7 @@ CALLER IMPACT: <downstream code paths affected. Skip if none.>
 OPEN: <follow-up beads, deferred polish>.
 ```
 
-## Evidence slot (required) — loom-myhi
+## Evidence slot (required)
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds ROOT CAUSE, WHAT SHIPPED, VERIFICATION, and CALLER IMPACT. The main agent files this drawer as the project's record, so a claim you could not ground must say so.
 

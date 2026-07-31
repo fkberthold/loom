@@ -349,7 +349,7 @@ Example shape:
 
 Skill parses with literal-substring match — keep on a single line, single-bracketed, exactly `[AUTOFIX:<id>]`.
 
-## Evidence slot (required) — loom-myhi
+## Evidence slot (required)
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds each verdict's rationale line. Every item's scan recipe names a probe, so `INFERRED` should be rare here — reach for it when a verdict rests on reading rather than running.
 

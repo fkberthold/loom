@@ -52,7 +52,7 @@ Restate the proposed approach in terms of the lineage. Flag if the bead's curren
 
 If searches return nothing relevant, say so explicitly, list the queries tried, and recommend brainstorming-skill engagement before TDD.
 
-## Evidence slot (required) — loom-myhi
+## Evidence slot (required)
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds every lineage statement, every KG fact, and every sentence of **Recommended approach**. Citations do not count toward the 400-word cap.
 
