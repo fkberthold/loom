@@ -584,6 +584,119 @@ in, not relied on as an afterthought. This is the worker-report
 analogue of the smoke battery: a single structured line a downstream
 consumer (the user, or central) reads to know scope at a glance.
 
+## Claim provenance in worker returns (loom-myhi)
+
+**Risk (provenance flattening; design drawer
+`drawer_loom_decisions_1a296178707cdc55c872b467`).** A worker's report
+blends rigorously-verified claims with unverified inferences at uniform
+confidence, and the verified ones lend their credibility to the
+inferred one. Central is not failing to examine the report — it is
+correctly reading a report that erased a distinction its own author
+held. The distinction existed at authoring time, so the fix needs no
+second agent to re-derive it: the worker states it as it writes.
+
+**Convention — the evidence slot (D2).** Every load-bearing claim in a
+worker's return carries **either** a citation — the command run and its
+result, or a `file:line` — **or** the literal marker `INFERRED`. Never
+neither. A citation is a **pointer, not a rationale**: it says where to
+look, not why to believe. Do not write a justifying sentence into the
+slot. Reasoning stays wherever the report already keeps it (a triple's
+`*Why*` line, the surrounding prose); the slot only points.
+
+**Two surface forms — both are slots.** Which form to use follows the
+shape of the report, and one report may carry both.
+
+*Bracket form*, in prose reports (dispatched workers, `drawer-author`,
+`bug-family-researcher`, `project-onboarder`). A trailing bracketed
+token ends the claim line:
+
+```
+FIFO ordering is broken by the map range.   [INFERRED]
+The deleted test pinned FIFO.               [test_methods.go:151]
+All 4 mutants die under the new test.       [go test -run TestScan -count=1 → 4/4]
+```
+
+*Field form*, in structured triple reports
+(`agents/kg-relationship-extractor.md:35`). Triples are not sentences
+and already carry a `*Why*` line, so bracketing would collapse the slot
+into the rationale — exactly what D2 splits apart. The slot is instead
+a **line-leading `evidence:` field**, matched anchored
+(`^\s*evidence:`), parallel to loom's `Files:` / `RED:` /
+`AUTOFAN-EXCLUDE:` convention — so a mid-prose mention of the word is
+not a slot:
+
+```
+1. `subject` → `predicate` → `object`
+   valid_from: YYYY-MM-DD
+   source_closet: (optional drawer ref)
+   evidence: <command + result, or file:line, or INFERRED>
+   *Why*: <one sentence>
+```
+
+Describing only the bracket form understates the contract: a
+bracket-only reading skips every triple report wholesale — a whole
+agent's output passing by being invisible.
+
+**Both arrow glyphs.** In either form, a payload containing an arrow is
+a **command citation**: the command is the text before the arrow, the
+result after. The separator may be ASCII ` -> ` **or** Unicode ` → `
+(U+2192), and both are accepted. This is not cosmetic — measured on the
+shipped agent definitions, the Unicode arrow is used *exclusively*
+(`grep -c ' -> ' agents/drawer-author.md agents/bug-family-researcher.md
+agents/kg-relationship-extractor.md` → `0/0/0`; the same count for
+` → ` → `1/2/9`), while ASCII is what gets typed in prose. Pinning one
+glyph would miss every real command citation in the wild. A payload of
+the `path:line` shape is a **file citation**; a bare `INFERRED` is the
+marker.
+
+**F1 is "zero slots of either form" — never "zero brackets".** A
+bracket-free triple report whose triples each carry an `evidence:` line
+is fully evidenced and PASSES. Counting brackets would fail an entire
+agent's output for using the form that agent is specified to use.
+
+**Refuting a claim is TWO fields — verdict + residue (D5).** When
+central refutes an `INFERRED` claim, the disposition answers two
+*separate* questions:
+
+- **`verdict`** — was the claim true, and why.
+- **`residue`** — was it pointing at anything? The literal `none` is a
+  valid answer; **absence is not**.
+
+A refuted claim can still be load-bearing. The claim that motivated
+this rule was wrong about FIFO ordering *and* surfaced a real untested
+liveness gap; the test that eventually landed was strictly stronger
+than the property the reviewer had correctly defended. A binary
+accept/reject discards the claim and the gap along with it — which is
+why `residue` is a field of its own rather than a clause inside the
+verdict.
+
+**File before acting on an `INFERRED` claim (D6).** Central may not
+make a change on the basis of an `INFERRED` claim without **filing it
+first**; the filed bead is where D5's `verdict` + `residue` land, so D6
+gives D5 a mechanical home. This is not size-scoped — a three-line
+change built on a wrong premise is still wrong, so the ≤15-line inline
+threshold does not exempt it. Claims central does **not** intend to act
+on simply stay in the worklist: no filing, no ceremony.
+
+**Mechanical fix.** `scripts/loom-claim-provenance` is the gate — a
+central-side reader over the session's `agent-*.jsonl` subagent
+transcripts, which central runs after a dispatch returns. (Not a hook:
+`Stop` / `SubagentStop` do not reliably fire on sidechains, so no hook
+can ever observe a worker's return — see
+[`docs/reference/claude-code-hook-semantics.md`](../../docs/reference/claude-code-hook-semantics.md).)
+It reads the worker's FINAL report plus its tool calls, and fails on
+exactly two mechanical conditions:
+
+- **F1** — the final report carries zero evidence slots of either form.
+- **F2** — the report cites a command absent from that worker's own
+  tool calls.
+
+Everything else succeeds, emitting each `INFERRED` claim as a worklist
+for attended review. The reader NEVER judges whether an `INFERRED`
+claim is true: that is attended judgment, and gating it would produce a
+rubber-stamp. Gate the structure, nudge the claims — gate-don't-advise
+(loom-wj26.1) applied to this contract.
+
 ## Central-side pre-dispatch repo check (loom-stdi — considered, not built)
 
 Catching a Mode 7 brief *before* dispatch would be cheaper than
