@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+# loom-claim-provenance — the claim-provenance reader. loom-myhi.1 (T1 of
+# epic loom-myhi); design-doc drawer drawer_loom_decisions_1a296178707cdc55c872b467,
+# decisions D2 (evidence-slot format) + D3 (mechanism) + D4 (gate/nudge split).
+#
+# A CENTRAL-SIDE transcript reader — NOT a hook. Stop/SubagentStop do not
+# reliably fire on sidechains (docs/reference/claude-code-hook-semantics.md;
+# loom-0ahj D7, codified by loom-z3m.9), so no hook can ever observe a
+# dispatched worker's return. Central invokes this reader over the session's
+# subagent `agent-*.jsonl` transcripts after a wave returns — the same shape
+# scripts/loom-stage-spend uses, and this script deliberately mirrors that
+# sibling's interface (basename-or-path resolution, --json, exit-code verdict).
+#
+# WHAT IT READS, per transcript:
+#   (a) the worker's FINAL report — the LAST assistant record carrying text.
+#       Earlier assistant prose is in-flight thinking, NOT the report: a slot
+#       in mid-transcript prose must neither rescue a slotless report nor
+#       condemn a clean one.
+#   (b) the worker's tool calls — every tool_use block's .input.command.
+#
+# EVIDENCE SLOTS (D2) — TWO SURFACE FORMS, both recognised:
+#   (1) BRACKET, in prose reports. A trailing bracketed token ends the line:
+#           FIFO ordering is broken by the map range.   [INFERRED]
+#           The deleted test pinned FIFO.               [test_methods.go:151]
+#           All 4 mutants die.   [go test -run TestScan -count=1 -> 4/4]
+#   (2) FIELD, in structured triple reports (agents/kg-relationship-extractor.md).
+#       A LINE-LEADING `evidence:` field — anchored, parallel to loom's
+#       `Files:` / `RED:` / `AUTOFAN-EXCLUDE:` convention, so a mid-prose
+#       mention of the word is not a slot:
+#           1. `subject` -> `predicate` -> `object`
+#              valid_from: YYYY-MM-DD
+#              source_closet: (optional drawer ref)
+#              evidence: <command + result, or file:line, or INFERRED>
+#              *Why*: <one sentence>
+#       A field slot's CLAIM is the block's HEADER line (the nearest preceding
+#       line that is neither a recognised field nor the `*Why*` rationale).
+#       D2 separates the pointer from the rationale; folding `*Why*` into the
+#       worklist entry would re-merge exactly what D2 split.
+#   A bracket-only parser silently skips every kg-relationship-extractor
+#   report — a whole agent's output passing the gate by being invisible to it.
+#
+# SLOT PAYLOADS, identical in both forms:
+#   * ARROW present -> COMMAND citation. Command is the text before the arrow,
+#     result after. BOTH glyphs are accepted: ASCII ` -> ` and Unicode ` → `
+#     (U+2192). The shipped agent definitions use Unicode exclusively while
+#     the design doc's example uses ASCII, so a one-glyph reader misses real
+#     reports.
+#   * `path:line` shape -> FILE citation. NEVER resolved against the
+#     filesystem — F2 is command-only.
+#   * `INFERRED` -> the bare marker; the claim lands on the worklist.
+#
+# THE GATE IS EXACTLY TWO MECHANICAL CONDITIONS — DO NOT WIDEN IT (D4):
+#   F1. the FINAL report carries ZERO evidence slots OF EITHER FORM
+#       (NOT "zero brackets" — a bracket-free triple report is fully
+#       evidenced and PASSES)                                    -> non-zero
+#   F2. the report cites a command absent from that worker's tool calls,
+#       matched as a SUBSTRING of the tool call (a citation of
+#       `go test -run TestScan -count=1` matches a call decorated with
+#       `2>&1 | tail -5`; exact equality would manufacture false
+#       positives)                                               -> non-zero
+# Everything else SUCCEEDS, emitting every INFERRED claim as a worklist.
+# The reader NEVER judges whether an INFERRED claim is TRUE — that is attended
+# judgment, and gating it produces a rubber-stamp in the alert-fatigue zone.
+#
+# Usage:
+#   loom-claim-provenance [--json] <transcript> [<transcript> ...]
+#
+#   <transcript>  agent-XXXX[.jsonl] basename, or a path to a transcript file
+#   --json        emit one JSON object per INFERRED claim (default: human)
+#
+# Output discipline: the WORKLIST goes to stdout (pure JSON stream under
+# --json); FAILURE diagnostics always go to stderr as human text, in both
+# modes, so --json stdout stays machine-parseable. A transcript that FAILS
+# emits no worklist — the report is to be fixed first.
+#
+# Exit: 0 all transcripts clean · 1 at least one F1/F2 · 2 usage · 3 no jq
+#
+# Env overrides (primarily for tests), mirroring LOOM_STAGE_SPEND_TRANSCRIPT_DIR:
+#   LOOM_CLAIM_PROVENANCE_TRANSCRIPT_DIR  dir to resolve bare agent-* names
+
+set -uo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+usage: loom-claim-provenance [--json] <transcript> [<transcript> ...]
+
+Reads each dispatched worker's FINAL report + tool calls out of its subagent
+transcript and checks claim provenance. FAILS (non-zero) on exactly two
+mechanical conditions: F1 the report carries zero evidence slots; F2 the
+report cites a command absent from that worker's tool calls. Otherwise
+succeeds, emitting every INFERRED claim as a worklist.
+
+<transcript>  agent-XXXX[.jsonl] basename, or a path to a transcript file
+--json        one JSON object per INFERRED claim (default: human table)
+
+Env: LOOM_CLAIM_PROVENANCE_TRANSCRIPT_DIR
+EOF
+  exit 2
+}
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "loom-claim-provenance: jq is required but not found in PATH" >&2
+  exit 3
+fi
+
+# ----------------------------------------------------------------------
+# Arg parse. Mirrors loom-stage-spend: flags anywhere, positionals collected.
+# ----------------------------------------------------------------------
+JSON_OUT=0
+TOKENS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --json)    JSON_OUT=1 ;;
+    -h|--help) usage ;;
+    --*)
+      echo "loom-claim-provenance: unknown flag '$arg'" >&2
+      exit 2
+      ;;
+    *) TOKENS+=("$arg") ;;
+  esac
+done
+
+[ "${#TOKENS[@]}" -ge 1 ] || usage
+
+# ----------------------------------------------------------------------
+# Transcript resolution. Env override wins; otherwise autodetect the current
+# session's subagents/ dir, exactly as loom-stage-spend does. Unused when a
+# token is already a path.
+# ----------------------------------------------------------------------
+resolve_transcript_dir() {
+  if [ -n "${LOOM_CLAIM_PROVENANCE_TRANSCRIPT_DIR:-}" ]; then
+    printf '%s' "$LOOM_CLAIM_PROVENANCE_TRANSCRIPT_DIR"
+    return 0
+  fi
+  local root="$HOME/.claude/projects"
+  if [ ! -d "$root" ]; then
+    printf '%s' ""
+    return 0
+  fi
+  local newest
+  newest=$(find "$root" -type d -name subagents -printf '%T@\t%p\n' 2>/dev/null \
+    | sort -rn | head -1 | cut -f2-)
+  printf '%s' "$newest"
+}
+
+TRANSCRIPT_DIR="$(resolve_transcript_dir)"
+
+resolve_file() {
+  local tok="$1"
+  if [ -f "$tok" ]; then printf '%s' "$tok"; return 0; fi
+  local base="$tok"
+  case "$base" in *.jsonl) ;; *) base="$base.jsonl" ;; esac
+  if [ -n "$TRANSCRIPT_DIR" ] && [ -f "$TRANSCRIPT_DIR/$base" ]; then
+    printf '%s' "$TRANSCRIPT_DIR/$base"
+    return 0
+  fi
+  if [ -f "$base" ]; then printf '%s' "$base"; return 0; fi
+  printf '%s' ""
+}
+
+# ----------------------------------------------------------------------
+# Transcript extraction. jq -s slurps the JSONL; the record shape is the one
+# the Claude Code harness writes (assistant records carrying content[] blocks
+# of {type:"text"} or {type:"tool_use", input:{command:...}}).
+#
+# REPORT_JQ  — the LAST assistant record that carries any text block, its text
+#              blocks joined. Earlier assistant text is in-flight prose.
+# CMDS_JQ    — every tool_use command, newline-joined into one blob. A
+#              non-Bash tool call has no .input.command and drops out. Since
+#              every citation comes from a single report line, a citation can
+#              never span the newline boundary between two calls, so
+#              substring-in-blob is exactly substring-in-some-call.
+# ----------------------------------------------------------------------
+REPORT_JQ='
+  [ .[]
+    | select(.type == "assistant")
+    | [ (.message.content // [])[]? | select(.type? == "text") | (.text // "") ]
+    | select(length > 0)
+    | join("\n")
+  ] | last // ""
+'
+
+CMDS_JQ='
+  [ .[]
+    | select(.type == "assistant")
+    | (.message.content // [])[]?
+    | select(.type? == "tool_use")
+    | (.input.command? // empty)
+    | select(type == "string")
+  ] | join("\n")
+'
+
+# ----------------------------------------------------------------------
+# Slot parsing.
+# ----------------------------------------------------------------------
+# `evidence:` is matched LINE-LEADING (anchored) — a mid-prose "no evidence:"
+# is not a slot.
+RE_FIELD='^[[:space:]]*evidence:[[:space:]]*(.*)$'
+# A trailing bracketed token ends a bracket-form claim line. The greedy
+# leading (.*) makes the LAST bracket on the line the slot.
+RE_BRACKET='^(.*)\[([^]]*)\][[:space:]]*$'
+# Lines that are part of a triple block but are not its header.
+RE_TRIPLE_FIELD='^[[:space:]]*(valid_from|source_closet|evidence)[[:space:]]*:'
+RE_WHY='^[[:space:]]*\*Why\*'
+
+LINES=()
+
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+# field_header <line-index> — the claim a FIELD slot belongs to: the nearest
+# preceding line that is neither blank, nor a recognised field, nor *Why*.
+field_header() {
+  local idx="$1" j line
+  for (( j = idx - 1; j >= 0; j-- )); do
+    line="${LINES[$j]}"
+    [ -z "$(trim "$line")" ] && continue
+    [[ "$line" =~ $RE_TRIPLE_FIELD ]] && continue
+    [[ "$line" =~ $RE_WHY ]] && continue
+    trim "$line"
+    return 0
+  done
+  printf '%s' ""
+}
+
+# split_arrow <payload> — sets ARROW_CMD to the text before the first arrow.
+# Returns 1 when the payload carries no arrow (so it is not a command
+# citation) or when the command side is empty.
+ARROW_CMD=""
+split_arrow() {
+  local p="$1"
+  ARROW_CMD=""
+  if [[ "$p" == *" → "* ]]; then
+    ARROW_CMD="${p%% → *}"
+  elif [[ "$p" == *" -> "* ]]; then
+    ARROW_CMD="${p%% -> *}"
+  else
+    return 1
+  fi
+  ARROW_CMD="$(trim "$ARROW_CMD")"
+  [ -n "$ARROW_CMD" ] || return 1
+  return 0
+}
+
+# ----------------------------------------------------------------------
+# Per-transcript verdict.
+# ----------------------------------------------------------------------
+FAILED=0
+
+process_one() {
+  local file="$1"
+  local base
+  base="$(basename "$file")"
+
+  local report cmd_blob
+  report="$(jq -s -r "$REPORT_JQ" "$file" 2>/dev/null)"
+  cmd_blob="$(jq -s -r "$CMDS_JQ" "$file" 2>/dev/null)"
+
+  LINES=()
+  mapfile -t LINES <<<"$report"
+
+  local nslots=0
+  local inf_claims=() inf_forms=()
+  local miss_claims=() miss_cmds=()
+  local i line payload claim form
+
+  for (( i = 0; i < ${#LINES[@]}; i++ )); do
+    line="${LINES[$i]}"
+    if [[ "$line" =~ $RE_FIELD ]]; then
+      payload="$(trim "${BASH_REMATCH[1]}")"
+      claim="$(field_header "$i")"
+      form="field"
+    elif [[ "$line" =~ $RE_BRACKET ]]; then
+      payload="$(trim "${BASH_REMATCH[2]}")"
+      claim="$(trim "${BASH_REMATCH[1]}")"
+      form="bracket"
+    else
+      continue
+    fi
+
+    nslots=$(( nslots + 1 ))
+
+    if split_arrow "$payload"; then
+      # COMMAND citation — the one payload kind F2 checks. Substring, not
+      # equality: real tool calls carry redirects and pipes the citation omits.
+      case "$cmd_blob" in
+        *"$ARROW_CMD"*) : ;;
+        *)
+          miss_claims+=("$claim")
+          miss_cmds+=("$ARROW_CMD")
+          ;;
+      esac
+    elif [ "$payload" = "INFERRED" ]; then
+      inf_claims+=("$claim")
+      inf_forms+=("$form")
+    fi
+    # Anything else is a FILE citation (or an unrecognised pointer). Never
+    # resolved against the filesystem — F2 is command-only.
+  done
+
+  # --- F1: zero evidence slots of EITHER form -------------------------
+  if [ "$nslots" -eq 0 ]; then
+    printf '%s: FAIL (F1) — the final report carries ZERO evidence slots.\n' "$base" >&2
+    printf '    Every load-bearing claim needs a citation or the marker INFERRED,\n' >&2
+    printf '    in bracket form ([...]) or as a line-leading `evidence:` field.\n' >&2
+    FAILED=1
+    return 0
+  fi
+
+  # --- F2: a cited command absent from this worker's tool calls -------
+  if [ "${#miss_claims[@]}" -gt 0 ]; then
+    printf '%s: FAIL (F2) — %d cited command(s) absent from this worker'"'"'s tool calls.\n' \
+      "$base" "${#miss_claims[@]}" >&2
+    for (( i = 0; i < ${#miss_claims[@]}; i++ )); do
+      printf '    claim:   %s\n' "${miss_claims[$i]}" >&2
+      printf '    command: %s\n' "${miss_cmds[$i]}" >&2
+    done
+    FAILED=1
+    return 0
+  fi
+
+  # --- SUCCESS: emit the INFERRED claims as a worklist ----------------
+  if [ "$JSON_OUT" = "1" ]; then
+    for (( i = 0; i < ${#inf_claims[@]}; i++ )); do
+      jq -nc \
+        --arg claim "${inf_claims[$i]}" \
+        --arg transcript "$base" \
+        --arg form "${inf_forms[$i]}" \
+        '{claim:$claim, transcript:$transcript, form:$form}'
+    done
+  else
+    printf '%s: OK — %d evidence slot(s), %d INFERRED claim(s) for attended review.\n' \
+      "$base" "$nslots" "${#inf_claims[@]}"
+    for (( i = 0; i < ${#inf_claims[@]}; i++ )); do
+      printf '  [INFERRED] %s\n' "${inf_claims[$i]}"
+    done
+  fi
+  return 0
+}
+
+for tok in "${TOKENS[@]}"; do
+  f="$(resolve_file "$tok")"
+  if [ -z "$f" ]; then
+    # A transcript the reader cannot read is a transcript the gate cannot
+    # see — which is the exact invisibility this epic exists to kill. Fail
+    # loud rather than degrading to a silent skip.
+    printf 'loom-claim-provenance: FAIL — no transcript found for '"'"'%s'"'"'\n' "$tok" >&2
+    FAILED=1
+    continue
+  fi
+  process_one "$f"
+done
+
+exit "$FAILED"
