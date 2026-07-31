@@ -375,6 +375,96 @@ assert_contains "contrast explicitly references the Mode 6 / loom-8ztk case" \
   'loom-8ztk'
 
 # =====================================================================
+# 12. Claim-provenance return contract (loom-myhi.2 — D2 + D5 + D6)
+# =====================================================================
+#
+# *** THESE ARE DOCUMENTATION-PRESENCE ASSERTIONS, NOT THE GATE. ***
+#
+# Everything below proves only that the rule TEXT is written down. It
+# can never prove that a single real worker report complied — no
+# assertion here reads a returned report. That is precisely the fake-gate
+# shape this epic's design cycle diagnosed in this very file (exploration
+# F9: section 9 above asserts "rule file names the Processed: X of Y
+# report line" and nothing anywhere reads a returned report).
+#
+# It is acceptable HERE only because the real, BEHAVIOURAL gate ships
+# separately: `scripts/loom-claim-provenance` (loom-myhi.1), the
+# central-side transcript reader, is what actually reads each worker's
+# final report + tool calls and fails on F1 (zero evidence slots of
+# either form) / F2 (a cited command absent from that worker's tool
+# calls). Its spec is `lib/tests/loom-claim-provenance.test.sh`, which is
+# the authoritative one — if these doc patterns and that test ever
+# disagree about the contract, THAT TEST WINS and this section is the
+# thing to fix.
+#
+# Do not read a green run of this section as "the contract is enforced".
+# Enforcement lives in scripts/loom-claim-provenance.
+
+echo "==> Claim-provenance return contract (DOC PRESENCE — gate is scripts/loom-claim-provenance)"
+assert_contains "section: claim provenance in worker returns" \
+  '^## Claim provenance in worker returns'
+assert_contains "names the real gate, scripts/loom-claim-provenance" \
+  'scripts/loom-claim-provenance'
+assert_contains "cites loom-myhi lineage" 'loom-myhi'
+
+# --- D2: the evidence slot ------------------------------------------
+assert_contains "D2 slot is citation-OR-INFERRED, never neither" \
+  'literal marker `INFERRED`'
+assert_contains "D2 slot names the two citation payloads (command+result, file:line)" \
+  'command run and its result|command \+ result'
+assert_contains "D2 slot is a POINTER, not a rationale" \
+  'pointer, not a rationale'
+assert_contains "D2 forbids justifying prose in the slot" \
+  'not why to believe'
+
+# --- D2: BOTH surface forms. A bracket-only description understates
+# the shipped contract and would skip every triple report.
+assert_contains "bracket form is documented" \
+  '[Bb]racket form'
+assert_contains "field form is documented" \
+  '[Ff]ield form'
+assert_contains "field form is LINE-LEADING evidence:, matched anchored" \
+  'line-leading `evidence:`'
+assert_contains "field form anchoring is spelled as a regex" \
+  '\^.s\*evidence:'
+assert_contains "field form is tied to loom's Files:/RED:/AUTOFAN-EXCLUDE: convention" \
+  'AUTOFAN-EXCLUDE'
+assert_contains "field form points at the agent definition carrying it" \
+  'agents/kg-relationship-extractor\.md:35'
+
+# --- D2: BOTH arrow glyphs. The shipped agent defs use Unicode
+# exclusively; documenting one glyph reproduces the exact defect the
+# sibling bead's test-author caught pre-ship.
+assert_contains "ASCII arrow glyph is documented" \
+  'ASCII ` -> `'
+assert_contains "Unicode arrow glyph is documented" \
+  'Unicode ` → `'
+assert_contains "Unicode arrow is identified by codepoint" \
+  'U\+2192'
+
+# --- F1 is "zero slots of either form", NOT "zero brackets" ---------
+assert_contains "F1 counts slots of either form, not brackets" \
+  'zero slots of either form'
+assert_contains "F1 explicitly denies the bracket-counting reading" \
+  'never .zero brackets.|not .zero brackets.'
+
+# --- D5: two-field refutation ---------------------------------------
+assert_contains "D5 refutation carries a verdict field" \
+  '`verdict`'
+assert_contains "D5 refutation carries a residue field" \
+  '`residue`'
+assert_contains "D5 residue may be the literal none but may not be absent" \
+  'absence is not|may not be absent'
+
+# --- D6: file before acting -----------------------------------------
+assert_contains "D6 forbids acting on an INFERRED claim before filing" \
+  '[Ff]ile before acting'
+assert_contains "D6 names the filed bead as where verdict+residue land" \
+  'filed bead is where'
+assert_contains "D6 leaves un-acted-on claims in the worklist, unfiled" \
+  'no filing, no ceremony'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo
