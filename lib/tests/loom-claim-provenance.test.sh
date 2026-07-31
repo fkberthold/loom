@@ -25,19 +25,50 @@
 #   When  the reader runs over it
 #   Then  the reader SUCCEEDS (zero exit) and emits the N claims as a worklist
 #
-# EVIDENCE-SLOT FORMAT (D2). Each load-bearing claim line ends in a bracketed
-# slot carrying either a citation or the literal marker INFERRED:
-#     FIFO ordering is broken by the map range.   [INFERRED]
-#     The deleted test pinned FIFO.               [test_methods.go:151]
-#     All 4 mutants die under the new test.       [go test -run TestScan -count=1 -> 4/4]
-# A slot containing ` -> ` is a COMMAND citation; the command is the text
-# before the arrow, the result is the text after. A slot of the `path:line`
-# shape is a FILE citation. `INFERRED` is the bare marker.
+# EVIDENCE-SLOT FORMAT (D2) — TWO SURFACE FORMS. Every load-bearing claim
+# carries a slot holding either a citation or the literal marker INFERRED,
+# and the slot appears in one of two shapes depending on the report:
+#
+#   (1) BRACKET form — prose reports (drawer-author, bug-family-researcher,
+#       project-onboarder). A trailing bracketed token ends the claim line:
+#           FIFO ordering is broken by the map range.   [INFERRED]
+#           The deleted test pinned FIFO.               [test_methods.go:151]
+#           All 4 mutants die under the new test.       [go test -run TestScan -count=1 -> 4/4]
+#
+#   (2) FIELD form — triple reports (kg-relationship-extractor, loom-myhi.3).
+#       Triples are structured, not sentences, and already carry a `*Why*`
+#       line, so bracketing would collapse the slot into the rationale —
+#       which D2 forbids. The slot is a line-leading `evidence:` field:
+#           1. `subject` → `predicate` → `object`
+#              valid_from: YYYY-MM-DD
+#              source_closet: (optional drawer ref)
+#              evidence: <command + result, or file:line, or INFERRED>
+#              *Why*: <one sentence>
+#       See agents/kg-relationship-extractor.md:35 + its "Evidence slot
+#       (required)" section.
+#
+# The reader MUST recognise BOTH. A bracket-only parser silently skips every
+# kg-relationship-extractor report — a whole agent's output passing the gate
+# by being invisible to it, which is the exact failure this epic exists to
+# kill. `evidence:` is matched LINE-LEADING (`^\s*evidence:`), parallel to
+# loom's `Files:` / `RED:` / `AUTOFAN-EXCLUDE:` anchored-line convention, so
+# a mid-prose mention of the word is not a slot.
+#
+# SLOT PAYLOADS, in either form. A payload containing an ARROW is a COMMAND
+# citation — the command is the text before the arrow, the result after.
+# BOTH arrow glyphs must be accepted: ASCII ` -> ` and Unicode ` → ` (U+2192).
+# The shipped agent definitions use the Unicode arrow EXCLUSIVELY
+# (`grep -c ' -> ' agents/*.md -> 0` on all three; `grep -c ' → ' -> 2/9/1`),
+# while the bead's D2 example uses ASCII — so a reader that handles only one
+# glyph misses real reports. A payload of the `path:line` shape is a FILE
+# citation. `INFERRED` is the bare marker.
 #
 # THE GATE IS EXACTLY TWO MECHANICAL CONDITIONS — do not widen it (D4):
-#   F1. the FINAL report carries ZERO evidence slots            -> non-zero
+#   F1. the FINAL report carries ZERO evidence slots OF EITHER FORM
+#       (NOT "zero brackets" — a bracket-free triple report is fully
+#       evidenced and must PASS)                                 -> non-zero
 #   F2. the report cites a command absent from that worker's
-#       tool calls                                              -> non-zero
+#       tool calls                                               -> non-zero
 # Everything else SUCCEEDS, emitting every INFERRED claim as a worklist.
 # The reader must NEVER judge whether an INFERRED claim is TRUE — that is
 # attended judgment, and gating it produces a rubber-stamp in the
@@ -201,6 +232,108 @@ emit_text   "$ALLCITED" 'Cleanup complete.
 
 The lint pass is clean.   [shellcheck scripts/foo -> no findings]
 The helper lives here.   [nonexistent_file_xyz.go:42]'
+
+# --- agent-triples: FIELD form, and ZERO brackets anywhere ------------
+# A kg-relationship-extractor-shaped report. Three triples: a command
+# citation (Unicode arrow), a file:line, and a bare INFERRED. Contains NO
+# bracketed slot at all, so a reader whose F1 counts brackets would wrongly
+# fail it. N INFERRED = 1 (triple 3).
+TRIPLES="$SUB/agent-triples.jsonl"
+emit_bash   "$TRIPLES" 'bd show loom-x4m'
+emit_result "$TRIPLES" 'closed; see loom-22h'
+emit_text   "$TRIPLES" '# KG triples proposed for loom-x4m
+
+1. `loom-x4m` → `is_sibling_of` → `loom-22h`
+   valid_from: 2026-05-15
+   evidence: bd show loom-x4m → close-reason names loom-22h as the sibling
+   *Why*: both describe the worktree bd wipe.
+
+2. `bd-worktree-preseed` → `mitigates` → `loom-x4m`
+   valid_from: 2026-05-15
+   evidence: hooks/bd-worktree-preseed.sh:12
+   *Why*: the hook pre-seeds the dolt.
+
+3. `loom-x4m` → `composes_with` → `loom-4um`
+   valid_from: 2026-05-15
+   evidence: INFERRED
+   *Why*: both touch bd state on merge.'
+
+# --- agent-triples-noev: FIELD form with ZERO evidence: lines (F1) ----
+# Also pins LINE-LEADING anchoring: the closing sentence contains the word
+# "evidence:" mid-line. If the reader matched it unanchored it would count
+# one slot and wrongly PASS.
+TRIPLESNOEV="$SUB/agent-triples-noev.jsonl"
+emit_bash   "$TRIPLESNOEV" 'bd show loom-zzz'
+emit_result "$TRIPLESNOEV" 'open'
+emit_text   "$TRIPLESNOEV" '# KG triples proposed for loom-zzz
+
+1. `loom-zzz` → `blocks` → `loom-yyy`
+   valid_from: 2026-07-31
+   *Why*: the dependency edge is declared in bd.
+
+2. `loom-zzz` → `members` → `loom-www`
+   valid_from: 2026-07-31
+   *Why*: filed under the same epic.
+
+I gathered no evidence: the triples came from memory.'
+
+# --- agent-triples-badcmd: FIELD form citing a never-run command (F2) --
+# Uses the Unicode arrow, the glyph the shipped agent defs actually emit.
+TRIPLESBAD="$SUB/agent-triples-badcmd.jsonl"
+emit_bash   "$TRIPLESBAD" 'echo probe'
+emit_result "$TRIPLESBAD" 'probe'
+emit_text   "$TRIPLESBAD" '# KG triples proposed for loom-qqq
+
+1. `loom-qqq` → `verified_by` → `TestScan`
+   valid_from: 2026-07-31
+   evidence: go test -run TestNeverRan -count=1 → 9/9
+   *Why*: the suite covers the scanner.'
+
+# --- agent-mixed: BOTH forms in one report, cross-glyph ---------------
+# 3 bracket slots + 2 field slots = 5 slots; INFERRED = 1 bracket + 1 field
+# = 2, so the worklist must be exactly 2 (double-counting inflates it).
+# Deliberately crossed against agent-good/agent-triples: the BRACKET slots
+# here use the Unicode arrow and the FIELD slot uses ASCII, completing the
+# 2x2 of {bracket,field} x {ASCII,Unicode} on the success side.
+MIXED="$SUB/agent-mixed.jsonl"
+emit_bash   "$MIXED" 'go test -run TestScan -count=1 2>&1 | tail -5'
+emit_result "$MIXED" 'ok 4/4'
+emit_bash   "$MIXED" 'git log --oneline -1'
+emit_result "$MIXED" 'abc123 fix the range'
+emit_text   "$MIXED" 'Mixed report — prose claims then triples.
+
+FIFO ordering is broken by the map range.   [INFERRED]
+The deleted test pinned FIFO.   [test_methods.go:151]
+All 4 mutants die.   [go test -run TestScan -count=1 → 4/4]
+
+# KG triples proposed for loom-mix
+
+1. `loom-mix` → `caused_by` → `map_range`
+   valid_from: 2026-07-31
+   evidence: INFERRED
+   *Why*: the range order is unspecified.
+
+2. `loom-mix` → `fixed_in` → `abc123`
+   valid_from: 2026-07-31
+   evidence: git log --oneline -1 -> abc123 fix the range
+   *Why*: the commit message names it.'
+
+# --- agent-glyphs-badcmd: the two REMAINING 2x2 quadrants, failing ----
+# A bracket slot with a UNICODE arrow and a field slot with an ASCII arrow,
+# both citing never-run commands. A reader that parses only one glyph per
+# form misses one of them; the assertion requires BOTH be named, which also
+# pins that the reader reports every missing command, not just the first.
+GLYPHS="$SUB/agent-glyphs-badcmd.jsonl"
+emit_bash   "$GLYPHS" 'echo probe'
+emit_result "$GLYPHS" 'probe'
+emit_text   "$GLYPHS" 'Cross-glyph probe.
+
+The bracket claim with a unicode arrow.   [go test -run TestBracketUni -count=1 → 1/1]
+
+1. `a` → `b` → `c`
+   valid_from: 2026-07-31
+   evidence: go test -run TestFieldAscii -count=1 -> 2/2
+   *Why*: probe.'
 
 # ----------------------------------------------------------------------
 # Reader harness. Output always lands in a FILE which assertions grep
@@ -396,6 +529,90 @@ if [ "$RC" -ne 0 ] && has 'go test -run TestScan -count=1'; then
   pass "non-zero (rc=$RC) and the offending command is named"
 else
   fail "expected non-zero naming the missing command across a multi-transcript run" \
+    "rc=$RC out=$(cat "$OUTF")"
+fi
+
+# ======================================================================
+# FIELD-FORM (`evidence:`) coverage — the second surface form. Every
+# behaviour pinned above for the bracket form must hold identically here.
+# ======================================================================
+
+# 13. Success path, field form
+run "FIELD form: N INFERRED triples + resolvable citations SUCCEEDS"
+reader --json agent-triples
+njson=$(jq -s 'length' "$OUTF" 2>/dev/null)
+jq -s -r '.[].claim // empty' "$OUTF" > "$TMP/claims.txt" 2>/dev/null
+if [ "$RC" -eq 0 ] && [ "$njson" = "1" ] \
+  && grep -qF 'composes_with' "$TMP/claims.txt"; then
+  pass "zero exit, 1 worklist entry, and it names the INFERRED triple"
+else
+  fail "expected zero exit and 1 worklist entry naming the INFERRED triple (n=$njson rc=$RC)" \
+    "out=$(cat "$OUTF")"
+fi
+
+# 14. F1 counts slots of EITHER form — not brackets
+run "F1: a report with ZERO brackets but WITH evidence: lines PASSES"
+if [ "$RC" -eq 0 ]; then
+  pass "bracket-free triple report is fully evidenced — F1 did not fire"
+else
+  fail "F1 fired on a bracket-free report — it is counting brackets, not slots" \
+    "rc=$RC out=$(cat "$OUTF")"
+fi
+
+# 15. A field slot's claim is the TRIPLE, not the rationale (D2 separation)
+run "FIELD form: the worklist entry is the triple, not its *Why* rationale"
+if [ "$RC" -eq 0 ] && ! grep -qF 'both touch bd state on merge' "$TMP/claims.txt"; then
+  pass "the *Why* line stayed out of the worklist entry"
+else
+  fail "the slot collapsed into the rationale — D2 forbids this" \
+    "claims=$(cat "$TMP/claims.txt")"
+fi
+
+# 16. F1, field form — and LINE-LEADING anchoring of `evidence:`
+run "FIELD form F1: triple report with zero evidence: lines FAILS, names it"
+reader agent-triples-noev
+if [ "$RC" -ne 0 ] && has 'agent-triples-noev'; then
+  pass "non-zero (rc=$RC), names the report; mid-line 'evidence:' did not count"
+else
+  fail "expected non-zero naming 'agent-triples-noev' (a mid-prose 'evidence:' must not count as a slot)" \
+    "rc=$RC out=$(cat "$OUTF")"
+fi
+
+# 17. F2, field form, Unicode arrow
+run "FIELD form F2: evidence: citing a never-run command FAILS (Unicode arrow)"
+reader agent-triples-badcmd
+if [ "$RC" -ne 0 ] \
+  && has 'verified_by' \
+  && has 'go test -run TestNeverRan -count=1'; then
+  pass "non-zero (rc=$RC), names the triple AND the missing command"
+else
+  fail "expected non-zero naming the triple and the missing command" \
+    "rc=$RC out=$(cat "$OUTF")"
+fi
+
+# 18. Mixed report — both forms counted, neither double-counted
+run "MIXED report: slots counted from both forms, with no double-counting"
+reader --json agent-mixed
+njson=$(jq -s 'length' "$OUTF" 2>/dev/null)
+jq -s -r '.[].claim // empty' "$OUTF" > "$TMP/claims.txt" 2>/dev/null
+if [ "$RC" -eq 0 ] && [ "$njson" = "2" ] \
+  && grep -qF 'FIFO ordering is broken by the map range.' "$TMP/claims.txt" \
+  && grep -qF 'caused_by' "$TMP/claims.txt"; then
+  pass "exactly 2 worklist entries — one bracket INFERRED, one field INFERRED"
+else
+  fail "expected exactly 2 entries spanning both forms (n=$njson rc=$RC)" \
+    "claims=$(cat "$TMP/claims.txt")"
+fi
+
+# 19. Both arrow glyphs parse in BOTH forms — the remaining 2x2 quadrants
+run "both arrow glyphs (ASCII -> and Unicode →) parse in both slot forms"
+reader agent-glyphs-badcmd
+if [ "$RC" -ne 0 ] \
+  && has 'go test -run TestBracketUni -count=1' \
+  && has 'go test -run TestFieldAscii -count=1'; then
+  pass "bracket+Unicode and field+ASCII citations were both parsed and both named"
+else
+  fail "a glyph/form combination was not parsed as a command citation" \
     "rc=$RC out=$(cat "$OUTF")"
 fi
 
