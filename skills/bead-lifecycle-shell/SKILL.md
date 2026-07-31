@@ -435,6 +435,30 @@ per `superpowers:verification-before-completion`. The pipeline's
 RED→GREEN counts in the summary are evidence to spot-check, not to
 take on faith.
 
+That spot-check is for COUNTS. For the summary's **claims**, run the
+claim-provenance reader over the pipeline's worker transcripts
+(loom-myhi, D3/D4):
+
+```bash
+~/.claude/scripts/loom-claim-provenance agent-<test-author-id> agent-<implementer-id>
+```
+
+It FAILS on exactly two mechanical conditions — a final report carrying
+zero evidence slots, or a report citing a command absent from that
+worker's own tool calls — and otherwise emits every `INFERRED` claim as
+a worklist. It is not a verifier, a critic, or a judge: it never rules
+on whether an `INFERRED` claim is TRUE.
+
+**File before acting (D6).** An `INFERRED` claim central intends to
+**act on** must be **filed as a bead FIRST**. The filed bead is where
+the disposition lands — the verdict (was the claim true, and why) and
+the residue (was it pointing at anything real? possibly the literal
+`none`). Claims central does not intend to act on simply stay in the
+worklist: no filing, no ceremony. Size is not the risk axis here — the
+≤ ~15-line inline-dispatch bar governs WHO does the work, not whether
+an unverified premise gets acted on, so a 3-line change built on a
+wrong premise is still wrong.
+
 #### Phase ownership (who runs what)
 
 - **A1 (bug-family search):** SUBAGENT — `bug-family-researcher`,
