@@ -52,7 +52,7 @@ fail() { echo "  FAIL: $1"; failed=$((failed + 1)); [ -n "${2:-}" ] && echo "$2"
 # with cwd = the downstream project, so a bare repo-relative path would
 # miss. (loom-docs-catalogue / loom-docs-gen are intentionally NOT
 # here — see the ALLOWLIST note in the header.)
-GLOBAL_ONLY="loom-fanout-detect loom-stage-spend loom-preflight loom-guest loom-mine-history loom-audit-resolve loom-rebase-worktree loom-worktree-python loom-seam-scan loom-retro-prescan loom-doctor loom-docs-serving-check loom-print-deploy-hint"
+GLOBAL_ONLY="loom-fanout-detect loom-stage-spend loom-preflight loom-guest loom-mine-history loom-audit-resolve loom-rebase-worktree loom-worktree-python loom-seam-scan loom-retro-prescan loom-doctor loom-docs-serving-check loom-print-deploy-hint loom-claim-provenance"
 
 # Build an alternation of the global-only basenames for the regex.
 GLOBAL_ALT="$(echo "$GLOBAL_ONLY" | tr ' ' '|')"

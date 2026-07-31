@@ -43,7 +43,7 @@
 #   * ARROW present -> COMMAND citation. Command is the text before the arrow,
 #     result after. BOTH glyphs are accepted: ASCII ` -> ` and Unicode ` → `
 #     (U+2192). The shipped agent definitions use Unicode exclusively while
-#     the design doc's example uses ASCII, so a one-glyph reader misses real
+#     the bead descriptions use ASCII, so a one-glyph reader misses real
 #     reports.
 #   * `path:line` shape -> FILE citation. NEVER resolved against the
 #     filesystem — F2 is command-only.

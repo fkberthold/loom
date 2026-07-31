@@ -665,7 +665,7 @@ central refutes an `INFERRED` claim, the disposition answers two
 A refuted claim can still be load-bearing. The claim that motivated
 this rule was wrong about FIFO ordering *and* surfaced a real untested
 liveness gap; the test that eventually landed was strictly stronger
-than the property the reviewer had correctly defended. A binary
+than the property the reviewer had wrongly defended. A binary
 accept/reject discards the claim and the gap along with it — which is
 why `residue` is a field of its own rather than a clause inside the
 verdict.
