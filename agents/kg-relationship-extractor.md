@@ -32,6 +32,7 @@ Numbered list, each item a JSON-shaped triple ready to copy into `mempalace_kg_a
 1. `subject` → `predicate` → `object`
    valid_from: YYYY-MM-DD
    source_closet: (optional drawer ref)
+   evidence: <command + result, or file:line, or INFERRED>
    *Why*: <one sentence>
 
 (... up to 5 ...)
@@ -46,6 +47,16 @@ Numbered list, each item a JSON-shaped triple ready to copy into `mempalace_kg_a
 ```
 
 Cap at 5 triples. KG noise makes future queries harder; one well-chosen triple beats five forgettable ones.
+
+## Evidence slot (required) — loom-myhi
+
+Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. Each triple's `evidence:` field is that slot, and so is each entry under Invalidations to consider. `*Why*` still carries the reasoning; `evidence:` says where the relationship was read from.
+
+```
+evidence: bd show loom-x4m → close-reason names loom-22h as the sibling
+evidence: hooks/bd-worktree-preseed.sh:12
+evidence: INFERRED
+```
 
 ## Style rules
 

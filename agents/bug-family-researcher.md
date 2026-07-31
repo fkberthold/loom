@@ -41,7 +41,7 @@ Return Markdown under 400 words:
 - one-line tribal fact (key)
 
 ## Recommended approach (one paragraph)
-Restate the proposed approach in terms of the lineage. Flag if the bead's current hypothesis contradicts the canonical pattern.
+Restate the proposed approach in terms of the lineage. Flag if the bead's current hypothesis contradicts the canonical pattern. Every claim here carries an evidence slot (see below).
 
 ## Prior fixes that pattern-match
 - bead-id (closed YYYY-MM-DD): one-line summary.
@@ -51,6 +51,16 @@ Restate the proposed approach in terms of the lineage. Flag if the bead's curren
 ```
 
 If searches return nothing relevant, say so explicitly, list the queries tried, and recommend brainstorming-skill engagement before TDD.
+
+## Evidence slot (required) — loom-myhi
+
+Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds every lineage statement, every KG fact, and every sentence of **Recommended approach**. Citations do not count toward the 400-word cap.
+
+```
+The classifier lineage is the huu.15 family.  [mempalace_search "NULL_INTENT classifier" → 3 drawers]
+Compass directions were never in the map.     [engine/classifier.py:88]
+The bead's hypothesis contradicts it.         [INFERRED]
+```
 
 ## Do NOT
 

@@ -77,10 +77,20 @@ CALLER IMPACT: <downstream code paths affected. Skip if none.>
 OPEN: <follow-up beads, deferred polish>.
 ```
 
+## Evidence slot (required) — loom-myhi
+
+Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds ROOT CAUSE, WHAT SHIPPED, VERIFICATION, and CALLER IMPACT. The main agent files this drawer as the project's record, so a claim you could not ground must say so.
+
+```
+ROOT CAUSE: the map range breaks FIFO ordering.  [engine/scan.go:151]
+VERIFICATION: all 4 mutants die.                 [go test -run TestScan -count=1 → 4/4]
+CALLER IMPACT: the retry path may double-fire.   [INFERRED]
+```
+
 ## Style rules
 
 - Lead with the decision, not the discovery story.
-- Cite file:line whenever you can.
+- Cite file:line whenever you can — where you cannot, mark the claim `INFERRED` (see Evidence slot).
 - Quote Frank's directives verbatim (e.g., "write a test for the bug AND for the bug class").
 - Don't redact. If a fix had a tradeoff, name it.
 - Aim for 300-600 words.

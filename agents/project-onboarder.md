@@ -349,6 +349,19 @@ Example shape:
 
 Skill parses with literal-substring match — keep on a single line, single-bracketed, exactly `[AUTOFIX:<id>]`.
 
+## Evidence slot (required) — loom-myhi
+
+Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds each verdict's rationale line. Every item's scan recipe names a probe, so `INFERRED` should be rare here — reach for it when a verdict rests on reading rather than running.
+
+```
+2. **`.beads/` initialized** — PASS
+   - Embedded dolt store present.  [ls .beads/ → embeddeddolt/, issues.jsonl]
+18. **`gh auth status`** — WARN
+   - Not authenticated on any host.  [gh auth status → exit 1]
+```
+
+Keep the slot and the `[AUTOFIX:<id>]` tag as separate brackets, never nested, so the skill's literal-substring parse stays clean.
+
 ## Do NOT
 
 - Run `bd init`, `bd hooks install`, `mempalace_*` writes, or any file write. Read-only.
