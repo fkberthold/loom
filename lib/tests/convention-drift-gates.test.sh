@@ -153,7 +153,7 @@ fail() { echo "  FAIL: $1"; failed=$((failed + 1)); [ -n "${2:-}" ] && echo "$2"
 
 # The helper basenames that MUST use the installed global path (kept
 # in lock-step with lib/tests/downstream-script-invocation.test.sh).
-GATE1_GLOBAL_ONLY="loom-fanout-detect loom-stage-spend loom-preflight loom-guest loom-mine-history loom-audit-resolve loom-rebase-worktree loom-worktree-python loom-seam-scan loom-retro-prescan loom-doctor loom-docs-serving-check loom-print-deploy-hint"
+GATE1_GLOBAL_ONLY="loom-fanout-detect loom-stage-spend loom-preflight loom-guest loom-mine-history loom-audit-resolve loom-rebase-worktree loom-worktree-python loom-seam-scan loom-retro-prescan loom-doctor loom-docs-serving-check loom-print-deploy-hint loom-claim-provenance"
 GATE1_GLOBAL_ALT="$(echo "$GATE1_GLOBAL_ONLY" | tr ' ' '|')"
 
 # cdg_bare_scan <file>
