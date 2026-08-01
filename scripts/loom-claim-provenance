@@ -193,13 +193,48 @@ CMDS_JQ='
 
 # ----------------------------------------------------------------------
 # Slot parsing.
+#
+# Six real-world surface shapes the first cut of this parser missed
+# (loom-agug — diagnosed against a committed corpus of seven real worker
+# transcripts, lib/tests/fixtures/claim-provenance/). They do NOT share a
+# root cause, so each gets its own rule:
+#
+#   (a) backticks AROUND the bracket — `[cmd -> result]` — so the line does
+#       not END at ']'. Fixed by scanning for slots ANYWHERE on the line
+#       rather than anchoring to end-of-line.
+#   (b) backticks INSIDE the bracket wrapping the command —
+#       [`cmd` -> `result`] — the extracted command carried its backticks
+#       and could never substring-match a tool call. Fixed by stripping
+#       backticks from the payload.
+#   (c) MID-LINE / LINE-LEADING slots — `**Claim.** [INFERRED] because ...`
+#       — no backticks involved at all. Same fix as (a).
+#   (d) FENCED CODE BLOCKS read as report content — a report that quotes
+#       this contract's own EXAMPLE slots got condemned by them. Fixed by
+#       skipping ``` fenced regions. Markdown HEADINGS are skipped for the
+#       same reason: a section titled "`[INFERRED]` judgment calls" is not
+#       a claim, and must not clear F1 on its own.
+#   (e) ONE SLOT PER LINE — the old greedy `^(.*)\[...\]$` kept only the
+#       LAST bracket, so earlier slots were never checked. Fixed by
+#       iterating EVERY bracket on the line.
+#   (f) ARROW SPLIT ORDER — the separator is the FIRST arrow by POSITION,
+#       whichever glyph it is, not "Unicode if present else ASCII". And an
+#       arrow inside a quoted pattern (`grep -c ' -> ' f`) must not truncate
+#       the command to a prefix so short it matches almost any tool call.
+#       Fixed by generating every by-position split candidate and accepting
+#       the citation if ANY of them matches a tool call.
+#
+# Every rule above narrows or re-aims the parse; NONE widens the gate. It
+# stays exactly two mechanical conditions (D4).
 # ----------------------------------------------------------------------
 # `evidence:` is matched LINE-LEADING (anchored) — a mid-prose "no evidence:"
 # is not a slot.
 RE_FIELD='^[[:space:]]*evidence:[[:space:]]*(.*)$'
-# A trailing bracketed token ends a bracket-form claim line. The greedy
-# leading (.*) makes the LAST bracket on the line the slot.
-RE_BRACKET='^(.*)\[([^]]*)\][[:space:]]*$'
+# A bracketed token ANYWHERE on the line is a slot; scan_brackets walks them
+# left-to-right so every slot on the line is checked, not just the last.
+RE_SLOT='\[([^][]+)\]'
+# Structural lines that carry no claims of their own.
+RE_FENCE='^[[:space:]]*(```|~~~)'
+RE_HEADING='^[[:space:]]*#{1,6}([[:space:]]|$)'
 # Lines that are part of a triple block but are not its header.
 RE_TRIPLE_FIELD='^[[:space:]]*(valid_from|source_closet|evidence)[[:space:]]*:'
 RE_WHY='^[[:space:]]*\*Why\*'
@@ -211,6 +246,85 @@ trim() {
   s="${s#"${s%%[![:space:]]*}"}"
   s="${s%"${s##*[![:space:]]}"}"
   printf '%s' "$s"
+}
+
+# clean_slot <text> — strip markdown backticks, then whitespace. Defect (b):
+# a command wrapped in backticks for code formatting is the same command.
+clean_slot() {
+  local s="${1//\`/}"
+  trim "$s"
+}
+
+# clean_claim <text> — a claim's own trimming, which additionally drops the
+# markdown scaffolding that abuts a mid-line slot (a dangling code-span
+# backtick, a list bullet) so the worklist entry reads as the sentence.
+clean_claim() {
+  local s prev
+  s="$(trim "$1")"
+  while :; do
+    prev="$s"
+    s="${s#\`}"
+    s="${s%\`}"
+    s="$(trim "$s")"
+    [ "$s" = "$prev" ] && break
+  done
+  # Residue that is pure punctuation (a stray bullet, an orphaned `**`) is
+  # not a claim — say nothing rather than something meaningless.
+  [[ "$s" =~ ^[[:space:][:punct:]]*$ ]] && s=""
+  printf '%s' "$s"
+}
+
+# scan_brackets <line> — every `[...]` on the line, in order. Sets
+# SLOT_PAYLOADS (raw payloads) and SLOT_CLAIMS (the text each slot
+# qualifies: what precedes it, or — for a leading slot — what follows).
+SLOT_PAYLOADS=()
+SLOT_CLAIMS=()
+scan_brackets() {
+  local rest="$1"
+  local payload before after claim
+  SLOT_PAYLOADS=()
+  SLOT_CLAIMS=()
+  while [[ "$rest" =~ $RE_SLOT ]]; do
+    payload="${BASH_REMATCH[1]}"
+    before="${rest%%"[$payload]"*}"
+    after="${rest#*"[$payload]"}"
+    claim="$(clean_claim "$before")"
+    [ -n "$claim" ] || claim="$(clean_claim "${after#\`}")"
+    SLOT_PAYLOADS+=("$payload")
+    SLOT_CLAIMS+=("$claim")
+    rest="$after"
+  done
+}
+
+# strip_slots <line> — the line with every bracketed slot removed, leaving
+# whatever prose surrounded them.
+strip_slots() {
+  local s="$1" head tail
+  while [[ "$s" =~ $RE_SLOT ]]; do
+    head="${s%%"[${BASH_REMATCH[1]}]"*}"
+    tail="${s#*"[${BASH_REMATCH[1]}]"}"
+    s="${head} ${tail}"
+  done
+  printf '%s' "$s"
+}
+
+# prose_header <line-index> — the claim a WHOLE-LINE bracket slot belongs to.
+# A slot that occupies its entire line (`` `[cmd -> result]` `` alone) has no
+# in-line claim text, and reporting an empty claim makes an F2 unactionable —
+# so fall back to the nearest preceding line that carries prose of its own.
+prose_header() {
+  local idx="$1" j line rest
+  for (( j = idx - 1; j >= 0; j-- )); do
+    line="${LINES[$j]}"
+    [ -n "$(trim "$line")" ] || continue
+    [[ "$line" =~ $RE_HEADING ]] && continue
+    [[ "$line" =~ $RE_FENCE ]] && continue
+    rest="$(clean_claim "$(strip_slots "$line")")"
+    [ -n "$rest" ] || continue
+    printf '%s' "$rest"
+    return 0
+  done
+  printf '%s' ""
 }
 
 # field_header <line-index> — the claim a FIELD slot belongs to: the nearest
@@ -228,22 +342,80 @@ field_header() {
   printf '%s' ""
 }
 
-# split_arrow <payload> — sets ARROW_CMD to the text before the first arrow.
+# quotes_balanced <text> — true when the text leaves no shell quote open.
+# An arrow living INSIDE a quoted pattern (`grep -c ' -> ' f`) is part of the
+# command, not a separator, and the split that would produce `grep -c '` is
+# recognisable by exactly this: it ends mid-quote.
+quotes_balanced() {
+  local s="$1" i ch q=""
+  for (( i = 0; i < ${#s}; i++ )); do
+    ch="${s:i:1}"
+    if [ -z "$q" ]; then
+      case "$ch" in "'"|'"') q="$ch" ;; esac
+    elif [ "$ch" = "$q" ]; then
+      q=""
+    fi
+  done
+  [ -z "$q" ]
+}
+
+# split_arrow <payload> — sets ARROW_CMDS to every PLAUSIBLE by-position split
+# of the payload: the text before the 1st arrow, before the 2nd, and so on,
+# whichever glyph each arrow is, keeping those that do not end mid-quote.
 # Returns 1 when the payload carries no arrow (so it is not a command
-# citation) or when the command side is empty.
-ARROW_CMD=""
+# citation) or when every command side is empty.
+#
+# Defect (f), both halves. The separator is an arrow chosen BY POSITION — the
+# old glyph-precedence test split an ASCII citation at a later Unicode arrow
+# living in its RESULT, swallowing the result into the command. But splitting
+# at the FIRST arrow unconditionally is the opposite error: `grep -c ' -> ' f
+# -> 0` truncates to `grep -c '`, a prefix short enough to substring-match
+# almost any grep in the transcript — a silent FALSE NEGATIVE, and the more
+# dangerous direction, because it passes citations that were never run.
+#
+# Both are resolved by generating every candidate and accepting the citation
+# if ANY of them matches a tool call — but ONLY quote-balanced candidates are
+# generated. That single filter is what keeps the permissive any-match rule
+# from becoming a hole: `grep -c '` is not a candidate at all, so a citation
+# whose real command was elided (`grep -c ' → ' <same three>`) can no longer
+# be rescued by its own prefix. Measured on the real corpus: without the
+# filter agent-real-a25b90f9a6cad014f passes on that prefix; with it, the
+# elided citation is correctly reported.
+ARROW_CMDS=()
 split_arrow() {
   local p="$1"
-  ARROW_CMD=""
-  if [[ "$p" == *" → "* ]]; then
-    ARROW_CMD="${p%% → *}"
-  elif [[ "$p" == *" -> "* ]]; then
-    ARROW_CMD="${p%% -> *}"
-  else
-    return 1
+  local rest="$p" consumed="" pre sep a_pre b_pre cand
+  local has_a has_b
+  local raw=()
+  ARROW_CMDS=()
+  while :; do
+    has_a=0; has_b=0; a_pre=""; b_pre=""
+    if [[ "$rest" == *" -> "* ]]; then a_pre="${rest%%" -> "*}"; has_a=1; fi
+    if [[ "$rest" == *" → "* ]]; then b_pre="${rest%%" → "*}"; has_b=1; fi
+    if [ "$has_a" -eq 0 ] && [ "$has_b" -eq 0 ]; then break; fi
+    # The EARLIER arrow wins. Both prefixes are prefixes of the same string,
+    # so the shorter one is the earlier one.
+    if [ "$has_a" -eq 1 ] && { [ "$has_b" -eq 0 ] || [ "${#a_pre}" -lt "${#b_pre}" ]; }; then
+      pre="$a_pre"; sep=" -> "
+    else
+      pre="$b_pre"; sep=" → "
+    fi
+    consumed="${consumed}${pre}"
+    cand="$(trim "$consumed")"
+    if [ -n "$cand" ]; then
+      raw+=("$cand")
+      quotes_balanced "$cand" && ARROW_CMDS+=("$cand")
+    fi
+    consumed="${consumed}${sep}"
+    rest="${rest#"$pre$sep"}"
+  done
+  # A payload where EVERY split ends mid-quote is malformed rather than
+  # unquoted. Fall back to the longest split — the strict reading, so a
+  # malformed citation is still checked instead of escaping F2 entirely.
+  if [ "${#ARROW_CMDS[@]}" -eq 0 ] && [ "${#raw[@]}" -gt 0 ]; then
+    ARROW_CMDS=("${raw[$(( ${#raw[@]} - 1 ))]}")
   fi
-  ARROW_CMD="$(trim "$ARROW_CMD")"
-  [ -n "$ARROW_CMD" ] || return 1
+  [ "${#ARROW_CMDS[@]}" -gt 0 ] || return 1
   return 0
 }
 
@@ -267,40 +439,68 @@ process_one() {
   local nslots=0
   local inf_claims=() inf_forms=()
   local miss_claims=() miss_cmds=()
-  local i line payload claim form
+  local i k line payload claim form
+  local in_fence=0 matched cand
 
   for (( i = 0; i < ${#LINES[@]}; i++ )); do
     line="${LINES[$i]}"
-    if [[ "$line" =~ $RE_FIELD ]]; then
-      payload="$(trim "${BASH_REMATCH[1]}")"
-      claim="$(field_header "$i")"
-      form="field"
-    elif [[ "$line" =~ $RE_BRACKET ]]; then
-      payload="$(trim "${BASH_REMATCH[2]}")"
-      claim="$(trim "${BASH_REMATCH[1]}")"
-      form="bracket"
-    else
+
+    # Defect (d). A ``` fence delimits QUOTED material — a pasted test file,
+    # the contract's own examples — not the worker's claims. Neither side of
+    # the gate may read it: fenced slots must not satisfy F1, and must not
+    # trip F2. A heading is likewise structure, not a claim.
+    if [[ "$line" =~ $RE_FENCE ]]; then
+      in_fence=$(( 1 - in_fence ))
       continue
     fi
+    [ "$in_fence" -eq 1 ] && continue
+    [[ "$line" =~ $RE_HEADING ]] && continue
 
-    nslots=$(( nslots + 1 ))
-
-    if split_arrow "$payload"; then
-      # COMMAND citation — the one payload kind F2 checks. Substring, not
-      # equality: real tool calls carry redirects and pipes the citation omits.
-      case "$cmd_blob" in
-        *"$ARROW_CMD"*) : ;;
-        *)
-          miss_claims+=("$claim")
-          miss_cmds+=("$ARROW_CMD")
-          ;;
-      esac
-    elif [ "$payload" = "INFERRED" ]; then
-      inf_claims+=("$claim")
-      inf_forms+=("$form")
+    if [[ "$line" =~ $RE_FIELD ]]; then
+      SLOT_PAYLOADS=("${BASH_REMATCH[1]}")
+      SLOT_CLAIMS=("$(field_header "$i")")
+      form="field"
+    else
+      # Defects (a), (c), (e): every bracket on the line, wherever it sits.
+      scan_brackets "$line"
+      form="bracket"
     fi
-    # Anything else is a FILE citation (or an unrecognised pointer). Never
-    # resolved against the filesystem — F2 is command-only.
+
+    for (( k = 0; k < ${#SLOT_PAYLOADS[@]}; k++ )); do
+      # Defect (b): backticks are markdown formatting, not part of the
+      # command. Strip them before matching AND before reporting.
+      payload="$(clean_slot "${SLOT_PAYLOADS[$k]}")"
+      [ -n "$payload" ] || continue
+      claim="${SLOT_CLAIMS[$k]}"
+      if [ -z "$claim" ] && [ "$form" = "bracket" ]; then
+        claim="$(prose_header "$i")"
+      fi
+
+      nslots=$(( nslots + 1 ))
+
+      if split_arrow "$payload"; then
+        # COMMAND citation — the one payload kind F2 checks. Substring, not
+        # equality: real tool calls carry redirects and pipes the citation
+        # omits. Defect (f): ANY by-position split matching is enough.
+        matched=0
+        for cand in "${ARROW_CMDS[@]}"; do
+          case "$cmd_blob" in
+            *"$cand"*) matched=1; break ;;
+          esac
+        done
+        if [ "$matched" -eq 0 ]; then
+          # Report the LONGEST candidate — the full cited command. A short
+          # quoted-arrow prefix would understate what the worker claimed.
+          miss_claims+=("$claim")
+          miss_cmds+=("${ARROW_CMDS[$(( ${#ARROW_CMDS[@]} - 1 ))]}")
+        fi
+      elif [ "$payload" = "INFERRED" ]; then
+        inf_claims+=("$claim")
+        inf_forms+=("$form")
+      fi
+      # Anything else is a FILE citation (or an unrecognised pointer). Never
+      # resolved against the filesystem — F2 is command-only.
+    done
   done
 
   # --- F1: zero evidence slots of EITHER form -------------------------
