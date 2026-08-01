@@ -90,6 +90,43 @@ after a wave returns.
 Your project's `.claude/rules/dispatched-agents.md` carries the battery
 itself and the project-specific hazards. Read it before any dispatch.
 
+### Cross-repo dispatch is unsupported
+
+`isolation: "worktree"` worktrees the **dispatching session's** repo,
+whatever the brief claims. It does not read the brief, and no parameter
+selects a different repo — so **to dispatch a worker into project X,
+the dispatching session must be in project X.** A brief naming any
+other repo is a bug in the brief; state the repo from the output of
+`git rev-parse --show-toplevel` rather than from memory of where the
+session started.
+
+A worker that finds the mismatch **aborts and reports** rather than
+adapting. This is the one case where relative-path discipline turns
+against you — in a wrong-repo worktree a relative path resolves to
+*that* repo's real file of the same name, so obeying the brief is what
+does the damage. The repo-identity check that catches it, and the
+failure mode behind it, are in your
+`.claude/rules/dispatched-agents.md`.
+
+### Claim provenance in a worker's return
+
+Every load-bearing claim in a worker's return carries **either** a
+citation — the command run and its result, or a `file:line` — **or**
+the literal marker `INFERRED`. Never neither. A citation is a
+**pointer, not a rationale**: it says where to look, not why to
+believe, so no justifying sentence belongs in the slot. Reasoning stays
+wherever the report already keeps it.
+
+A report that blends verified claims with unverified ones at uniform
+confidence lets the verified lend their credibility to the rest. The
+distinction exists while the worker is writing, so the worker states it
+then rather than leaving a reader to re-derive it. Your
+`.claude/rules/dispatched-agents.md` carries the two surface forms (a
+prose report brackets the slot at the end of the claim; a structured
+triple report uses a line-leading `evidence:` field), how a refuted
+claim is dispositioned, and what central may act on without filing it
+first.
+
 ---
 
 ## Bead conventions
