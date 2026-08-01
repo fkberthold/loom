@@ -34,6 +34,16 @@ they argue for it.
   `off` exist as a mode triad rather than a single boolean, why
   ask-once-and-remember beats per-session prompting, and what was
   considered before settling on the per-project state file.
+- [**Gate, don't advise**](gate-dont-advise.md) — why a correctness
+  check a human has to *remember to run* is not a check, the drift
+  recurrence that motivated the rule, and why it does not contradict
+  the deliberate nudge-not-block UX used elsewhere.
+- [**Claim provenance**](claim-provenance.md) — why an agent's report
+  must declare *how* each claim was established: provenance flattening
+  as the mechanism, why a critic agent / confidence score / trust score
+  were each rejected, and where the enforcement line falls (gate the
+  structure, nudge the claims). The reader itself is in
+  [Reference](../reference/loom-claim-provenance.md).
 - [**Provenance**](provenance.md) — loom's lineage: v1
   (working-a-bead in HAW), v1.5 (workflow modes + state file),
   v2 (sibling recipes + bead-lifecycle-shell extraction), v3 (the

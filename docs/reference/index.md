@@ -39,6 +39,7 @@ catalogue pages are listed separately above).
 | [MemPalace MCP tools](mempalace-mcp.md) | The 29 MCP tools by frequency tier, palace architecture vocabulary |
 | [Loom env vars](loom-env-vars.md) | The harness env vars loom sets + the `LOOM_*_SKIP` bypass family |
 | [Helper scripts](helper-scripts.md) | The `scripts/loom-*` helper family (fanout-detect, rebase-worktree, worktree-python, doctor, etc.) |
+| [loom-claim-provenance](loom-claim-provenance.md) | The central-side claim-provenance reader — evidence-slot forms, the two FAIL conditions, worklist output, exit codes |
 | [Decision tables](decision-tables.md) | Tool-selection lookups (`bd remember` vs drawer, skill vs hook, dispatch posture, design-cycle vs recipe, etc.) |
 | [Glossary](glossary.md) | Term definitions (AAAK, bead, drawer, family, KG, recipe, dispatch-middle, design-a-cycle, etc.) |
 | [Decision drawer scaffold (FIXME)](docs-scaffold-fixme.md) | Open scaffolding gaps tracked as FIXMEs |

@@ -6,9 +6,12 @@
 > deterministic logic lives in one place rather than being re-derived
 > in prose.
 
-The helpers below are the ones documented here. Two other `scripts/`
+The helpers below are the ones documented here. Three other `scripts/`
 helpers have dedicated pages — cross-link rather than duplicate:
 
+- [`loom-claim-provenance`](loom-claim-provenance.md) — central-side
+  reader that checks a dispatched worker's report for evidence slots
+  and cited-command grounding (loom-myhi).
 - [`loom-rebase-worktree`](loom-rebase-worktree.md) — WIP-preserving
   rebase of a linked worktree onto a base branch (loom-azt).
 - [`loom-worktree-python`](loom-worktree-python.md) — `python3` wrapper
