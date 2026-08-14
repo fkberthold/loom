@@ -207,8 +207,16 @@ slash commands.
   harness's base-ref behavior is opaque to loom. Worker briefs
   should run the pre-flight smoke battery in
   `.claude/rules/dispatched-agents.md` as the first bash call;
-  step 5 of that battery compares `git merge-base HEAD main`
-  against `git rev-parse main` and auto-rebases when stale.
+  step 5 of that battery fetches, then compares `git merge-base HEAD
+  main` against BOTH `git rev-parse main` and `git rev-parse
+  origin/main`, and rebases onto the remote tip when any of the three
+  disagree. Comparing against local `main` alone is not enough
+  (loom-vlb9): a local branch ref is a cache that only moves when
+  somebody fetches, so when it trails the remote the check compares a
+  stale ref against itself and reports fresh — and the same stale ref
+  makes the worker-side leak check list files nobody touched. Degrades
+  to the local-only comparison when no remote is configured (loom-hsb
+  solo-workspace precedent).
 
   `git rebase main` alone is NOT sufficient — on an empty-branch
   worker (no commits yet) it returns rc=0 as a no-op even when the

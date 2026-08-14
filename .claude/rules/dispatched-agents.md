@@ -92,25 +92,56 @@ too — it is step 1's corroborating identity signal.
 bd list -n 1
 ```
 
-**Step 5 — base freshness.** The branch base must match main's tip.
-**Compare the two SHAs**; they must be identical.
+**Step 5 — base freshness.** The branch base must match the tip of the
+default branch — and that tip is the **remote's**, not the local ref's.
+A local `main` is a CACHE: it only moves when somebody fetches, so it can
+trail `origin/main` by days (loom-vlb9). Fetch first, then read three
+SHAs. **All three must be identical**; any difference is STALE.
 
 ```bash
-git merge-base HEAD main
+git fetch origin
+```
+
+```bash
+git rev-parse origin/main
 ```
 
 ```bash
 git rev-parse main
 ```
 
-If they differ the base is STALE — rebase before doing any work, then
-re-run step 5 to confirm. (Use `scripts/loom-rebase-worktree main`
-instead when untracked WIP from a prior crash needs preserving; see
-the Base-freshness section below.)
+```bash
+git merge-base HEAD main
+```
+
+Read the three outputs and compare them yourself — the comparison is the
+agent's job, not the shell's:
+
+- **All three identical** → fresh. Proceed.
+- **`origin/main` differs from `main`** → the LOCAL REF is stale, whatever
+  the merge-base says. Treat `origin/main` as the authoritative tip:
+  rebase onto it, and use `origin/main` in place of `main` for the rest
+  of the session — including the leak check. Say so in your report; a
+  worker cannot fast-forward local `main` from inside a linked worktree
+  (it is checked out in the main worktree), so refreshing it is central's
+  move, not yours.
+- **`merge-base` differs from `origin/main`** → the branch base is stale.
+  Rebase, then re-run the three reads to confirm they now agree.
 
 ```bash
-git rebase main
+git rebase origin/main
 ```
+
+**The solo case — no remote configured.** `git fetch origin` errors and
+`git rev-parse origin/main` reports an unknown revision. That is not a
+failure (the loom-hsb solo-workspace precedent): with no remote there is
+no fresher tip to be had, so the local ref IS ground truth. Fall back to
+comparing the remaining two SHAs — `main` against `merge-base` — and say
+in your report that the remote comparison was unavailable.
+
+(Use `scripts/loom-rebase-worktree origin/main` instead of a plain
+rebase when untracked WIP from a prior crash needs preserving; see
+the Base-freshness section below.)
 
 Each section below documents the failure mode that motivates one
 smoke test, plus the mechanical-fix hook that backstops it. The
@@ -458,35 +489,92 @@ rebase against a partially-typed change set. Catch it pre-flight by
 comparing merge-base against main's tip directly, before any work
 begins.
 
-**Pre-flight smoke test** (battery step 5 — two separate calls, whose
-SHAs the worker compares):
+**Risk (loom-vlb9, measured 2026-08-14) — the ref being compared was
+never questioned.** The check above compared `git merge-base HEAD main`
+against `git rev-parse main`: **both sides local**. A local branch ref is
+a cache that only moves when somebody fetches, so when local `main`
+itself trails the remote, the step compares a stale ref against itself
+and reports fresh.
+
+Measured live: a dispatched worker's branch was created from
+`origin/main` (`4ccff46`) while this machine's local `main` sat at
+`98ce717`, one commit and nine days behind. Step 5 PASSED, because local
+`main` was an ancestor of the worktree base.
+[`git reflog` → `refs/heads/worktree-agent-a3bbf0ce8f9dc84e2@{1}: branch: Created from origin/main`]
+
+That direction was benign — the worker got a *fresher* base than
+central's `main`, so nothing was lost. The inverse is the risk: when a
+branch is cut from a stale LOCAL `main` (or rebased onto it), the worker
+builds on a genuinely stale base and the step still reports fresh. That
+is loom-6zi's failure mode with one more layer of indirection — loom-6zi
+fixed the empty-branch rebase no-op and left *which ref* untouched.
+
+**Second-order: it poisons the leak check too.** The worker-side leak
+check below is specified against `main`, so a stale local `main` makes
+`git diff --stat main HEAD` list files the worker never touched. In the
+measured session the worker read through it correctly and said so — but a
+guard that cries wolf is precisely the failure mode loom-stdi's rejected
+central-side scanner was rejected FOR: it trains the reader to dismiss
+the check, and the one real hit arrives pre-dismissed. When step 5 finds
+local `main` trailing, use the remote form for the rest of the session:
 
 ```bash
-git merge-base HEAD main
+git diff --stat origin/main HEAD
+```
+
+**Pre-flight smoke test** (battery step 5 — four separate calls, whose
+SHAs the worker compares; then the remediation):
+
+```bash
+git fetch origin
+```
+
+```bash
+git rev-parse origin/main
 ```
 
 ```bash
 git rev-parse main
 ```
 
-If the two SHAs differ the base is stale; rebase, then re-run both
-calls to confirm they now match:
-
 ```bash
-git rebase main
+git merge-base HEAD main
 ```
 
-For an empty branch the rebase fast-forwards the branch tip to
-main; for a branch with commits it replays them onto main. Either
-way the worker proceeds on a known-fresh base AND knows its
-starting point shifted (the diagnostic the silent no-op was
-hiding). Doing the comparison in the agent rather than in an
-`if … fi` shell block is what makes this step runnable under the
-isolation harness (loom-ta1w).
+All three SHAs must be identical. If `origin/main` differs from `main`,
+the local ref is stale and `origin/main` is the authoritative tip; if
+`merge-base` differs from `origin/main`, the branch base is stale. Either
+way, rebase onto the remote tip and re-read to confirm:
 
-**Mechanical fix.** Use `scripts/loom-rebase-worktree main`
-(loom-azt) instead of plain `git rebase main` when untracked WIP
-from a prior crash needs preserving across the rebase. The wrapper
+```bash
+git rebase origin/main
+```
+
+For an empty branch the rebase fast-forwards the branch tip; for a
+branch with commits it replays them. Either way the worker proceeds on
+a known-fresh base AND knows its starting point shifted (the diagnostic
+the silent no-op was hiding). Doing the comparison in the agent rather
+than in an `if … fi` shell block is what makes this step runnable under
+the isolation harness (loom-ta1w) — and it is why the fetch is its own
+plain command rather than a `&&` chain.
+
+**The solo case is not a failure.** With no remote configured the fetch
+errors and `origin/main` is an unknown revision. Per the loom-hsb
+solo-workspace precedent, degrade rather than abort: the local ref is the
+only ground truth there is, so compare `main` against `merge-base` as
+before and report that the remote comparison was unavailable. The check
+must never assume `origin` exists.
+
+**Why not fast-forward local `main` instead?** A worker cannot: `main` is
+checked out in the main worktree, so `git branch -f main origin/main`
+from a linked worktree is refused. Refreshing the local ref is central's
+move. The worker's job is to notice, route around it via `origin/main`,
+and say so in its report.
+
+**Mechanical fix.** Use `scripts/loom-rebase-worktree origin/main`
+(loom-azt) instead of a plain rebase when untracked WIP from a prior
+crash needs preserving across the rebase (`main` when there is no
+remote — the solo case again). The wrapper
 refuses outside a linked worktree, snapshots untracked files,
 pre-detects collisions, and restores files post-rebase. See
 [`docs/reference/loom-rebase-worktree.md`](../../docs/reference/loom-rebase-worktree.md).
@@ -528,6 +616,16 @@ The listed paths must match the bead's declared `Files:` (plus any
 footprint expansion the worker is about to declare in its report).
 Unrelated files here mean either a stale base (re-run battery step 5)
 or a genuine leak.
+
+Note the third possibility, which is a false positive rather than a
+finding: if step 5 showed local `main` trailing `origin/main`, this diff
+lists the intervening commits' files as though the worker had touched
+them (loom-vlb9). Compare against the remote ref instead, and read the
+result as the real footprint:
+
+```bash
+git diff --stat origin/main HEAD
+```
 
 *Should this path be absent from main?* Compare against the main
 **ref** rather than the main **path**:

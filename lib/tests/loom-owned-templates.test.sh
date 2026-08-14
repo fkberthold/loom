@@ -359,9 +359,19 @@ echo "==> the owned template is PROJECT-AGNOSTIC (adoptable verbatim)"
 # that would make it un-adoptable; each names a loom-only fact.
 if [ -f "$LOOM_ROOT/$OWNED_TEMPLATE" ]; then
   leaked=""
+  # `bd-unbounded-ok:` is loom-INTERNAL machinery (loom-ztrp): the marker
+  # exists to exempt a call site from loom's own glob-driven
+  # unbounded-invocation gate. A downstream project has no such gate to be
+  # exempted FROM, so shipping the marker downstream would be a no-op
+  # token that only invites cargo-culting. The RULE generalizes; the
+  # escape hatch does not.
+  # shellcheck disable=SC2088  # `~/repos/loom` is a LITERAL token to
+  # grep for, not a path to expand — expanding it would search for this
+  # machine's $HOME and stop detecting the leak.
   for tok in 'loom/decisions' 'hundred_acre_woods' '~/repos/loom' \
-             'lib/tests/' 'shellcheck' 'frank/' 'install.sh'; do
-    if grep -qF "$tok" "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+             'lib/tests/' 'shellcheck' 'frank/' 'install.sh' \
+             'bd-unbounded-ok'; do
+    if grep -qF -- "$tok" "$LOOM_ROOT/$OWNED_TEMPLATE"; then
       leaked="$leaked $tok"
     fi
   done
@@ -376,8 +386,11 @@ if [ -f "$LOOM_ROOT/$OWNED_TEMPLATE" ]; then
   missing=""
   for tok in 'Files:' 'RED:' 'AUTOFAN-EXCLUDE:' \
              'Background dispatch' 'Worker-dispatch' \
-             'Gate, don' 'explore' 'Splitting heuristic'; do
-    if ! grep -qF "$tok" "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+             'Gate, don' 'explore' 'Splitting heuristic' \
+             '--limit 0'; do
+    # `--` is load-bearing: one of the tokens is itself a flag-shaped
+    # string (`--limit 0`), which grep would otherwise parse as an option.
+    if ! grep -qF -- "$tok" "$LOOM_ROOT/$OWNED_TEMPLATE"; then
       missing="$missing '$tok'"
     fi
   done
@@ -394,6 +407,46 @@ if [ -f "$LOOM_ROOT/$OWNED_TEMPLATE" ]; then
     pass "owned template states its do-not-edit contract"
   else
     fail "owned template states its do-not-edit contract"
+  fi
+
+  # --- loom-ztrp: the set-consuming tracker-query convention ----------
+  #
+  # `bd list` / `bd ready` truncate by default and the notice announcing
+  # it does not survive the idioms that consume them — text mode writes
+  # it to stdout where a `| grep` eats it, JSON mode to stderr where
+  # `2>/dev/null` or a bare `| jq` eats it. A downstream project needs
+  # three facts and no more: it truncates, `--limit 0` is the unbounded
+  # form, and a set-consuming invocation must carry it. The loom-internal
+  # detail (the site sweep, the escape hatch, the discrimination rules)
+  # stays in loom — POINT, don't duplicate (loom-f59h): two copies
+  # drifting apart is the exact failure the owned template prevents.
+
+  if grep -qiE 'truncat' "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+    pass "owned template states WHY the limit is needed (truncation)"
+  else
+    fail "owned template states WHY the limit is needed (truncation)"
+  fi
+
+  if grep -qiE 'consumed as a set|as a set' "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+    pass "owned template scopes the rule to set-consuming invocations"
+  else
+    fail "owned template scopes the rule to set-consuming invocations"
+  fi
+
+  if grep -qiE 'bounded by construction|already bounded|exempt' \
+       "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+    pass "owned template exempts invocations bounded by construction"
+  else
+    fail "owned template exempts invocations bounded by construction"
+  fi
+
+  # The notice-dies-in-the-pipe mechanism is the non-obvious half — a
+  # reader who does not know it will assume a visible warning protects
+  # them.
+  if grep -qiE 'stderr|stdout' "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+    pass "owned template explains why the truncation notice is invisible"
+  else
+    fail "owned template explains why the truncation notice is invisible"
   fi
 fi
 
