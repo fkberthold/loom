@@ -19,7 +19,7 @@ From the prompt: bead title or symptom description; optionally bead-id, suspecte
 2. **MemPalace KG query**: for each named entity (function, error message, prompt, layer), run `mempalace_kg_query`. Pay particular attention to predicates like `is_sibling_of`, `caused_by`, `superseded_by`, `members_of_family`.
 3. **MemPalace diary scan**: `mempalace_diary_read("claude-opus", 5)` (or whichever agent is most relevant). Diary entries surface the *why* behind decisions.
 4. **bd memories**: `bd memories <keyword>` for tribal facts. (Boundary: bd memories = tribal facts; MemPalace drawers = decisions.)
-5. **bd related beads**: `bd search <symptom-keyword>` and `bd list --status=closed`. `bd show <id>` reasoning + close-reason often summarises the canonical fix shape.
+5. **bd related beads**: `bd search <symptom-keyword>` and `bd list --status=closed --limit 0`. `bd show <id>` reasoning + close-reason often summarises the canonical fix shape.
 
 ## Output format
 

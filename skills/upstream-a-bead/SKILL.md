@@ -499,7 +499,7 @@ Re-run the loom-side verification from a clean shell, confirm
 - (`--issue+pr` only) `gh pr view <pr-URL> --json
   state,headRefName` confirms the PR exists and points at the
   expected fork branch.
-- `bd list --label=upstream:watch` shows the watch-bead exists and
+- `bd list --label=upstream:watch --limit 0` shows the watch-bead exists and
   references the correct PR URL in its description.
 - `bd dep list <watch-bead-id>` confirms the dependency edge on the
   work-bead resolves.

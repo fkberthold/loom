@@ -23,7 +23,7 @@ overrides. If empty, fall through silently.
 # DISCOVERY:START — find beads merged to main but still open/in_progress.
 # Prefix-agnostic; reuses the canonical bead-ID regex from
 # hooks/bd-close-capture.sh. Idempotent + safe to run in any project.
-since=$(bd list --status=closed --json 2>/dev/null \
+since=$(bd list --status=closed --json --limit 0 2>/dev/null \
   | python3 -c 'import json,sys
 try: d=json.load(sys.stdin)
 except Exception: d=[]

@@ -48,7 +48,7 @@ does not block reconciliation of the other watch-beads.
   status flips except the one explicit `bd close` per MERGED bead.
 - **Idempotent.** Re-running the sweep with the same PR states
   produces the same set of closes; already-closed watch-beads are
-  not in the `bd list --status=open` set on the next pass.
+  not in the `bd list --status=open` set on the next pass. <!-- bd-unbounded-ok: refers to the set a later invocation computes; not an invocation -->
 - **No new infrastructure.** Schedulable via the wake-up scheduler
   that ships with loom; this command is the unit of work, the
   scheduler is the cadence layer. Default cadence is deferred (see
@@ -64,7 +64,7 @@ set -uo pipefail
 #    --status=open implied by default in most bd builds; pass
 #    explicitly for portability. --json keeps description parsing
 #    sane (newlines / quotes survive jq's -r).
-beads=$(bd list --label=upstream:watch --status=open --json 2>/dev/null) || beads='[]'
+beads=$(bd list --label=upstream:watch --status=open --json --limit 0 2>/dev/null) || beads='[]'
 
 count=$(printf '%s' "$beads" | jq 'length' 2>/dev/null || echo 0)
 if [ "$count" = "0" ]; then

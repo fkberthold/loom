@@ -136,7 +136,7 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
     - Lineage: loom-r6g (2026-05-21). Same trial as item 13 (fresh ~/repos/mforth audit); loom-hsb shipped the guard in loom's own CLAUDE.md (2026-05-04) but downstream projects don't inherit it. Sibling: bd init's CLAUDE.md template generation is upstream-only (filed separately).
 
 15. **Upstream:loom label suggestion**
-    - Cross-tracker dependency hygiene. Enumerate the project's open beads via `bd list --status=open --json`. For each, test the description against the canonical loom-keyword regex:
+    - Cross-tracker dependency hygiene. Enumerate the project's open beads via `bd list --status=open --json --limit 0`. For each, test the description against the canonical loom-keyword regex:
       ```
       (^|[^a-zA-Z0-9_])(loom-hook|loom-script|loom-[a-z0-9]+)|hooks/|scripts/loom-
       ```
@@ -163,7 +163,7 @@ Each item produces one report line (`PASS` / `WARN` / `MISS` plus one-sentence r
 
 17. **`~/.loom/upstream/` orphan-clone scan (informational)**
     - The upstream-a-bead recipe (loom-k2g) caches per-repo clones under `~/.loom/upstream/<owner>/<repo>/`. A clone is "orphan" when no open `upstream:watch` bead references it — the recipe finished, the watch-bead closed (or never spawned), and the clone is taking disk for no live workflow.
-    - Procedure: list `~/.loom/upstream/*/*/` directories. For each, parse the corresponding `<owner>/<repo>` pair. Cross-check against open `upstream:watch` beads (`bd list --label=upstream:watch --json`); each watch-bead carries a PR URL in its description from which `<owner>/<repo>` can be derived (`https://github.com/<owner>/<repo>/pull/<N>`). A clone with no matching open watch-bead is an orphan candidate.
+    - Procedure: list `~/.loom/upstream/*/*/` directories. For each, parse the corresponding `<owner>/<repo>` pair. Cross-check against open `upstream:watch` beads (`bd list --label=upstream:watch --json --limit 0`); each watch-bead carries a PR URL in its description from which `<owner>/<repo>` can be derived (`https://github.com/<owner>/<repo>/pull/<N>`). A clone with no matching open watch-bead is an orphan candidate.
     - **Verdict matrix:**
       - PASS = no `~/.loom/upstream/` directory exists, OR every clone has a matching open `upstream:watch` bead.
       - INFO = ≥1 orphan clone detected.
