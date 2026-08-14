@@ -56,6 +56,8 @@ If searches return nothing relevant, say so explicitly, list the queries tried, 
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds every lineage statement, every KG fact, and every sentence of **Recommended approach**. Citations do not count toward the 400-word cap.
 
+A command citation is the command **verbatim as invoked** — no paraphrase, no elision. Cite the search you actually ran, alternation and quoting included, not a readable summary of it. Annotations belong in the surrounding prose, never inside the slot; a command too long to reproduce faithfully is the signal to cite a `file:line` instead.
+
 ```
 The classifier lineage is the huu.15 family.  [mempalace_search "NULL_INTENT classifier" → 3 drawers]
 Compass directions were never in the map.     [engine/classifier.py:88]

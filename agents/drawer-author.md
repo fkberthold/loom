@@ -81,6 +81,8 @@ OPEN: <follow-up beads, deferred polish>.
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds ROOT CAUSE, WHAT SHIPPED, VERIFICATION, and CALLER IMPACT. The main agent files this drawer as the project's record, so a claim you could not ground must say so.
 
+A command citation is the command **verbatim as invoked** — no paraphrase, no elision. A VERIFICATION line that cites a tidied-up version of the test command is a claim nobody can re-run, which is the opposite of what the drawer is for. Annotations like `(pre-implementation)` belong in the surrounding prose, never inside the slot; a command too long to reproduce faithfully is the signal to cite a `file:line` instead.
+
 ```
 ROOT CAUSE: the map range breaks FIFO ordering.  [engine/scan.go:151]
 VERIFICATION: all 4 mutants die.                 [go test -run TestScan -count=1 → 4/4]

@@ -649,6 +649,47 @@ glyph would miss every real command citation in the wild. A payload of
 the `path:line` shape is a **file citation**; a bare `INFERRED` is the
 marker.
 
+**A command citation reproduces the command verbatim as invoked
+(loom-pw14).** The text before the arrow is the command exactly as it
+was run — **no paraphrase, no elision**. Three drift shapes were
+measured across seven real worker reports in the loom-agug diagnosis,
+and three of the seven carried one:
+
+- an **annotation** glued on —
+  `bash lib/tests/X.test.sh (pre-implementation)`;
+- a **paraphrase** — citing `grep -n "Evidence slot" file` for a call
+  that actually carried an alternation;
+- an **elision** — `...` or `<same three>` standing in for real
+  arguments.
+
+A fourth landed 2026-08-14 on loom-apcn, where
+`sed -i on the 3 sites → "FAIL: 19 unbounded ..."` stood in for a
+`cp … && cp … && sed -i …` chain, and central had to read the raw
+transcript to establish that the work had in fact been done.
+
+Every one of these is a *well-intentioned* citation — the author knew
+what they ran and was summarizing it for the reader. That instinct is
+right, but the slot is the wrong place for it. **Annotations belong in
+the surrounding prose, never inside the slot**: `(pre-implementation)`
+is a fact about *when* the command ran, which is reasoning, and
+reasoning already has a home. And a command **too long to reproduce**
+faithfully is not licence to shorten it — it is the signal to cite a
+`file:line` instead, which the slot accepts on equal terms.
+
+Both arrow glyphs remain valid. Verbatim governs the command TEXT to
+the left of the arrow; it says nothing about which separator you use,
+and nothing about the result on the right, which is a summary by
+construction.
+
+`scripts/loom-claim-provenance` MUST fire **F2** on all four of the
+citations above — the command as written was never invoked, which is
+exactly what F2 detects — so a paraphrased citation is a **correct**
+F2 hit, not a false positive. But a 3-of-7 rate sits squarely in the
+alert-fatigue zone, and a gate that fires on well-intentioned reports
+gets routed around. The repair is therefore this contract, not a
+looser parser: relaxing F2 to tolerate paraphrase would leave the gate
+unable to detect the one thing it exists to detect.
+
 **F1 is "zero slots of either form" — never "zero brackets".** A
 bracket-free triple report whose triples each carry an `evidence:` line
 is fully evidenced and PASSES. Counting brackets would fail an entire
