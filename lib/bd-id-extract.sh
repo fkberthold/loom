@@ -30,7 +30,9 @@
 #      .beads/issues.jsonl or `bd list`; --prefix overrides).
 #   2. Scan stdin for tokens of shape <prefix>-<3+ alnum chars> with
 #      optional dotted sub-suffix, at any depth (loom-9z1.8,
-#      loom-z3m.1.4).
+#      loom-z3m.1.4), each at the START of its token — a match embedded
+#      in a path (`infra/loom-cluster.tf`, `check-loom-upstream.md`) is
+#      a filename, not a bead ID (loom-ib6y; see BD_ID_TOKEN_START).
 #   3. For each unique candidate, run `bd show <id>` from the project
 #      root. Non-zero exit ⇒ dead. Emit one ID per line on stdout,
 #      preserving the order of first occurrence.
@@ -131,9 +133,46 @@ bd_id_pattern() {
   printf '%s%s' "$esc" '-[a-z0-9]{3,}(\.[a-z0-9]+)*'
 }
 
+# BD_ID_TOKEN_START — the ERE fragment that must precede a bead ID: the
+# start of a line, or one character that cannot be part of a path/token.
+#
+# THE STRUCTURAL RULE (loom-ib6y). A bead ID must begin at the START of
+# its token, where a token is a maximal run of [A-Za-z0-9._/-] plus `_`.
+# That single positional property is what separates a bead ID from a
+# FILENAME:
+#
+#   infra/loom-cluster.tf         `loom-` follows `/`   → path-embedded
+#   commands/check-loom-upstream  `loom-` follows `-`   → mid-token
+#   bd update loom-apcn --claim   `loom-` follows ` `   → a real operand
+#
+# It is deliberately NOT an extension test. An allowlist of extensions
+# (.md, .sh, .json, …) turns green on the extensions someone happened to
+# list and leaves `.tf`, `.zig`, `.nix`, `.bats`, `.mdx` — and any
+# extension invented tomorrow — parsing as bead IDs. That is loom-6mf7's
+# finding restated: immunity is STRUCTURAL, not a better character class,
+# and an enumeration is a character class in a different hat. Position
+# within the token is a property of the input string, so this rule needs
+# no list and no tracker lookup.
+#
+# WHAT IT DOES NOT COVER, on purpose. A filename at a token boundary
+# (`git add loom-notes.qqq`) is token-identical to a real ghost ID
+# (`loom-9z1.deadie`) — same prefix, same alnum body, same alphabetic
+# dotted tail. No rule over the input string alone can separate them, so
+# the scan does not try: it stays PERMISSIVE and emits both. That is the
+# correct polarity for this lib's own caller, `bd_id_extract_main`
+# (audit-project Check 2a), which reports the candidates that do NOT
+# resolve — validating existence here would empty its dead-list. The
+# opposite-polarity caller, hooks/bd-claim-research.sh, resolves the
+# ambiguity against the tracker on its own side.
+BD_ID_TOKEN_START='(^|[^A-Za-z0-9._/-])'
+
 # bd_id_scan <prefix> — read stdin, emit every bead ID under <prefix>,
 # one per line, deduped, preserving order of first occurrence. Always
 # rc 0 (no matches is not an error).
+#
+# Only IDs at a token start are emitted (see BD_ID_TOKEN_START). ERE has
+# no look-behind, so the boundary character is matched-and-consumed, then
+# discarded by re-scanning each hit for the bare pattern.
 bd_id_scan() {
   local prefix="${1:-}"
   [ -n "$prefix" ] || return 0
@@ -141,7 +180,8 @@ bd_id_scan() {
   pattern=$(bd_id_pattern "$prefix")
   input=$(cat || true)
   [ -n "$input" ] || return 0
-  printf '%s' "$input" | grep -oE "$pattern" 2>/dev/null \
+  printf '%s' "$input" | grep -oE "$BD_ID_TOKEN_START$pattern" 2>/dev/null \
+    | grep -oE "$pattern" 2>/dev/null \
     | awk '!seen[$0]++' || true
   return 0
 }

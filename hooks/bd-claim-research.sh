@@ -76,24 +76,74 @@ fi
 # `bd list`): a generic pattern that is underscore-aware AND carries the
 # {3,} suffix minimum, so a `[a-z]` grep literal sitting in the command
 # no longer parses as the bead ID "a-z" (observed live, loom-bbq7).
-BEAD_ID=""
+#
+# Both paths collect ALL candidates, not just the first: the announced
+# bead is chosen below by resolving against the tracker, not by position
+# (loom-ib6y).
+CANDIDATES=""
 if command -v bd_id_detect_prefix >/dev/null 2>&1; then
   BD_PREFIX=$(bd_id_detect_prefix "$PWD" 2>/dev/null || true)
   if [ -n "$BD_PREFIX" ]; then
-    BEAD_ID=$(printf '%s' "$CMD" | bd_id_scan "$BD_PREFIX" 2>/dev/null | head -1 || true)
+    CANDIDATES=$(printf '%s' "$CMD" | bd_id_scan "$BD_PREFIX" 2>/dev/null || true)
   fi
 fi
-if [ -z "$BEAD_ID" ]; then
-  BEAD_ID=$(printf '%s' "$CMD" \
+if [ -z "$CANDIDATES" ]; then
+  # The token-start guard is inlined rather than read from
+  # BD_ID_TOKEN_START because this rung must also work when
+  # lib/bd-id-extract.sh could not be sourced at all. Keep the two in
+  # sync; the rationale lives on the lib's definition.
+  CANDIDATES=$(printf '%s' "$CMD" \
+    | grep -oE '(^|[^A-Za-z0-9._/-])[a-z][a-z0-9_-]*-[a-z0-9]{3,}(\.[a-z0-9]+)*' 2>/dev/null \
     | grep -oE '[a-z][a-z0-9_-]*-[a-z0-9]{3,}(\.[a-z0-9]+)*' 2>/dev/null \
-    | head -1 || true)
+    | awk '!seen[$0]++' || true)
+fi
+
+# Choose which candidate to announce (loom-ib6y).
+#
+# The token-start rule in the scan rejects every PATH-EMBEDDED filename
+# by syntax alone, but a BARE filename argument (`git add
+# loom-notes.qqq`) is token-identical to a real ghost ID
+# (`loom-9z1.deadie`) and no syntactic rule can separate them. The hook,
+# unlike the lib, has the ground truth: it wants the one candidate that
+# EXISTS, so it resolves candidates against the tracker and announces
+# the first that does. The lookup was already happening — `bd show` ran
+# a few lines below to read the bead's type — just one step too late to
+# reject a bogus candidate; hoisting it here costs nothing and the
+# result is reused for the type.
+#
+# FAIL-OPEN, always: if `bd` is missing, or errors, or nothing resolves
+# (an ID being claimed into a tracker this hook cannot read), fall back
+# to the first candidate — the pre-loom-ib6y behavior. This hook is
+# advisory and must never block or crash a claim.
+BEAD_ID=""
+BD_SHOW_OUT=""
+if [ -n "$CANDIDATES" ] && command -v bd >/dev/null 2>&1; then
+  probed=0
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    probed=$((probed + 1))
+    # Bound the probing: a pathological command line must not fan out
+    # into dozens of `bd show` calls on a PreToolUse path.
+    [ "$probed" -le 10 ] || break
+    if cand_out=$(bd show "$cand" 2>/dev/null); then
+      BEAD_ID="$cand"
+      BD_SHOW_OUT="$cand_out"
+      break
+    fi
+  done <<<"$CANDIDATES"
+fi
+if [ -z "$BEAD_ID" ]; then
+  BEAD_ID=$(printf '%s' "$CANDIDATES" | head -1 || true)
 fi
 
 # Update state file: best-effort activity from bd type, plus bead + stage=claim.
 if [ -n "${BEAD_ID:-}" ]; then
   ACTIVITY=task
   if command -v bd >/dev/null 2>&1; then
-    BD_TYPE=$(bd show "$BEAD_ID" 2>/dev/null \
+    if [ -z "$BD_SHOW_OUT" ]; then
+      BD_SHOW_OUT=$(bd show "$BEAD_ID" 2>/dev/null || true)
+    fi
+    BD_TYPE=$(printf '%s' "$BD_SHOW_OUT" \
       | grep -oE 'Type:[[:space:]]+[a-z]+' \
       | head -1 \
       | sed -E 's/Type:[[:space:]]+//' || true)
