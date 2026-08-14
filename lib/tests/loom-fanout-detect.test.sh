@@ -58,10 +58,16 @@ fail() { echo "  FAIL: $1"; failed=$((failed + 1)); [ -n "${2:-}" ] && echo "$2"
 # a test can verify the detector passes an explicit high limit
 # (loom-u2wp). ready.json is a JSON array; the stub slices it to the
 # first N entries, where N is the value of `-n`/`--limit` if supplied
-# else 10 (bd's documented default window). jq does the slice when
-# available; without jq the stub falls back to emitting the array whole
-# (the truncation test asserts jq is present, so this fallback only
-# affects the pre-existing jq-agnostic cases, which never exceed 10).
+# else 10 (bd's documented default window) — mirroring real bd's
+# SENTINEL semantics: `0` means UNLIMITED (every row is returned), any
+# positive N means "first N", and an absent flag means the default
+# window (10 for `bd ready`). Measured on bd v1.0.2: `bd ready --limit 0
+# --json | jq length` -> 17 vs a default of 10; `bd list --status=closed
+# --limit 0 --json | jq length` -> 368 vs a default of 50 (loom-apcn).
+# jq does the slice when available; without jq the stub falls back to
+# emitting the array whole (the truncation test asserts jq is present,
+# so this fallback only affects the pre-existing jq-agnostic cases,
+# which never exceed 10).
 mk_bd_stub() {
   local d
   d=$(mktemp -d)
@@ -84,7 +90,11 @@ case "$sub" in
         *) shift ;;
       esac
     done
-    if command -v jq >/dev/null 2>&1; then
+    if [ "$limit" = "0" ]; then
+      # Sentinel: 0 means UNLIMITED in real bd, not "zero rows" — a
+      # naive [0:0] slice would wrongly return an empty array.
+      cat "${BD_FIXTURE_DIR}/ready.json"
+    elif command -v jq >/dev/null 2>&1; then
       jq -c ".[0:${limit}]" "${BD_FIXTURE_DIR}/ready.json"
     else
       cat "${BD_FIXTURE_DIR}/ready.json"
@@ -509,6 +519,43 @@ if printf '%s\n' "$out" | grep -qE '(^| )loom-ci2( |$)'; then
   fail "lower-case/indented autofan-exclude bead loom-ci2 was proposed (must be excluded)" "out=$out"
 else
   pass "loom-ci2 (lower-case + indented autofan-exclude:) excluded"
+fi
+rm -rf "$FDIR"
+
+# =====================================================================
+# (m) bd stub SENTINEL coverage — `bd ready --json --limit 0` must
+#     return the WHOLE fixture, not an empty (or truncated) array.
+#     (loom-apcn) This pins the stub itself, not just the detector: a
+#     naive re-introduction of `jq -c ".[0:${limit}]"` for limit=0 would
+#     silently slice to zero rows and this case would catch it directly,
+#     without depending on the detector's own grouping logic to notice.
+#     Fixture: 13 ready beads (> the old default-10 window) so a
+#     regression to slice-to-default OR slice-to-zero is both
+#     distinguishable from the correct "all 13" answer.
+# =====================================================================
+echo "==> (m) bd stub sentinel: --limit 0 returns ALL rows (not zero, not truncated)"
+FDIR=$(mk_fixture <<'F'
+loom-sent01||scripts/sent01.sh
+loom-sent02||scripts/sent02.sh
+loom-sent03||scripts/sent03.sh
+loom-sent04||scripts/sent04.sh
+loom-sent05||scripts/sent05.sh
+loom-sent06||scripts/sent06.sh
+loom-sent07||scripts/sent07.sh
+loom-sent08||scripts/sent08.sh
+loom-sent09||scripts/sent09.sh
+loom-sent10||scripts/sent10.sh
+loom-sent11||scripts/sent11.sh
+loom-sent12||scripts/sent12.sh
+loom-sent13||scripts/sent13.sh
+F
+)
+ready_out=$(PATH="$STUB:$PATH" BD_FIXTURE_DIR="$FDIR" bd ready --json --limit 0 2>&1)
+n=$(printf '%s' "$ready_out" | jq 'length' 2>/dev/null || echo -1)
+if [ "$n" = "13" ]; then
+  pass "bd ready --json --limit 0 returns all 13 rows (sentinel modeled, not sliced to 0 or 10)"
+else
+  fail "expected 13 rows from --limit 0, got $n" "ready_out=$ready_out"
 fi
 rm -rf "$FDIR"
 

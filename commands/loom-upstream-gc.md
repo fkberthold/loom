@@ -62,7 +62,7 @@ beads with the PR URL embedded (`https://github.com/<owner>/<repo>/
 pull/<N>`); we match against that.
 
 ```bash
-WATCH_REFS=$(bd list --label=upstream:watch --status=open --json 2>/dev/null \
+WATCH_REFS=$(bd list --label=upstream:watch --status=open --json --limit 0 2>/dev/null \
   | python3 -c '
 import json, re, sys
 try:

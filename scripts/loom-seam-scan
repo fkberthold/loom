@@ -69,7 +69,7 @@ if [ -n "${LOOM_SEAM_SCAN_READY_JSON:-}" ]; then
   fi
   READY_JSON=$(cat "$LOOM_SEAM_SCAN_READY_JSON")
 else
-  READY_JSON=$(bd ready --json 2>/dev/null || echo '[]')
+  READY_JSON=$(bd ready --json --limit 0 2>/dev/null || echo '[]')
 fi
 
 # Empty / malformed → graceful exit.

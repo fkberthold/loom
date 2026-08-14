@@ -7,7 +7,7 @@ Invoke the `upstream-a-bead` skill and follow it exactly as presented.
 
 If the user supplied a bead-id as the slash-command argument, treat that
 as the chosen bead and start at phase A1 (MemPalace upstream-family
-search). If no bead-id was supplied, run `bd list --label=upstream:work
+search). If no bead-id was supplied, run `bd list --label=upstream:work --limit 0
 --status=open` first and confirm with the user which bead to work
 before claiming.
 

@@ -205,7 +205,7 @@ up), run the seam scan as a one-line sanity check:
 ~/.claude/scripts/loom-seam-scan <claimed-bead-id>
 ```
 
-The script reads `bd ready --json`, finds sibling beads (same parent
+The script reads `bd ready --json --limit 0`, finds sibling beads (same parent
 epic) whose extracted file-paths are disjoint from the claimed bead
 and from each other, writes the count to `workflow-state.json`
 under `parallel_candidates`, and emits one of:

@@ -55,14 +55,19 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # --- 1. Candidate set: ready bead IDs --------------------------------
-# Pass an explicit high limit: `bd ready` defaults to a 10-issue window
-# (`-n/--limit`, default 10). Without an override, lower-priority but
-# genuinely-dispatchable beads ranked below the top 10 fall OUTSIDE the
-# window and are never considered — so when the top 10 are saturated
-# with excluded/placeholder beads, the detector emits no wave even
-# though disjoint dispatchable beads exist (loom-u2wp). bd has no
-# `--all`; `-n 100` covers the full ready queue we ever face.
-ready_json="$(bd ready --json -n 100 2>/dev/null)"
+# Pass an explicit unbounded limit: `bd ready` defaults to a 10-issue
+# window (`-n/--limit`, default 10). Without an override, lower-priority
+# but genuinely-dispatchable beads ranked below the top 10 fall OUTSIDE
+# the window and are never considered — so when the top 10 are
+# saturated with excluded/placeholder beads, the detector emits no wave
+# even though disjoint dispatchable beads exist (loom-u2wp). `--limit 0`
+# is bd's unbounded form — it returns every row (measured on bd v1.0.2:
+# `bd ready --limit 0 --json | jq length` → 17 vs a default of 10;
+# `bd list --status=closed --limit 0 --json | jq length` → 368 vs a
+# default of 50) — a fixed numeric cap like the `-n 100` this replaces
+# is this bead's own bug class with a larger number: a ready queue past
+# 100 would silently truncate again (loom-apcn).
+ready_json="$(bd ready --json --limit 0 2>/dev/null)"
 if [ -z "$ready_json" ]; then
   exit 0
 fi

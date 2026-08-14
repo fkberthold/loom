@@ -30,7 +30,7 @@ Two passes, unioned:
 1. **Labeled set** — beads explicitly carrying `upstream:loom`:
 
    ```bash
-   bd list --label upstream:loom --status=open --json
+   bd list --label upstream:loom --status=open --json --limit 0
    ```
 
 2. **Heuristic set** — open beads whose description matches the
@@ -44,7 +44,7 @@ Two passes, unioned:
    so substrings like `heirloom-data` do NOT match.
 
    ```bash
-   bd list --status=open --json \
+   bd list --status=open --json --limit 0 \
      | jq -r '.[] | select(.description | test("(^|[^a-zA-Z0-9_])(loom-hook|loom-script|loom-[a-z0-9]+)|hooks/|scripts/loom-")) | .id'
    ```
 
@@ -58,7 +58,7 @@ without the label are candidates for item 15's suggestion (see
 Read closed loom beads from the past 30 days:
 
 ```bash
-( cd "$LOOM_REPO" && bd list --status=closed --since=30d --json )
+( cd "$LOOM_REPO" && bd list --status=closed --since=30d --json --limit 0 )
 ```
 
 If `--since` is not supported by the local bd version, fall back to
