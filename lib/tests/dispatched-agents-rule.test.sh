@@ -472,8 +472,11 @@ assert_contains "D6 leaves un-acted-on claims in the worklist, unfiled" \
 # behavioural gate is scripts/loom-claim-provenance's F2 check; this
 # section only proves the CONTRACT text tells authors what F2 expects.
 #
-# The loom-agug diagnosis read seven real worker reports and found
-# THREE citing commands that were never run AS WRITTEN:
+# The loom-agug diagnosis read seven real worker reports; FOUR of them
+# cited a command that was never run AS WRITTEN, across THREE drift
+# shapes (one report carried two). The authoritative count is that
+# bead's close reason: "CORRECT TARGET: 0 x F1, 3 clean, 4 x F2."
+# The shapes:
 #
 #   - annotation glued on:  `bash lib/tests/X.test.sh (pre-implementation)`
 #   - paraphrase:           cited `grep -n "Evidence slot" file` when the
@@ -481,7 +484,7 @@ assert_contains "D6 leaves un-acted-on claims in the worklist, unfiled" \
 #   - elision:              `...` / `<same three>` standing in for real
 #                           arguments
 #
-# A fourth instance landed 2026-08-14 on loom-apcn: a test-author cited
+# A fifth instance landed 2026-08-14 on loom-apcn: a test-author cited
 # `sed -i on the 3 sites → "FAIL: 19 unbounded ..."` for a real call that
 # was a `cp && cp && sed -i` chain. F2 fired correctly; central had to
 # read the raw transcript to establish the work was real.

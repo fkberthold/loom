@@ -653,7 +653,8 @@ marker.
 (loom-pw14).** The text before the arrow is the command exactly as it
 was run — **no paraphrase, no elision**. Three drift shapes were
 measured across seven real worker reports in the loom-agug diagnosis,
-and three of the seven carried one:
+and FOUR of the seven carried one (shapes and affected reports are
+different counts — one report carried two shapes):
 
 - an **annotation** glued on —
   `bash lib/tests/X.test.sh (pre-implementation)`;
@@ -662,7 +663,7 @@ and three of the seven carried one:
 - an **elision** — `...` or `<same three>` standing in for real
   arguments.
 
-A fourth landed 2026-08-14 on loom-apcn, where
+A fifth landed 2026-08-14 on loom-apcn, where
 `sed -i on the 3 sites → "FAIL: 19 unbounded ..."` stood in for a
 `cp … && cp … && sed -i …` chain, and central had to read the raw
 transcript to establish that the work had in fact been done.
@@ -681,10 +682,10 @@ the left of the arrow; it says nothing about which separator you use,
 and nothing about the result on the right, which is a summary by
 construction.
 
-`scripts/loom-claim-provenance` MUST fire **F2** on all four of the
-citations above — the command as written was never invoked, which is
+`scripts/loom-claim-provenance` MUST fire **F2** on every citation
+shown above — the command as written was never invoked, which is
 exactly what F2 detects — so a paraphrased citation is a **correct**
-F2 hit, not a false positive. But a 3-of-7 rate sits squarely in the
+F2 hit, not a false positive. But a 4-of-7 rate sits squarely in the
 alert-fatigue zone, and a gate that fires on well-intentioned reports
 gets routed around. The repair is therefore this contract, not a
 looser parser: relaxing F2 to tolerate paraphrase would leave the gate
