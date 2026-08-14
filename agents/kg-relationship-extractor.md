@@ -52,6 +52,8 @@ Cap at 5 triples. KG noise makes future queries harder; one well-chosen triple b
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. Each triple's `evidence:` field is that slot, and so is each entry under Invalidations to consider. `*Why*` still carries the reasoning; `evidence:` says where the relationship was read from.
 
+A command citation is the command **verbatim as invoked** — no paraphrase, no elision. The `evidence:` field carries the exact `bd show` / `grep` / `git log` you ran, not a shortened rendering of it. Annotations belong in `*Why*`, never inside the slot; a command too long to reproduce faithfully is the signal to cite a `file:line` instead.
+
 ```
 evidence: bd show loom-x4m → close-reason names loom-22h as the sibling
 evidence: hooks/bd-worktree-preseed.sh:12

@@ -353,6 +353,8 @@ Skill parses with literal-substring match — keep on a single line, single-brac
 
 Every load-bearing claim carries either a citation — the command you ran and its result, or a `file:line` — or the literal marker `INFERRED`. A citation is a pointer, not a rationale: it says where to look, not why to believe. This binds each verdict's rationale line. Every item's scan recipe names a probe, so `INFERRED` should be rare here — reach for it when a verdict rests on reading rather than running.
 
+A command citation is the command **verbatim as invoked** — no paraphrase, no elision. Cite the probe exactly as the scan recipe ran it, flags and all, so the main agent can re-run it before acting on a WARN or MISS. Annotations belong in the surrounding prose, never inside the slot; a command too long to reproduce faithfully is the signal to cite a `file:line` instead.
+
 ```
 2. **`.beads/` initialized** — PASS
    - Embedded dolt store present.  [ls .beads/ → embeddeddolt/, issues.jsonl]

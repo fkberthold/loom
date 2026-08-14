@@ -465,6 +465,79 @@ assert_contains "D6 leaves un-acted-on claims in the worklist, unfiled" \
   'no filing, no ceremony'
 
 # =====================================================================
+# 13. Command citations are VERBATIM as invoked (loom-pw14)
+# =====================================================================
+#
+# *** DOC-PRESENCE ASSERTIONS, same caveat as section 12. *** The
+# behavioural gate is scripts/loom-claim-provenance's F2 check; this
+# section only proves the CONTRACT text tells authors what F2 expects.
+#
+# The loom-agug diagnosis read seven real worker reports; FOUR of them
+# cited a command that was never run AS WRITTEN, across THREE drift
+# shapes (one report carried two). The authoritative count is that
+# bead's close reason: "CORRECT TARGET: 0 x F1, 3 clean, 4 x F2."
+# The shapes:
+#
+#   - annotation glued on:  `bash lib/tests/X.test.sh (pre-implementation)`
+#   - paraphrase:           cited `grep -n "Evidence slot" file` when the
+#                           real call carried an alternation
+#   - elision:              `...` / `<same three>` standing in for real
+#                           arguments
+#
+# A fifth instance landed 2026-08-14 on loom-apcn: a test-author cited
+# `sed -i on the 3 sites → "FAIL: 19 unbounded ..."` for a real call that
+# was a `cp && cp && sed -i` chain. F2 fired correctly; central had to
+# read the raw transcript to establish the work was real.
+#
+# Mechanically F2 MUST fire on all of these — the command as written was
+# never invoked, which is exactly what F2 detects. But a 4-of-7 hit rate
+# sits in the alert-fatigue zone, and a gate firing on well-intentioned
+# reports gets routed around. THE FIX BELONGS IN THE CONTRACT, NOT THE
+# PARSER: state the verbatim requirement where authors read it, in all
+# four agent definitions and the rule file's D2 evidence-slot material.
+#
+# Relaxing F2 to tolerate paraphrase is the one repair that is NOT
+# available — it would make the gate unable to detect what it exists to
+# detect.
+
+echo "==> Command citations are verbatim as invoked (loom-pw14)"
+
+PROVENANCE_FILES=(
+  "$LOOM_ROOT/agents/bug-family-researcher.md"
+  "$LOOM_ROOT/agents/project-onboarder.md"
+  "$LOOM_ROOT/agents/drawer-author.md"
+  "$LOOM_ROOT/agents/kg-relationship-extractor.md"
+  "$RULE_FILE"
+)
+
+for pf in "${PROVENANCE_FILES[@]}"; do
+  pf_name="${pf#"$LOOM_ROOT"/}"
+  assert_file_contains "$pf_name: citation is the command verbatim as invoked" \
+    "$pf" 'verbatim as invoked'
+  assert_file_contains "$pf_name: forbids paraphrase and elision" \
+    "$pf" 'no paraphrase, no elision'
+  assert_file_contains "$pf_name: annotations belong in prose, never in the slot" \
+    "$pf" 'never inside the slot'
+  assert_file_contains "$pf_name: too-long command means cite a file:line instead" \
+    "$pf" 'too long to reproduce'
+done
+
+# The rule file additionally carries the lineage + the two clarifications
+# a reader needs to apply the rule without over-reading it.
+assert_contains "rule file cites loom-pw14 lineage" 'loom-pw14'
+
+# Verbatim governs the command TEXT. It must NOT be read as narrowing the
+# two accepted arrow separators — that would contradict the existing
+# both-glyphs contract asserted in section 12.
+assert_contains "verbatim rule preserves BOTH arrow glyphs" \
+  'glyphs remain valid'
+
+# F2 firing on a paraphrase is CORRECT. Saying so is what stops the next
+# reader from "fixing" the alert-fatigue rate in the parser.
+assert_contains "rule file names F2-on-paraphrase as correct behavior" \
+  'F2[^.]*paraphrase|paraphrase[^.]*F2'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo
