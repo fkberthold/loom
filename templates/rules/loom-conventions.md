@@ -90,6 +90,18 @@ after a wave returns.
 Your project's `.claude/rules/dispatched-agents.md` carries the battery
 itself and the project-specific hazards. Read it before any dispatch.
 
+**Freshness is measured against the remote's tip, not the local ref.** A
+local default-branch ref is a *cache* — it moves only when somebody
+fetches, so it can trail the remote by days without anything saying so.
+Both halves of the discipline above take it as ground truth, and both
+break the same way when it is stale: the base-freshness check compares a
+stale ref against itself and reports fresh, and the leak check lists the
+intervening commits' files as though the worker had touched them. So
+fetch first and compare against the **remote-tracking ref**. When the
+project has no remote configured, that is the solo case, not a failure —
+the local ref is the only ground truth there is, so the comparison
+degrades to it and the report says so.
+
 ### Cross-repo dispatch is unsupported
 
 `isolation: "worktree"` worktrees the **dispatching session's** repo,
@@ -195,6 +207,31 @@ files, no sequential dependency?
 
 This prevents the slip at the source; the within-bead parallel nudge in
 the lifecycle shell only catches what gets through.
+
+### A set-consuming `bd list` / `bd ready` passes `--limit 0`
+
+Both commands **truncate by default**, and the notice announcing it does
+not survive the idioms that consume them: in text mode it goes to
+**stdout**, where a `| grep` filters it away; in JSON mode to **stderr**,
+where `2>/dev/null` or a bare `| jq` discards it. What you get is a query
+that answers from a partial set and reports success. The truncation is
+not recency-ordered either, so a "what closed since `<date>`" filter can
+miss precisely the rows it exists to report.
+
+So: **any invocation whose output is consumed as a set** — parsed,
+counted, grepped, filtered, diffed — passes an explicit **`--limit 0`**,
+the unbounded form both commands accept.
+
+```bash
+bd list --status=closed --json --limit 0
+bd ready --json --limit 0
+```
+
+An invocation that is **bounded by construction** — an explicit
+`--limit N`, a `| head -1`, a deliberate display cap — already says what
+it wants and is exempt. The defaults are small and version-dependent;
+check `bd list --help` rather than memorizing them, since the rule is to
+never depend on them at all.
 
 ### Capture decisions in memory — and file the drawer BEFORE dispatching
 

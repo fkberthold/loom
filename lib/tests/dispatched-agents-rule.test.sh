@@ -538,6 +538,74 @@ assert_contains "rule file names F2-on-paraphrase as correct behavior" \
   'F2[^.]*paraphrase|paraphrase[^.]*F2'
 
 # =====================================================================
+# 14. Base freshness is measured against the REMOTE tip (loom-vlb9)
+# =====================================================================
+#
+# Step 5 compared `git merge-base HEAD main` against `git rev-parse main`
+# — BOTH sides local. A local `main` ref is a CACHE: it only moves when
+# somebody fetches, so it can trail the remote by days. When it does, the
+# step compares a stale ref against itself and reports fresh.
+#
+# MEASURED 2026-08-14: a dispatched worker's branch was created from
+# origin/main (4ccff46) while this machine's local main sat at 98ce717,
+# one commit and nine days behind. Step 5 PASSED, because local main was
+# an ancestor of the worktree base. That direction was benign — the
+# worker got a FRESHER base. The inverse is the risk: a branch cut from a
+# stale LOCAL main builds on a stale base and step 5 still reports fresh.
+# That is loom-6zi's failure mode with one more layer of indirection;
+# loom-6zi fixed "rebase returns rc=0 as a no-op on an empty branch" and
+# never questioned WHICH REF was being compared.
+#
+# SECOND-ORDER: the worker-side leak check (loom-ta1w) is specified
+# against `main`, so a stale local main makes `git diff --stat main HEAD`
+# list files the worker never touched. A guard that cries wolf is exactly
+# what loom-stdi's rejected central-side scanner was rejected FOR.
+#
+# Constraints the fix inherits: it must degrade gracefully with NO remote
+# configured (the loom-hsb solo-workspace precedent), and every step must
+# stay runnable under the isolation harness (loom-ta1w) — section 5's awk
+# gate above re-checks that for any block this section adds.
+
+echo "==> Base freshness measured against the remote tip (loom-vlb9)"
+
+assert_contains "base-freshness fetches before comparing" \
+  'git fetch'
+assert_contains "base-freshness reads the remote-tracking ref" \
+  'git rev-parse[[:space:]]+origin/main'
+assert_contains "base-freshness names the stale-local-ref risk" \
+  'local .{0,3}main.{0,3} (ref )?(can|is a cache)|trails? (the )?remote'
+assert_contains "base-freshness degrades gracefully with no remote (solo case)" \
+  '[Ss]olo case'
+assert_contains "remediation rebases onto the remote tip" \
+  'git rebase[[:space:]]+origin/main'
+assert_contains "cites loom-vlb9" 'loom-vlb9'
+
+# The second-order effect must be stated where the leak check is
+# specified, or the next worker reads a false positive as a real leak.
+assert_contains "leak check offers the remote-ref form when local main trails" \
+  'git diff --stat origin/main HEAD'
+
+# The battery step and the Base-freshness section must not drift apart —
+# both carry the remote comparison, so the remote ref appears at least
+# twice in the file.
+if [ -f "$RULE_FILE" ]; then
+  origin_hits=$(grep -cE 'origin/main' "$RULE_FILE")
+  if [ "$origin_hits" -ge 2 ]; then
+    pass "remote-tracking ref appears in BOTH the battery step and its section"
+  else
+    fail "remote-tracking ref appears in BOTH the battery step and its section" \
+      "found $origin_hits occurrence(s) of origin/main; expected >= 2"
+  fi
+fi
+
+# And the owned downstream template mirrors the principle (project-
+# agnostic wording — no `origin/main` literal required there, but the
+# remote-vs-local distinction must be stated).
+assert_file_contains "owned template states the remote-vs-local ref distinction" \
+  "$LOOM_ROOT/templates/rules/loom-conventions.md" \
+  '[Rr]emote-tracking ref|tip is the remote|remote.s tip'
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo
