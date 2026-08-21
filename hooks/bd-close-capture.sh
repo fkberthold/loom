@@ -2,8 +2,9 @@
 # PreToolUse hook for `bd close`.
 #
 # Per locked workflow-infrastructure decision (2026-05-02 #2): block
-# until drawer + KG + diary are captured. Bypass via --force flag or
-# BD_CLOSE_FORCE=1 env var.
+# until drawer + KG + diary are captured. Bypass with the --force flag,
+# which is in the command text this hook reads; BD_CLOSE_FORCE=1 works
+# only when it is already in the hook's own environment (loom-84nx).
 #
 # Real artifact verification (loom-8vb, design drawer
 # drawer_loom_decisions_2fbf2d5f4c0f5e50ab84e628). For each bead being
@@ -33,9 +34,34 @@
 # Both are candidates, not overrides: a drawer in ANY candidate wing
 # satisfies the matcher, and a drawer in no candidate wing still blocks.
 #
+# Memory store (loom-b76s). Checks 1 to 3 read the Dolt sql-server the
+# MemPalace MCP writes to. They used to read the ChromaDB palace under
+# ~/.mempalace, which the MCP stopped writing at the Dolt migration — so
+# every drawer, triple and diary entry filed through the MCP was
+# invisible to the gate, and check 5 was the only path that could pass.
+# That is what made the gate look intermittent: it passed exactly when a
+# close reason happened to contain a hex-shaped token.
+#
+# Each connection field resolves in three rungs:
+#   1. LOOM_MEMORY_{HOST,PORT,DATABASE,USER,PASSWORD} in this hook's own
+#      environment.
+#   2. The `env` block of whichever configured MCP server declares
+#      LOOM_MEMORY_* keys. This hook is PreToolUse, so it does NOT
+#      inherit that block; reading it is the only way the hook can find
+#      the store on a machine that pins the port there and nowhere else.
+#   3. mcp_server/db.py's connection_config() defaults.
+#
+# An UNREACHABLE store is UNKNOWN, never absent. Checks 1 to 3 report
+# `?`, the DSN that failed is named, and the close is ALLOWED — the gate
+# cannot prove capture is absent when it cannot read the store, which is
+# the same fail-open-when-you-cannot-prove-a-violation posture the other
+# loom hooks take. Check 5 stays an independent signal either way.
+#
 # Test injection points:
-#   MEMPALACE_HOME — palace dir (default: ~/.mempalace)
-#   BD_BIN          — bd binary (default: bd)
+#   LOOM_MEMORY_*      — the five connection fields above
+#   LOOM_MEMORY_PYTHON — interpreter carrying pymysql (default: the
+#                        memory server's venv beside this hook's repo)
+#   BD_BIN             — bd binary (default: bd)
 #
 # Block strategy: exit 2 with stderr message. Claude Code surfaces
 # stderr and blocks the tool call.
@@ -43,7 +69,6 @@
 set -uo pipefail
 
 INPUT=$(cat)
-MEMPALACE_HOME="${MEMPALACE_HOME:-$HOME/.mempalace}"
 BD_BIN="${BD_BIN:-bd}"
 
 # --- Tool dispatch ---------------------------------------------------------
@@ -271,18 +296,40 @@ while i < len(toks):
 print("\n".join(out))
 ')
 
+# --- Memory-store interpreter (loom-b76s) ---------------------------------
+#
+# The matcher kernel talks to the Dolt sql-server through pymysql, which
+# system python3 does not carry. The memory server's venv does. Resolve
+# it from this hook's OWN real path — the same `readlink -f` idiom the
+# lib ladder above uses — so an installed ~/.claude/hooks symlink lands
+# on the loom checkout it points into rather than on $HOME.
+#
+# The last rung is plain python3, which will usually lack pymysql. That
+# is not a failure path: the kernel reports the missing client as an
+# UNREACHABLE store, which is UNKNOWN rather than absent, so the hook
+# degrades to check 4 + check 5 instead of blocking every close.
+HOOK_REAL=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
+HOOK_REPO_ROOT=$(dirname "$(dirname "$HOOK_REAL")")
+MEMORY_PY="${LOOM_MEMORY_PYTHON:-}"
+if [ -z "$MEMORY_PY" ] && [ -x "$HOOK_REPO_ROOT/memory-server/.venv/bin/python3" ]; then
+  MEMORY_PY="$HOOK_REPO_ROOT/memory-server/.venv/bin/python3"
+fi
+[ -n "$MEMORY_PY" ] || MEMORY_PY="python3"
+
 # Run the matcher kernel.
+#
+# It prints one `__STORE__|<state>|<dsn>|<detail>` line followed by one
+# line per bead. Matcher cells are Y (passed), N (did not pass) or U
+# (could not be evaluated — the store was unreachable).
 MATRIX=$(BEAD_IDS="$BEAD_IDS" \
-         MEMPALACE_HOME="$MEMPALACE_HOME" \
          BD_MEM_DUMP="$BD_MEM_DUMP" \
          REASON_TEXT="$REASON_TEXT" \
          BEAD_WING_MAP="$BEAD_WING_MAP" \
          REPO_WING="$REPO_WING" \
-         python3 - <<'PY'
-import os, re, sqlite3
+         "$MEMORY_PY" - <<'PY'
+import json, os, re, sys
 
 bead_ids = os.environ.get("BEAD_IDS", "").split()
-palace_home = os.environ["MEMPALACE_HOME"]
 mem_dump = os.environ.get("BD_MEM_DUMP", "")
 reason = os.environ.get("REASON_TEXT", "")
 repo_wing = os.environ.get("REPO_WING", "").strip()
@@ -325,114 +372,199 @@ def wings_for(bead):
             out.append(cand)
     return out
 
-chroma_db = os.path.join(palace_home, "palace", "chroma.sqlite3")
-kg_db = os.path.join(palace_home, "palace", "knowledge_graph.sqlite3")
 
-def open_ro(path):
-    if not os.path.exists(path):
+# --- Connection resolution -------------------------------------------------
+
+def _mcp_declared_env():
+    """LOOM_MEMORY_* keys from the `env` block of a configured MCP server.
+
+    This hook is PreToolUse: it inherits the harness's environment, not
+    the MCP server subprocess's `env` block. A machine that pins the port
+    only inside mcpServers.<name>.env therefore leaves the hook pointing
+    somewhere the MCP never writes — which is one half of how loom-b76s
+    stayed invisible. Reading the declaration directly closes that gap.
+
+    Any server whose env declares LOOM_MEMORY_* wins, so the lookup does
+    not depend on the server keeping the name `mempalace`.
+    """
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    for path in (os.path.join(proj, ".claude", "settings.local.json"),
+                 os.path.join(proj, ".claude", "settings.json"),
+                 os.path.join(cfg, "settings.json"),
+                 os.path.expanduser("~/.claude.json")):
+        try:
+            with open(path) as fh:
+                data = json.load(fh)
+        except Exception:
+            continue
+        for srv in (data.get("mcpServers") or {}).values():
+            env = (srv or {}).get("env") or {}
+            hits = {k: v for k, v in env.items()
+                    if k.startswith("LOOM_MEMORY_") and v not in (None, "")}
+            if hits:
+                return hits
+    return {}
+
+
+_declared = _mcp_declared_env()
+
+
+def _cfg(key, default):
+    val = os.environ.get(key)
+    if val:
+        return val
+    val = _declared.get(key)
+    if val:
+        return val
+    return default
+
+
+# Defaults mirror mcp_server/db.py's connection_config().
+MEM_HOST = _cfg("LOOM_MEMORY_HOST", "127.0.0.1")
+MEM_PORT = _cfg("LOOM_MEMORY_PORT", "3307")
+MEM_DB = _cfg("LOOM_MEMORY_DATABASE", "doltdb")
+MEM_USER = _cfg("LOOM_MEMORY_USER", "root")
+MEM_PASS = os.environ.get("LOOM_MEMORY_PASSWORD")
+if MEM_PASS is None:
+    MEM_PASS = _declared.get("LOOM_MEMORY_PASSWORD", "")
+
+DSN = f"mysql://{MEM_USER}@{MEM_HOST}:{MEM_PORT}/{MEM_DB}"
+
+store = None
+store_err = None
+try:
+    import pymysql
+except Exception as exc:  # any import failure is "no client"
+    store_err = f"pymysql unavailable in {sys.executable}: {exc}"
+else:
+    try:
+        store = pymysql.connect(
+            host=MEM_HOST, port=int(MEM_PORT), user=MEM_USER,
+            password=MEM_PASS, database=MEM_DB,
+            connect_timeout=3, read_timeout=15, autocommit=True,
+        )
+    except Exception as exc:  # any connect failure is "unreachable"
+        store_err = f"{type(exc).__name__}: {exc}"
+
+
+def store_has_row(sql, params):
+    """True/False against the store; None when it cannot be read.
+
+    None is the whole point of loom-b76s. The retired implementation
+    returned False for a store it could not open, which made "the gate
+    cannot see where you captured" indistinguishable from "you did not
+    capture" — and sent the author off to rewrite a close reason that was
+    never the problem.
+    """
+    if store is None:
         return None
     try:
-        return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-    except sqlite3.OperationalError:
+        with store.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchone() is not None
+    except Exception:  # a mid-query failure is still "cannot read"
         return None
 
-chroma = open_ro(chroma_db)
-kg = open_ro(kg_db)
 
-def palace_match(needle, wing_filter=None, exclude_room=None,
-                 only_room=None, require_needle_in_doc=False,
-                 require_wing_in_doc=None):
-    if chroma is None:
-        return False
-    cur = chroma.cursor()
-    try:
-        rows = cur.execute(
-            "SELECT rowid FROM embedding_fulltext_search "
-            "WHERE string_value MATCH ?",
-            (f'"{needle}"',)
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return False
-    if not rows:
-        return False
-    rowids = [r[0] for r in rows]
-    placeholders = ",".join("?" * len(rowids))
-    md_rows = cur.execute(
-        f"SELECT id, key, string_value FROM embedding_metadata "
-        f"WHERE id IN ({placeholders}) AND string_value IS NOT NULL",
-        rowids
-    ).fetchall()
-    by_id = {}
-    for rid, k, v in md_rows:
-        by_id.setdefault(rid, {})[k] = v
-    for rid, meta in by_id.items():
-        w = meta.get("wing", "")
-        r = meta.get("room", "")
-        doc = meta.get("chroma:document", "") or ""
-        if wing_filter is not None and w != wing_filter:
-            continue
-        if exclude_room and r == exclude_room:
-            continue
-        if only_room and r != only_room:
-            continue
-        if require_needle_in_doc and needle.lower() not in doc.lower():
-            continue
-        # Cross-wing scope guard for short-form lookups: when the diary
-        # (or any only_room match) accepts a short-form needle, require
-        # the bead's wing name to also appear in the doc body. Prevents
-        # `b33` in wing_claude-opus/diary from satisfying any project's
-        # `<wing>-b33` close (loom-b20 sub-issue 2).
-        if require_wing_in_doc is not None and \
-                require_wing_in_doc.lower() not in doc.lower():
-            continue
-        return True
-    return False
+# Drawer rows are matched WITHOUT a chunk_index filter. Chunk rows carry
+# slices of their parent's body, so a parent plus four chunks is five
+# rows holding the same needle — but this matcher is a boolean with LIMIT
+# 1, so it can never double-count, and the de-dup argument for filtering
+# to parents does not apply to this consumer. Filtering would only NARROW
+# what proves capture: nothing in the schema forces a chunk to have a
+# surviving parent (`parent_drawer_id` carries no foreign key and
+# `chunk_index` is nullable), so a partial write that lands chunks alone
+# would silently recreate exactly the false-negative class this bead
+# exists to kill. For a blocking gate, widen rather than narrow.
+#
+# LOWER() on both sides is load-bearing, not decoration: the live tables
+# collate utf8mb4_0900_bin, which is CASE SENSITIVE, so a bare LIKE
+# misses the uppercase short-form drawer body loom-b20 was filed over.
+DRAWER_FULL_SQL = (
+    "SELECT 1 FROM drawers WHERE wing = %s AND room <> 'diary' "
+    "AND (LOWER(text) LIKE %s OR LOWER(title) LIKE %s) LIMIT 1"
+)
+DRAWER_SHORT_SQL = (
+    "SELECT 1 FROM drawers WHERE wing = %s AND room <> 'diary' "
+    "AND LOWER(text) LIKE %s LIMIT 1"
+)
+DIARY_FULL_SQL = (
+    "SELECT 1 FROM drawers WHERE room = 'diary' AND LOWER(text) LIKE %s LIMIT 1"
+)
+DIARY_SHORT_SQL = (
+    "SELECT 1 FROM drawers WHERE room = 'diary' AND LOWER(text) LIKE %s "
+    "AND LOWER(text) LIKE %s LIMIT 1"
+)
+# Check 2 does NOT require `current = 1`. Invalidating a triple retires
+# the FACT, not the record that the work was captured, and narrowing a
+# blocking gate on that basis is the wrong error direction: a superseded
+# decision was still filed. Deletion, not invalidation, is what removes
+# capture evidence.
+KG_SQL = (
+    "SELECT 1 FROM kg_triples WHERE LOWER(subject) LIKE %s "
+    "OR LOWER(object) LIKE %s LIMIT 1"
+)
 
-# Drawer matcher: try the full bead ID first; fall back to the short
-# suffix scoped to the bead's wing. Wing-scoping makes the short form
-# unambiguous within a single project's drawers (loom-b20 sub-issue 2).
-# Each candidate wing (loom-lwg4) is tried in turn.
+
+def _like(needle):
+    return f"%{needle.lower()}%"
+
+
 def has_drawer(bead, wings):
+    """Full bead ID first, then the short suffix scoped to a candidate wing.
+
+    Wing-scoping keeps the short form unambiguous within one project's
+    drawers (loom-b20 sub-issue 2). The full form also matches on title —
+    a drawer titled for the bead is evidence — while the short form does
+    not, because a 3-character needle in a 512-character title collides
+    far too easily.
+    """
+    unknown = False
     for wing in wings:
-        if palace_match(bead, wing_filter=wing, exclude_room="diary"):
+        got = store_has_row(DRAWER_FULL_SQL, (wing, _like(bead), _like(bead)))
+        if got:
             return True
+        if got is None:
+            unknown = True
     short = bead_short(bead)
     if len(short) >= 3:
         for wing in wings:
-            if palace_match(short, wing_filter=wing, exclude_room="diary",
-                            require_needle_in_doc=True):
+            got = store_has_row(DRAWER_SHORT_SQL, (wing, _like(short)))
+            if got:
                 return True
-    return False
+            if got is None:
+                unknown = True
+    return None if unknown else False
 
-# Diary matcher: try the full bead ID first; fall back to the short
-# suffix when the diary doc body ALSO names one of the bead's candidate
-# wings (the diary room is global across wings, so a `b33` mention in a
-# different project's diary entry must not satisfy `liza_base-b33`).
+
 def has_diary(bead, wings):
-    if palace_match(bead, wing_filter=None, only_room="diary",
-                    require_needle_in_doc=True):
+    """Full bead ID first; the short suffix needs a candidate wing named too.
+
+    The diary room spans every wing, so a bare `b33` mention in another
+    project's entry must not satisfy `liza_base-b33` (loom-b20 sub-issue
+    2).
+    """
+    unknown = False
+    got = store_has_row(DIARY_FULL_SQL, (_like(bead),))
+    if got:
         return True
+    if got is None:
+        unknown = True
     short = bead_short(bead)
-    if len(short) < 3:
-        return False
-    for wing in wings:
-        if palace_match(short, wing_filter=None, only_room="diary",
-                        require_needle_in_doc=True,
-                        require_wing_in_doc=wing):
-            return True
-    return False
+    if len(short) >= 3:
+        for wing in wings:
+            got = store_has_row(DIARY_SHORT_SQL, (_like(short), _like(wing)))
+            if got:
+                return True
+            if got is None:
+                unknown = True
+    return None if unknown else False
+
 
 def has_kg(bead):
-    if kg is None:
-        return False
-    try:
-        row = kg.execute(
-            "SELECT 1 FROM triples WHERE subject LIKE ? OR object LIKE ? LIMIT 1",
-            (f"%{bead}%", f"%{bead}%")
-        ).fetchone()
-    except sqlite3.OperationalError:
-        return False
-    return row is not None
+    return store_has_row(KG_SQL, (_like(bead), _like(bead)))
+
 
 def has_bd_memory(bead):
     needle = f"---BEGIN {bead}---"
@@ -446,24 +578,54 @@ def has_bd_memory(bead):
         return False
     return bead in segment
 
-SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
-DRAWER_RE = re.compile(r"drawer_[a-z0-9_]+_[a-f0-9]{16,}")
+
+# A bare hex token used to prove capture, which let `593934797` — a
+# DigitalOcean droplet ID that happens to be nine characters of [0-9a-f]
+# — close reddit-archiver-0el (loom-efrx). The negative lookahead rejects
+# any all-decimal token, so a resource ID can no longer stand in for a
+# commit. A genuinely all-digit short SHA loses this path and has to cite
+# the drawer instead, which is the right trade for a gate whose job is
+# telling capture from coincidence.
+SHA_RE = re.compile(r"\b(?![0-9]+\b)[0-9a-f]{7,40}\b")
+
+# The wing segment takes hyphens. Without them a drawer id from a
+# hyphen-named wing — the DEFAULT naming, since loom-audit-resolve takes
+# the wing from the repo directory basename and repository directories
+# are conventionally hyphenated — never matched, so check 5 could not
+# pass for those projects no matter how good the reason was (loom-efrx).
+DRAWER_RE = re.compile(r"drawer_[a-z0-9_-]+_[a-f0-9]{16,}")
+
 
 def has_substantive_reason():
     if len(reason) < 200:
         return False
     return bool(SHA_RE.search(reason) or DRAWER_RE.search(reason))
 
+
 reason_ok = has_substantive_reason()
+
+
+def cell(value):
+    if value is None:
+        return "U"
+    return "Y" if value else "N"
+
+
+def clean(text):
+    return str(text).replace("|", "/").replace("\n", " ").strip()
+
+
+state = "ok" if store is not None else "unreachable"
+print(f"__STORE__|{state}|{clean(DSN)}|{clean(store_err or '')}")
 
 for bead in bead_ids:
     wings = wings_for(bead)
     wing = wings[0]
     others = ", ".join(wings[1:])
-    m1 = "Y" if has_drawer(bead, wings) else "N"
-    m2 = "Y" if has_kg(bead) else "N"
-    m3 = "Y" if has_diary(bead, wings) else "N"
-    m4 = "Y" if has_bd_memory(bead) else "N"
+    m1 = cell(has_drawer(bead, wings))
+    m2 = cell(has_kg(bead))
+    m3 = cell(has_diary(bead, wings))
+    m4 = cell(has_bd_memory(bead))
     m5 = "Y" if reason_ok else "N"
     print(f"{bead}|{wing}|{others}|{m1}|{m2}|{m3}|{m4}|{m5}")
 PY
@@ -474,21 +636,56 @@ PY
 ALL_PASS=1
 BLOCK_REPORT=""
 WARN_REPORT=""
+UNKNOWN_REPORT=""
+STORE_STATE="ok"
+STORE_DSN=""
+STORE_DETAIL=""
 
 while IFS='|' read -r bead wing others m1 m2 m3 m4 m5; do
   [ -n "$bead" ] || continue
+
+  if [ "$bead" = "__STORE__" ]; then
+    STORE_STATE="$wing"
+    STORE_DSN="$others"
+    STORE_DETAIL="$m1"
+    continue
+  fi
+
   evidence_count=0
   for v in "$m1" "$m2" "$m3" "$m4" "$m5"; do
     [ "$v" = "Y" ] && evidence_count=$((evidence_count + 1))
   done
 
-  s1="✗"; [ "$m1" = "Y" ] && s1="✓"
-  s2="✗"; [ "$m2" = "Y" ] && s2="✓"
-  s3="✗"; [ "$m3" = "Y" ] && s3="✓"
-  s4="✗"; [ "$m4" = "Y" ] && s4="✓"
-  s5="✗"; [ "$m5" = "Y" ] && s5="✓"
+  # `?` is not decoration. A matcher the hook could not evaluate must not
+  # render as ✗, because ✗ reads as "you did not capture" and sends the
+  # author to rewrite a close reason that was never the problem.
+  s1="✗"; [ "$m1" = "Y" ] && s1="✓"; [ "$m1" = "U" ] && s1="?"
+  s2="✗"; [ "$m2" = "Y" ] && s2="✓"; [ "$m2" = "U" ] && s2="?"
+  s3="✗"; [ "$m3" = "Y" ] && s3="✓"; [ "$m3" = "U" ] && s3="?"
+  s4="✗"; [ "$m4" = "Y" ] && s4="✓"; [ "$m4" = "U" ] && s4="?"
+  s5="✗"; [ "$m5" = "Y" ] && s5="✓"; [ "$m5" = "U" ] && s5="?"
 
-  if [ "$evidence_count" -eq 0 ]; then
+  if [ "$evidence_count" -gt 0 ]; then
+    WARN_REPORT+=$'\n'"[bd-close-capture hook] ${bead}: ${evidence_count}/5 matchers (${s1}${s2}${s3}${s4}${s5}) — allowing."
+  elif [ "$STORE_STATE" = "unreachable" ]; then
+    UNKNOWN_REPORT+=$'\n'"[bd-close-capture hook] ${bead}: capture UNVERIFIABLE — the memory store is unreachable."$'\n\n'
+    UNKNOWN_REPORT+="  ${s1} Drawer in ${wing}/* mentioning ${bead}"$'\n'
+    [ -n "$others" ] && \
+      UNKNOWN_REPORT+="       (also searched wing(s): ${others})"$'\n'
+    UNKNOWN_REPORT+="  ${s2} KG triple referencing ${bead}"$'\n'
+    UNKNOWN_REPORT+="  ${s3} Diary entry mentioning ${bead}"$'\n'
+    UNKNOWN_REPORT+="  ${s4} bd memory tagged with ${bead}"$'\n'
+    UNKNOWN_REPORT+="  ${s5} Substantive close --reason (≥200 chars + commit SHA or drawer ID)"$'\n\n'
+    UNKNOWN_REPORT+="  store: ${STORE_DSN}"$'\n'
+    UNKNOWN_REPORT+="  error: ${STORE_DETAIL}"$'\n\n'
+    UNKNOWN_REPORT+="Not blocking: the gate cannot prove capture is absent when it cannot"$'\n'
+    UNKNOWN_REPORT+="read the store. A ? is not a ✗ — nothing about your close reason is"$'\n'
+    UNKNOWN_REPORT+="wrong, so rewriting it will not help."$'\n\n'
+    UNKNOWN_REPORT+="To restore the gate, start the memory server"$'\n'
+    UNKNOWN_REPORT+="(memory-server/scripts/start-server.sh) or point the hook at it with"$'\n'
+    UNKNOWN_REPORT+="LOOM_MEMORY_HOST / LOOM_MEMORY_PORT / LOOM_MEMORY_DATABASE /"$'\n'
+    UNKNOWN_REPORT+="LOOM_MEMORY_USER / LOOM_MEMORY_PASSWORD."$'\n'
+  else
     ALL_PASS=0
     BLOCK_REPORT+=$'\n'"[bd-close-capture hook] No capture evidence found for ${bead}."$'\n\n'
     BLOCK_REPORT+="Looked for (need ANY ONE):"$'\n'
@@ -505,19 +702,27 @@ while IFS='|' read -r bead wing others m1 m2 m3 m4 m5; do
     BLOCK_REPORT+="  bd close ${bead} --reason \"Wave 1 voice pass: filter haiku→sonnet,"$'\n'
     BLOCK_REPORT+="  drives saturation 1.0→0.8. Commit abc1234. Sibling drawer"$'\n'
     BLOCK_REPORT+="  drawer_${wing}_decisions_<id>.\""$'\n\n'
-    BLOCK_REPORT+="Bypass (use sparingly):"$'\n'
-    BLOCK_REPORT+="  BD_CLOSE_FORCE=1 bd close ${bead}   # auditable; recorded in workflow state"$'\n'
-  else
-    WARN_REPORT+=$'\n'"[bd-close-capture hook] ${bead}: ${evidence_count}/5 matchers (${s1}${s2}${s3}${s4}${s5}) — allowing."
+    BLOCK_REPORT+="Bypass (use sparingly; both are auditable and recorded in workflow state):"$'\n'
+    BLOCK_REPORT+="  bd close ${bead} --force"$'\n'
+    BLOCK_REPORT+="      Works right now. --force is in the command text, which is what"$'\n'
+    BLOCK_REPORT+="      this PreToolUse hook reads. Long form only; -f is not matched."$'\n'
+    BLOCK_REPORT+="  BD_CLOSE_FORCE (session-level)"$'\n'
+    BLOCK_REPORT+="      Read from this hook's OWN environment. The hook runs before any"$'\n'
+    BLOCK_REPORT+="      shell does, so writing it as a command prefix never reaches it."$'\n'
+    BLOCK_REPORT+="      Export it in the shell that launches Claude Code, or add it to"$'\n'
+    BLOCK_REPORT+="      the top-level \"env\" block of ~/.claude/settings.json, then"$'\n'
+    BLOCK_REPORT+="      restart the session."$'\n'
   fi
 done <<<"$MATRIX"
 
 if [ "$ALL_PASS" = "1" ]; then
   [ -n "$WARN_REPORT" ] && printf '%s\n' "$WARN_REPORT" >&2
+  [ -n "$UNKNOWN_REPORT" ] && printf '%s\n' "$UNKNOWN_REPORT" >&2
   workflow_state_set --start-dir="$PWD" activity=idle bead= stage=close \
     >/dev/null 2>&1 || true
   exit 0
 fi
 
+[ -n "$UNKNOWN_REPORT" ] && printf '%s\n' "$UNKNOWN_REPORT" >&2
 printf '%s\n' "$BLOCK_REPORT" >&2
 exit 2
