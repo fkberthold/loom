@@ -158,16 +158,41 @@ done
 # host without yq.
 #
 # One-shot per session: a sentinel under $XDG_RUNTIME_DIR keyed on the
-# constitution's path. $XDG_RUNTIME_DIR is per-login-session and cleared
-# on logout, so the sentinel naturally scopes "once per session". When
+# payload's session_id plus the constitution's path. When
 # $XDG_RUNTIME_DIR is unset we fall back to $TMPDIR/tmp — the nudge then
 # de-dupes per that dir's lifetime, which is an acceptable degradation
 # for an INFO-only message.
+#
+# WHY THE SESSION IS IN THE KEY (loom-5sfb). The key used to be the path
+# alone, on the reading that $XDG_RUNTIME_DIR is per-login-session and
+# therefore stands in for one Claude Code session. It does not: systemd
+# keeps /run/user/<uid> for the whole login, so on a desktop that stays
+# logged in the sentinel outlives every session after the first, and
+# "once per session" quietly became "once per login". The sibling
+# detector in hooks/loom-drift-nudge.sh was measured going silent for ten
+# days that way. This nudge shares the mechanism, so it shares the fix.
+#
+# NO session_id → the path-only key, unchanged. It can be missing: an
+# empty payload, malformed JSON, or a host without jq. That degrades to
+# exactly today's behavior, which is the right floor — keying on anything
+# per-invocation instead would fire this nudge on every Bash call.
+#
+# The mtime-keyed CACHE_FILE further down deliberately does NOT get this
+# treatment. It shares this directory and the `loom-constitution-` prefix
+# but is not a one-shot nudge: it is a parse cache that self-invalidates
+# when the constitution changes, and making it per-session would re-run
+# yq on every new session for no gain.
 SKEW_BASE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
-if command -v sha256sum >/dev/null 2>&1; then
-  SKEW_KEY=$(printf '%s' "$CONST" | sha256sum | cut -d' ' -f1)
+SKEW_SESSION=$(json_get_py '.session_id' 'd.get("session_id","")' "$INPUT" 2>/dev/null || true)
+if [ -n "$SKEW_SESSION" ]; then
+  SKEW_KEY_INPUT="$SKEW_SESSION:$CONST"
 else
-  SKEW_KEY=$(printf '%s' "$CONST" | cksum | tr -d ' ')
+  SKEW_KEY_INPUT="$CONST"
+fi
+if command -v sha256sum >/dev/null 2>&1; then
+  SKEW_KEY=$(printf '%s' "$SKEW_KEY_INPUT" | sha256sum | cut -d' ' -f1)
+else
+  SKEW_KEY=$(printf '%s' "$SKEW_KEY_INPUT" | cksum | tr -d ' ')
 fi
 SKEW_SENTINEL="$SKEW_BASE/loom-constitution-ageskew-$SKEW_KEY"
 if [ ! -e "$SKEW_SENTINEL" ]; then

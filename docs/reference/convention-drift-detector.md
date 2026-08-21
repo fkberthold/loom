@@ -225,10 +225,15 @@ each managed project it opens in:
 
 Every nudge is **one** stderr line, gated by a once-per-session
 sentinel under `$XDG_RUNTIME_DIR` (falling back to `$TMPDIR`), keyed on
-the stamp path. Same fix command throughout, different emphasis — and a
-reader can tell which condition tripped from the line alone, because
-only the stale one prints hashes and only the owned-file one prints a
-path:
+the payload's `session_id` plus the stamp path. Both halves of that key
+matter: the stamp path gives each managed project its own slot, and the
+`session_id` is what makes "once per session" true — the directory
+itself is per-LOGIN, so a path-only key let one nudge cover every
+session until the next reboot (loom-5sfb). A payload with no readable
+`session_id` falls back to the path-only key. Same fix command
+throughout, different emphasis — and a reader can tell which condition
+tripped from the line alone, because only the stale one prints hashes
+and only the owned-file one prints a path:
 
 ```text
 [loom-drift-nudge] INFO: this project's loom-convention stamp

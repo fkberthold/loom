@@ -140,11 +140,15 @@
 # just once at process boot — so a naive "always nudge on drift" would
 # repeat across every `/clear` in one sitting. Reuses the loom-1lj
 # age-skew nudge's sentinel: a marker file under $XDG_RUNTIME_DIR
-# (falling back to $TMPDIR/tmp), keyed on a hash of the managed
-# project's `.claude/.loom-sync` path. $XDG_RUNTIME_DIR is
-# per-login-session and cleared on logout, so the sentinel naturally
-# scopes "once per session" the same way constitution-enforce.sh's
-# age-skew sentinel does.
+# (falling back to $TMPDIR/tmp), keyed on a hash of the payload's
+# `session_id` plus the managed project's `.claude/.loom-sync` path.
+#
+# The session_id half of that key is what makes "once per session" true
+# (loom-5sfb). The directory alone does not scope a session:
+# $XDG_RUNTIME_DIR is per-LOGIN, and a desktop stays logged in for days,
+# so a path-only key let one nudge cover every session until reboot. See
+# the emitter's own note for the measurement and for what happens when
+# session_id cannot be read.
 #
 # HASH COMPUTATION — why this hook resolves its OWN real path first.
 # `scripts/loom-convention-manifest`'s root-resolution
@@ -219,21 +223,52 @@ if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
 fi
 CWD="${CWD:-$PWD}"
 
+# 3b. The session this payload belongs to (loom-5sfb). Read the same way
+#     as `.cwd` above, and for the same reason: jq when the host has it, a
+#     documented degradation when it does not. An empty value here is not
+#     an error — see the sentinel-key note below.
+SESSION_ID=""
+if [ -n "$INPUT" ] && command -v jq >/dev/null 2>&1; then
+  SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || true)
+fi
+
 STAMP="$CWD/.claude/.loom-sync"
 WORKFLOW_JSON="$CWD/.claude/workflow.json"
 
 # --- ONE-TIME-PER-SESSION emitter ---------------------------------------
 # Shared by BOTH nudge modes (never-synced and stale-stamp). Mirrors
-# constitution-enforce.sh's loom-1lj age-skew nudge exactly. Keyed on the
-# STAMP path — present or not — so distinct managed projects in the same
-# session each get their own one-shot nudge slot.
+# constitution-enforce.sh's loom-1lj age-skew nudge. Keyed on the SESSION
+# plus the STAMP path — present or not — so distinct managed projects in
+# one session each get their own one-shot slot, and a new session gets a
+# fresh one.
+#
+# WHY THE SESSION IS IN THE KEY (loom-5sfb). The sentinel used to be keyed
+# on the STAMP path alone, and the directory holding it was read as the
+# session's own lifetime. $XDG_RUNTIME_DIR does not have that lifetime:
+# systemd keeps /run/user/<uid> for the whole login, so the key made "once
+# per session" mean "once per login". Measured 2026-08-20 on a box booted
+# ten days earlier: a never-synced project's sentinel was written three
+# hours after boot and was still there, so the nudge had fired once, on
+# day one, and had been silent in every session since. The payload's
+# session_id is the fact the old key was missing.
+#
+# NO session_id → the path-only key, unchanged. It can be missing: an
+# empty payload, malformed JSON, or a host without jq. That degrades to
+# exactly today's behavior, which is the right floor — keying on anything
+# per-invocation instead would turn a one-shot into a per-turn spammer,
+# which is worse than the bug this fixes.
 emit_nudge_once() {
-  local msg="$1" sentinel_base sentinel_key sentinel
+  local msg="$1" sentinel_base sentinel_key sentinel key_input
   sentinel_base="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
-  if command -v sha256sum >/dev/null 2>&1; then
-    sentinel_key=$(printf '%s' "$STAMP" | sha256sum | cut -d' ' -f1)
+  if [ -n "$SESSION_ID" ]; then
+    key_input="$SESSION_ID:$STAMP"
   else
-    sentinel_key=$(printf '%s' "$STAMP" | cksum | tr -d ' ')
+    key_input="$STAMP"
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    sentinel_key=$(printf '%s' "$key_input" | sha256sum | cut -d' ' -f1)
+  else
+    sentinel_key=$(printf '%s' "$key_input" | cksum | tr -d ' ')
   fi
   sentinel="$sentinel_base/loom-drift-nudge-$sentinel_key"
   [ -e "$sentinel" ] && return 0   # already nudged this session
