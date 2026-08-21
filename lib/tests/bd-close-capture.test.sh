@@ -565,10 +565,23 @@ else
   fail "unreachable diagnostic does not name the failed DSN" "$out"
 fi
 
-if echo "$out" | grep -qF '?'; then
+# Anchored on the matrix ROW, not on a bare question mark — the
+# explanatory prose below the matrix also contains one, so a loose grep
+# would pass even if every row had rendered as ✗.
+if echo "$out" | grep -qE '^  \? Drawer in ' \
+   && echo "$out" | grep -qE '^  \? KG triple referencing ' \
+   && echo "$out" | grep -qE '^  \? Diary entry mentioning '; then
   pass "unreachable store marks store-backed checks with a distinct marker (not ✗)"
 else
   fail "unreachable store used ✗ for checks it could not evaluate" "$out"
+fi
+
+# The two matchers that need no store must still report a real verdict.
+if echo "$out" | grep -qE '^  ✗ bd memory tagged with ' \
+   && echo "$out" | grep -qE '^  ✗ Substantive close --reason'; then
+  pass "store-independent checks 4 and 5 still report ✓/✗, never ?"
+else
+  fail "checks 4 and 5 went UNKNOWN on an unreachable store" "$out"
 fi
 
 if echo "$out" | grep -qF 'loom-8vb'; then
