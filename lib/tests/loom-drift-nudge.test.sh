@@ -60,6 +60,12 @@
 #      matching last_synced is a claim about the PAST; the owned
 #      template's bytes on disk are a fact about the PRESENT, and the
 #      fact wins. See the block header above case V.
+#   AD-AG. loom-5sfb — the one-shot sentinel is keyed on the payload's
+#      session_id, not on $XDG_RUNTIME_DIR's lifetime. AD: two session_ids
+#      under ONE $XDG_RUNTIME_DIR each nudge. AE: one session_id, repeated
+#      calls, one nudge. AF: no readable session_id → the path-only
+#      fallback, still one nudge. AG: the never-synced variant is
+#      session-keyed too.
 #
 # Run:  bash lib/tests/loom-drift-nudge.test.sh
 
@@ -689,6 +695,79 @@ fi
 rm -rf "$P" "$SESS_AC1" "$SESS_AC2" "$SESS_AC3" "$SESS_AC4"
 
 rm -rf "$OFROOT"
+
+# =========================================================================
+# loom-5sfb — the sentinel is keyed on the SESSION, not on the login.
+# $XDG_RUNTIME_DIR outlives a Claude Code session by days (systemd keeps
+# /run/user/<uid> for the whole login), so a sentinel keyed on the target
+# path alone made "once per session" mean "once per login". Measured
+# 2026-08-20: a never-synced project's nudge fired once, ten days earlier,
+# and stayed quiet in every session since. These cases hold
+# $XDG_RUNTIME_DIR FIXED — the condition the old key could not see — and
+# vary only the payload's session_id.
+FROOT_S=$(mk_fixture_loom_root)
+
+echo "==> AD. different session_id, SAME \$XDG_RUNTIME_DIR → each session nudges"
+P=$(mk_fixture_project "deadbeefdeadbeef00000000" "2026-01-01")
+SESS_AD=$(mktemp -d)
+out1=$(run_hook "$P" "$FROOT_S" "$SESS_AD" '{"session_id":"aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"}')
+out2=$(run_hook "$P" "$FROOT_S" "$SESS_AD" '{"session_id":"bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb"}')
+if echo "$out1" | grep -q 'loom-drift-nudge' && echo "$out2" | grep -q 'loom-drift-nudge'; then
+  pass "two different session_ids under one \$XDG_RUNTIME_DIR each get a nudge"
+else
+  fail "second session was silenced by the first session's sentinel" "out1=$out1 out2=$out2"
+fi
+rm -rf "$P" "$SESS_AD"
+
+echo "==> AE. same session_id, repeated calls → exactly ONE nudge"
+# SessionStart fires on fresh start, resume AND /clear, so one session can
+# call the hook several times. It still gets one nudge.
+P=$(mk_fixture_project "deadbeefdeadbeef00000000" "2026-01-01")
+SESS_AE=$(mktemp -d)
+out1=$(run_hook "$P" "$FROOT_S" "$SESS_AE" '{"session_id":"cccccccc-3333-4333-8333-cccccccccccc"}')
+out2=$(run_hook "$P" "$FROOT_S" "$SESS_AE" '{"session_id":"cccccccc-3333-4333-8333-cccccccccccc"}')
+out3=$(run_hook "$P" "$FROOT_S" "$SESS_AE" '{"session_id":"cccccccc-3333-4333-8333-cccccccccccc"}')
+if echo "$out1" | grep -q 'loom-drift-nudge' && [ -z "$out2" ] && [ -z "$out3" ]; then
+  pass "one session_id, three calls → the first nudges, the rest are silent"
+else
+  fail "same-session repeat nudged more than once" "out1=$out1 out2=$out2 out3=$out3"
+fi
+rm -rf "$P" "$SESS_AE"
+
+echo "==> AF. no session_id in the payload → path-only fallback, still one nudge"
+# session_id can be unreadable: an empty payload, malformed JSON, or a
+# host without jq. Degrading to the CURRENT path-only key preserves
+# today's behavior; degrading to a per-invocation key would turn a
+# one-shot into a per-turn spammer, which is worse than the bug.
+P=$(mk_fixture_project "deadbeefdeadbeef00000000" "2026-01-01")
+SESS_AF=$(mktemp -d)
+out1=$(run_hook "$P" "$FROOT_S" "$SESS_AF" '{}')
+out2=$(run_hook "$P" "$FROOT_S" "$SESS_AF" '{}')
+out3=$(run_hook "$P" "$FROOT_S" "$SESS_AF" 'not json at all')
+if echo "$out1" | grep -q 'loom-drift-nudge' && [ -z "$out2" ] && [ -z "$out3" ]; then
+  pass "no session_id → path-only sentinel, exactly one nudge across repeated calls"
+else
+  fail "no-session_id fallback did not hold at one nudge" "out1=$out1 out2=$out2 out3=$out3"
+fi
+rm -rf "$P" "$SESS_AF"
+
+echo "==> AG. never-synced nudge is session-keyed too"
+# The same emitter serves every nudge variant, so the never-synced branch
+# must gain the fix for free.
+P=$(mk_managed_project)
+SESS_AG=$(mktemp -d)
+out1=$(run_hook "$P" "$FROOT_S" "$SESS_AG" '{"session_id":"dddddddd-4444-4444-8444-dddddddddddd"}')
+out2=$(run_hook "$P" "$FROOT_S" "$SESS_AG" '{"session_id":"dddddddd-4444-4444-8444-dddddddddddd"}')
+out3=$(run_hook "$P" "$FROOT_S" "$SESS_AG" '{"session_id":"eeeeeeee-5555-4555-8555-eeeeeeeeeeee"}')
+if echo "$out1" | grep -q 'never been synced' && [ -z "$out2" ] \
+   && echo "$out3" | grep -q 'never been synced'; then
+  pass "never-synced nudge: one per session_id, re-fires for a new session_id"
+else
+  fail "never-synced nudge is not session-keyed" "out1=$out1 out2=$out2 out3=$out3"
+fi
+rm -rf "$P" "$SESS_AG"
+
+rm -rf "$FROOT_S"
 
 # =========================================================================
 echo "==> J. settings.snippet.json registers the hook in SessionStart (additive)"

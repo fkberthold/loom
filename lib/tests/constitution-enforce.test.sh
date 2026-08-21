@@ -284,6 +284,21 @@ print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]}}))
   ( cd "$cwd" && env "$@" PATH="$(yq_path)" bash "$HOOK" <<<"$payload" 2>&1 )
 }
 
+# run_hook_sid <cwd> <command> <session_id> [extra env assignments...]
+# Same as run_hook, but the payload carries a session_id. The age-skew
+# sentinel keys on it (loom-5sfb), so a test that varies sessions needs a
+# payload shape the real hook sees and the plain run_hook above omits.
+run_hook_sid() {
+  local cwd="$1" cmd="$2" sid="$3"; shift 3
+  local payload
+  payload=$(python3 -c '
+import json, sys
+print(json.dumps({"session_id": sys.argv[2], "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[1]}}))
+' "$cmd" "$sid")
+  ( cd "$cwd" && env "$@" PATH="$(yq_path)" bash "$HOOK" <<<"$payload" 2>&1 )
+}
+
 # =====================================================================
 echo "==> devbox/pnpm project: enforcement decisions"
 P=$(mk_devbox_pnpm_project)
@@ -554,6 +569,61 @@ if [ "$rc" -eq 0 ] && ! echo "$out" | grep -qi 'stale\|out of date\|older'; then
   pass "fresh constitution: no age-skew warning"
 else
   fail "fresh constitution wrongly warned. rc=$rc" "$out"
+fi
+rm -rf "$P" "$SESSION_DIR"
+
+# =====================================================================
+# loom-5sfb — the age-skew sentinel is keyed on the SESSION, not on the
+# login. $XDG_RUNTIME_DIR survives for the whole login (systemd keeps
+# /run/user/<uid> until logout), so a sentinel keyed on the constitution's
+# path alone made "once per session" mean "once per login" — the nudge
+# fired on the first session after boot and stayed quiet for days. These
+# cases hold $XDG_RUNTIME_DIR FIXED, which is the condition the old key
+# could not see, and vary only the payload's session_id.
+echo "==> age-skew: different session_id under one \$XDG_RUNTIME_DIR re-warns (loom-5sfb)"
+P=$(mk_stale_constitution_project)
+SESSION_DIR=$(mktemp -d)
+out1=$(run_hook_sid "$P" "pnpm install" "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa" XDG_RUNTIME_DIR="$SESSION_DIR")
+out2=$(run_hook_sid "$P" "pnpm install" "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb" XDG_RUNTIME_DIR="$SESSION_DIR")
+if echo "$out1" | grep -qi 'older' && echo "$out2" | grep -qi 'older'; then
+  pass "two session_ids under one \$XDG_RUNTIME_DIR each get the age-skew warning"
+else
+  fail "second session was silenced by the first session's sentinel" "out1=$out1
+out2=$out2"
+fi
+rm -rf "$P" "$SESSION_DIR"
+
+echo "==> age-skew: same session_id, repeated calls → exactly ONE warning"
+P=$(mk_stale_constitution_project)
+SESSION_DIR=$(mktemp -d)
+out1=$(run_hook_sid "$P" "pnpm install" "cccccccc-3333-4333-8333-cccccccccccc" XDG_RUNTIME_DIR="$SESSION_DIR")
+out2=$(run_hook_sid "$P" "pnpm install" "cccccccc-3333-4333-8333-cccccccccccc" XDG_RUNTIME_DIR="$SESSION_DIR")
+out3=$(run_hook_sid "$P" "pnpm install" "cccccccc-3333-4333-8333-cccccccccccc" XDG_RUNTIME_DIR="$SESSION_DIR")
+if echo "$out1" | grep -qi 'older' \
+   && ! echo "$out2" | grep -qi 'older' \
+   && ! echo "$out3" | grep -qi 'older'; then
+  pass "one session_id, three calls → the first warns, the rest are silent"
+else
+  fail "same-session repeat warned more than once" "out1=$out1
+out2=$out2
+out3=$out3"
+fi
+rm -rf "$P" "$SESSION_DIR"
+
+echo "==> age-skew: no session_id in the payload → path-only fallback, one warning"
+# session_id can be unreadable — an empty payload, malformed JSON, or a
+# host without jq. Degrading to the CURRENT path-only key preserves
+# today's behavior; a per-invocation key would turn the one-shot into a
+# per-turn spammer, which is worse than the bug being fixed.
+P=$(mk_stale_constitution_project)
+SESSION_DIR=$(mktemp -d)
+out1=$(run_hook "$P" "pnpm install" XDG_RUNTIME_DIR="$SESSION_DIR")
+out2=$(run_hook "$P" "pnpm install" XDG_RUNTIME_DIR="$SESSION_DIR")
+if echo "$out1" | grep -qi 'older' && ! echo "$out2" | grep -qi 'older'; then
+  pass "no session_id → path-only sentinel, exactly one warning across repeated calls"
+else
+  fail "no-session_id fallback did not hold at one warning" "out1=$out1
+out2=$out2"
 fi
 rm -rf "$P" "$SESSION_DIR"
 
