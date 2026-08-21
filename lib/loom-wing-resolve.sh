@@ -70,14 +70,16 @@
 # Functions (sourceable):
 #   loom_wing_resolve [flags]              echo the resolved wing
 #   loom_wing_resolve_kv [flags]           echo wing= and wing_source=
+#   loom_wing_project_root [dir]           the root policy, on its own
 #   loom_wing_from_mempalace_yaml <root>   rung 2 alone (rc 1 if absent)
 #   loom_wing_from_constitution <root>     rung 3 alone (rc 1 if absent)
 #   loom_wing_from_bd_prefix <root>        rung 5 detection (rc 1 if absent)
 #
 # Flags (shared by both resolve functions and by the CLI):
 #   --root <path>       project root. Precedence: explicit --root →
-#                       `git -C $PWD rev-parse --show-toplevel` → $PWD.
-#                       A nonexistent explicit --root is an error.
+#                       `loom_wing_project_root` → $PWD. A nonexistent
+#                       explicit --root is an error, and an explicit one
+#                       is never redirected (loom-l78w).
 #   --wing <name>       rung 1. Wins over everything below it.
 #   --bd-prefix <p>     rung 5. A literal prefix, which is how a caller
 #                       hands one in. The word `auto` asks for the same
@@ -195,6 +197,78 @@ loom_wing_from_bd_prefix() {
 }
 
 # ---------------------------------------------------------------------
+# Root defaulting — the MAIN checkout, never a linked worktree
+# ---------------------------------------------------------------------
+
+# _loom_wing_abs_dir <base> <path> — canonicalize a path git reported.
+#
+# git answers these relative as often as absolute, and not consistently
+# between them: at a repo root `--git-dir` and `--git-common-dir` both
+# say `.git`, but one directory down the first says `/abs/repo/.git`
+# while the second says `../.git`. Comparing the two raw would call
+# every subdirectory of every ordinary checkout a linked worktree, so
+# both sides come through here first.
+_loom_wing_abs_dir() {
+  local base="$1" p="$2"
+  [ -n "$p" ] || return 1
+  case "$p" in /*) ;; *) p="$base/$p" ;; esac
+  [ -d "$p" ] || return 1
+  ( cd "$p" && pwd -P )
+}
+
+# loom_wing_project_root [dir] — the root to resolve against when the
+# caller named none. Defaults to $PWD's.
+#
+# Inside a LINKED WORKTREE the plain toplevel is the worktree's own
+# directory, and every rung below then reads the worktree: rung 4 takes
+# its basename and answers `agent-<hash>`, while rungs 2 and 3 hunt for
+# a mempalace.yaml and a constitution the worktree's branch need not
+# carry. A worktree of loom is loom, and `agent-<hash>` is not a wing —
+# it names a directory that will not exist next week, so filing there
+# splits the project's memory the same way loom-kpke did (loom-l78w).
+#
+# Correcting the ROOT rather than rung 4 is the point. Rungs 2 and 3 are
+# there to read the project's own declarations, and a rung-4 special
+# case would have left both of them reading the worktree.
+#
+# git tells the two apart: --git-dir and --git-common-dir differ only
+# inside a linked worktree, and the main checkout is the common dir's
+# parent. That parent is CONFIRMED against git before it is used, so a
+# layout where the common dir is not `<root>/.git` (--separate-git-dir,
+# an exported GIT_DIR) falls back to the plain toplevel instead of
+# guessing a root out of a path shape.
+#
+# This governs the DEFAULT only. An explicit --root is passed through
+# untouched: a caller that names a worktree path on purpose is asking a
+# different question from one that named nothing, and gets the answer it
+# asked for.
+loom_wing_project_root() {
+  local dir="${1:-$PWD}"
+  local top gitdir common cand cand_top cand_common
+
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+  if [ -z "$top" ]; then printf '%s\n' "$dir"; return 0; fi
+
+  gitdir=$(_loom_wing_abs_dir "$dir" "$(git -C "$dir" rev-parse --git-dir 2>/dev/null)") \
+    || { printf '%s\n' "$top"; return 0; }
+  common=$(_loom_wing_abs_dir "$dir" "$(git -C "$dir" rev-parse --git-common-dir 2>/dev/null)") \
+    || { printf '%s\n' "$top"; return 0; }
+
+  # Equal means an ordinary checkout. Nothing to redirect.
+  if [ "$gitdir" = "$common" ]; then printf '%s\n' "$top"; return 0; fi
+
+  cand=$(dirname "$common")
+  cand_top=$(git -C "$cand" rev-parse --show-toplevel 2>/dev/null)
+  cand_common=$(_loom_wing_abs_dir "$cand" "$(git -C "$cand" rev-parse --git-common-dir 2>/dev/null)")
+  if [ -n "$cand_top" ] && [ "$cand_common" = "$common" ]; then
+    printf '%s\n' "$cand_top"
+    return 0
+  fi
+
+  printf '%s\n' "$top"
+}
+
+# ---------------------------------------------------------------------
 # The chain
 # ---------------------------------------------------------------------
 
@@ -227,7 +301,7 @@ loom_wing_resolve_kv() {
     fi
     root=$(cd "$root_flag" && pwd -P)
   else
-    root=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
+    root=$(loom_wing_project_root "$PWD")
     [ -n "$root" ] || root="$PWD"
   fi
 

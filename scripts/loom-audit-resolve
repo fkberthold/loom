@@ -20,8 +20,9 @@
 #   scripts/loom-audit-resolve [--root <path>] [--wing <name>]
 #
 #   --root <path>   project root to audit. Precedence: explicit --root →
-#                   `git -C $PWD rev-parse --show-toplevel` → $PWD.
-#                   A nonexistent explicit --root is an error (exit 2).
+#                   `loom_wing_project_root` → $PWD. A nonexistent
+#                   explicit --root is an error (exit 2), and an explicit
+#                   one is never redirected (loom-l78w).
 #   --wing <name>   MemPalace wing for citation checks. This is rung 1
 #                   of the shared chain in lib/loom-wing-resolve.sh:
 #                   --wing → mempalace.yaml → the constitution's `wing:`
@@ -87,7 +88,12 @@ if [ -n "$root_flag" ]; then
   fi
   root=$(cd "$root_flag" && pwd -P)
 else
-  root=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)
+  # Same root policy as the resolver, from the one place it is written.
+  # Run from inside a linked worktree the plain toplevel is `agent-<hash>`,
+  # which is neither a project to audit nor a wing to file into; the
+  # policy redirects the DEFAULT to the main checkout. The explicit
+  # --root above is left exactly as the caller gave it (loom-l78w).
+  root=$(loom_wing_project_root "$PWD")
   [ -z "$root" ] && root="$PWD"
 fi
 
