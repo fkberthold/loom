@@ -261,18 +261,17 @@ audit. This is a deliberately user-pulled workflow.
   Lets the skill run against any loom-managed project, not just loom
   itself.
 - `--wing <name>` — MemPalace wing to use for drawer-slug resolution
-  in Check 5 (and any other palace-citation checks). Default: the
-  basename of `--root` used verbatim (no case-folding, no `_`↔`-`
-  substitution — the palace's de-facto convention follows filesystem
-  naming, so `liza_base` filesystem → wing `liza_base`,
-  `hundred_acre_woods` → wing `hundred_acre_woods`). Fallback: `loom`
-  only if the auto-detect basename is itself `loom` (preserves the
-  pre-portability behavior for loom's own audit). The wing-name flag
-  exists for projects whose directory basename doesn't match their
-  MemPalace wing slug (e.g., a checkout named `liza_live` whose wing
-  is `liza`). Step 1b's wing-variant WARN catches the remaining
-  divergence cases (capitalization that doesn't match, separator
-  flip relative to a larger sibling wing).
+  in Check 5 (and any other palace-citation checks). This is rung 1 of
+  the shared chain in `lib/loom-wing-resolve.sh`: the flag, then
+  `<root>/mempalace.yaml`, then the constitution's `wing:` key, then
+  the bd id prefix, then the basename of `--root` used verbatim (no
+  case-folding, no `_`↔`-` substitution, so `liza_base` →
+  `liza_base` and `hundred_acre_woods` → `hundred_acre_woods`). Pass
+  the flag for a checkout whose name matches neither its wing nor any
+  declaration, such as `liza_live` on the `liza` wing. Step 1b's
+  wing-variant WARN catches the remaining divergences (capitalization
+  that doesn't match, separator flip relative to a larger sibling
+  wing). See the full precedence under Step 1.
 - `--mine-history` — after the audit report is presented, delegate to
   the `/loom-mine-history` skill to mine the project's git/PR history
   for unmined decisions (drawers + KG triples), behind its own
@@ -305,7 +304,7 @@ through whatever `--root`/`--wing` the user gave) and read its
 
 ```
 root=<abs path>              # resolved per the precedence below
-wing=<name>                  # basename verbatim, or explicit --wing
+wing=<name>                  # the shared wing chain (see below)
 primitives=<csv>             # which of skills,commands,agents,hooks exist
 diataxis_optout=<0|1>        # <root>/docs/.no-diataxis present
 loom_managed=<0|1>           # .beads/ AND a docs Diataxis quadrant
@@ -314,11 +313,11 @@ loom_managed=<0|1>           # .beads/ AND a docs Diataxis quadrant
 This helper computes the deterministic resolution prelude
 (unit-tested at `lib/tests/loom-audit-resolve.test.sh`), so the rules
 below are documentation of what it does — **do not re-derive them by
-hand**; consume the helper's output. In particular the wing default is
-the basename **verbatim** (no `_`↔`-` substitution, no case-folding),
-the only rule correct for both underscore wings (`liza_base`) and dash
-wings (`golden-path`); Step 1b's variant-WARN backs this up for the
-divergence cases.
+hand**; consume the helper's output. The wing in particular comes from
+`lib/loom-wing-resolve.sh`, the one file every loom site reads a wing
+from (loom-pc3x), so re-deriving it here is what let two sites disagree
+about the same project (loom-kpke). Step 1b's variant-WARN backs the
+chain up for the divergence cases.
 
 For reference, the precedence the helper implements:
 
@@ -334,19 +333,34 @@ Parse the rest of the flags. Decide whether the docs check runs
 (`has-diataxis-substrate` heuristic below, or explicit
 `--check=docs|all`).
 
-Resolve the project's MemPalace wing in this precedence order:
+Resolve the project's MemPalace wing through the shared chain in
+`lib/loom-wing-resolve.sh` (loom-pc3x), in this precedence order:
 
 1. Explicit `--wing <name>` flag.
-2. Basename of the resolved root, used verbatim — no case-folding,
+2. `<root>/mempalace.yaml`, key `wing:`. MemPalace's own descriptor,
+   which already carries the wing next to its rooms, so where a
+   project wrote one it beats a guess.
+3. `<root>/.claude/project-constitution.md` front matter, key `wing:`.
+   Optional, and there so a project that already carries a
+   constitution gets a home for the wing without a new file.
+4. The bd id prefix. This rung is for a caller that holds a bead id
+   and no root, such as `hooks/bd-close-capture.sh`. The audit helper
+   always holds a root, so it leaves this rung off.
+5. Basename of the resolved root, used verbatim — no case-folding,
    no `_`↔`-` substitution (e.g., a root at `/home/frank/repos/loom`
    → wing `loom`; a root at `/home/frank/repos/hundred_acre_woods` →
    wing `hundred_acre_woods`; a root at `/home/frank/repos/liza_base`
    → wing `liza_base`). The palace's de-facto wing convention follows
-   filesystem naming, so the verbatim basename is the right default.
-   Step 1b's variant WARN handles the cases where the filesystem name
-   genuinely diverges from the canonical wing slug.
-3. The literal `loom` only when step 2 already produces `loom` —
-   this is the no-flag, loom-itself path and preserves v1 behavior.
+   filesystem naming, so the verbatim basename is the right default
+   for a project that declares nothing.
+
+Verbatim at rung 5 is the only rule correct for both underscore wings
+(`liza_base`) and dash wings (`golden-path`). Rungs 2 and 3 exist for
+the projects where the directory name is not the wing at all, which
+rung 5 alone got wrong in silence: tla-puzzles resolved to a wing
+named `tla-puzzles` while its 932 drawers sat in `tla_puzzles`
+(loom-kpke). Step 1b's variant WARN stays as the backstop for
+divergences nothing declares.
 
 Detect the project's primitive directories from the filesystem
 (used by Checks 3 and 4). Probe each of these under the resolved

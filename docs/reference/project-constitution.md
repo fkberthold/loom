@@ -106,6 +106,48 @@ language:
   version: "3.13"
 ```
 
+### `wing`
+
+Optional. The project's MemPalace wing, which is the wing every loom
+site files decision drawers into and searches for citation drift.
+
+This key is rung 3 of a five-rung chain that lives in one file,
+`lib/loom-wing-resolve.sh`. Every site that needs a wing reads it from
+there, so no two sites can disagree about the same project:
+
+| Rung | Source |
+|---|---|
+| 1 | An explicit `--wing` flag |
+| 2 | `<root>/mempalace.yaml`, key `wing:` |
+| 3 | This key |
+| 4 | The bd id prefix |
+| 5 | `basename $root` |
+
+Rung 2 sits above this one because `mempalace.yaml` is MemPalace's own
+descriptor and already carries the wing next to its rooms. A project
+that has one should declare the wing there and leave this key out,
+rather than state the same name in two files.
+
+Set this key when the wing name differs from the directory name and the
+project has no `mempalace.yaml`. Leave it out when the directory name
+already matches, which is the common case. Rung 5 takes the directory
+name verbatim, with no `_`/`-` substitution and no case-folding, so
+`liza_base` and `golden-path` both resolve correctly on their own.
+
+**Example:**
+
+```yaml
+wing: tla_puzzles
+```
+
+The gap this fills is a silent one. Before the chain existed,
+`scripts/loom-audit-resolve` and `scripts/loom-mine-history` each took
+the directory basename on their own, and both resolved `tla-puzzles` to
+a wing of that name. No wing of that name exists. The project's 932
+drawers live in `tla_puzzles`. Nothing errored, and a mine run would
+have filed 144 new drawers into the empty spelling and split the
+project's memory in two (loom-kpke).
+
 ### `forbidden`
 
 List of bash command patterns the agent must never run. Patterns
