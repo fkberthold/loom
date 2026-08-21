@@ -25,7 +25,7 @@
 #   --wing <name>   MemPalace wing for citation checks. This is rung 1
 #                   of the shared chain in lib/loom-wing-resolve.sh:
 #                   --wing → mempalace.yaml → the constitution's `wing:`
-#                   → the bd id prefix → basename $root. The basename
+#                   → basename $root → the bd id prefix. The basename
 #                   rung takes the directory name VERBATIM — no `_`↔`-`
 #                   substitution, no case-folding — which is the only
 #                   rule correct for BOTH underscore wings (liza_base,
@@ -92,9 +92,11 @@ else
 fi
 
 # ---- resolve wing --------------------------------------------------
-# One call into the shared chain. Rung 4 (the bd id prefix) is left off:
-# this script always holds a root, and where the prefix and the directory
-# name disagree the directory name is the one that names a live wing.
+# One call into the shared chain. No --bd-prefix is passed: this script
+# always holds a root, so rung 4 (basename) answers first and rung 5
+# (the bd id prefix) never fires. Where the prefix and the directory name
+# disagree the directory name is the one that names a live wing, which is
+# why rung 5 sits under rung 4 at all (loom-pc3x, amended 2026-08-21).
 if [ -n "$wing_flag" ]; then
   wing=$(loom_wing_resolve --root "$root" --wing "$wing_flag")
 else

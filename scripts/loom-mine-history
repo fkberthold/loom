@@ -23,8 +23,8 @@
 #   --wing <name>         MemPalace wing for filing. Rung 1 of the shared
 #                         chain in lib/loom-wing-resolve.sh: --wing →
 #                         mempalace.yaml → the constitution's `wing:` →
-#                         the bd id prefix → basename VERBATIM (no
-#                         `_`↔`-` subst, no case-fold). Same chain
+#                         basename VERBATIM (no `_`↔`-` subst, no
+#                         case-fold) → the bd id prefix. Same chain
 #                         scripts/loom-audit-resolve reads.
 #   --since=DATE          only commits/PRs since DATE (git --since)
 #   --since-release=TAG   only history after TAG
@@ -133,10 +133,11 @@ repo="$(cd "$repo" && pwd)"
 # drift. When the two derived it separately they drifted apart, which is
 # loom-kpke.
 #
-# Rung 4 (the bd id prefix) is left off for the same reason it is off in
-# loom-audit-resolve: this wrapper always holds a repo root, and where
-# the prefix and the directory name disagree the directory name is the
-# one that names a live wing.
+# No --bd-prefix is passed, for the same reason it is left off in
+# loom-audit-resolve: this wrapper always holds a repo root, so rung 4
+# (basename) answers first and rung 5 (the bd id prefix) never fires.
+# Where the prefix and the directory name disagree the directory name is
+# the one that names a live wing (loom-pc3x, amended 2026-08-21).
 if [ -n "$wing" ]; then
   wing="$(loom_wing_resolve --root "$repo" --wing "$wing")"
 else
