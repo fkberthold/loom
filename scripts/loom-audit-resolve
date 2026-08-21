@@ -98,11 +98,13 @@ else
 fi
 
 # ---- resolve wing --------------------------------------------------
-# One call into the shared chain. No --bd-prefix is passed: this script
-# always holds a root, so rung 4 (basename) answers first and rung 5
-# (the bd id prefix) never fires. Where the prefix and the directory name
-# disagree the directory name is the one that names a live wing, which is
-# why rung 5 sits under rung 4 at all (loom-pc3x, amended 2026-08-21).
+# One call into the shared chain, which is four rungs: an explicit
+# --wing, then mempalace.yaml, then the constitution, then the basename.
+# The bd id prefix is not one of them. It sat under the basename until
+# loom-6fyj, where a rung that could never fire was dropped along with
+# the flag that fed it. Where the prefix and the directory name disagree
+# the directory name is the one that names a live wing, which is why the
+# prefix lost that contest in the first place (loom-pc3x).
 if [ -n "$wing_flag" ]; then
   wing=$(loom_wing_resolve --root "$root" --wing "$wing_flag")
 else
