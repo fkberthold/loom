@@ -6,14 +6,13 @@
 # project. This file IS that source. Call sites source it and call
 # `loom_wing_resolve`; none of them re-derives the chain locally.
 #
-# THE CHAIN (decided by Frank 2026-08-21 and amended the same day, both
-# recorded on loom-pc3x):
+# THE CHAIN (decided by Frank 2026-08-21, amended and then shortened the
+# same day, recorded on loom-pc3x and loom-6fyj):
 #
 #   1. explicit --wing flag
 #   2. <root>/mempalace.yaml              wing:
 #   3. .claude/project-constitution.md    wing:
 #   4. basename $root
-#   5. bd id prefix
 #
 # Rung 2 outranks rung 3 because mempalace.yaml is MemPalace's own
 # declaration and already carries the wing plus its rooms. Where a
@@ -42,26 +41,25 @@
 # Wings `dream` and `sv` hold nothing. A chain that ranked the prefix
 # above the directory name sent two live projects to empty wings, which
 # is the defect loom-kpke filed. So the prefix is a poor guess whenever a
-# root is in hand, and rung 4 now says so.
+# root is in hand, and rung 4 says so.
 #
-# Rung 5 is what the prefix was written for: resolving a wing when cwd is
-# not the project repo, which is where hooks/bd-close-capture.sh sits
-# (loom-qw9i). That caller holds a bead id and no root it trusts.
+# WHY THE PREFIX IS NOT A RUNG AT ALL (loom-6fyj, the same day). It went
+# below the basename first, then off the chain. The step in between is
+# worth stating, because it is why the flag went too. Rung 4 takes
+# `basename $root` and the root policy below always yields a root, so
+# rung 4 always answers. A rung under it can never fire, and the
+# bd-prefix flag fed exactly that rung. The flag parsed, the usage block
+# described it, and no value a caller passed could change a single
+# answer. That is worse than no flag, because it reads like a contract
+# the code has quietly declined to honor.
 #
-# ONE CONSEQUENCE, STATED PLAINLY. Rung 4 takes `basename $root`, and the
-# root policy below always yields a root, so rung 4 always answers and
-# the chain never reaches rung 5 today. That is the point of the
-# demotion, not a gap in it. A caller that needs the prefix SEARCHED
-# rather than ranked last should call `loom_wing_from_bd_prefix` and add
-# the answer to its own candidate list, which is what loom-qw9i asks
-# bd-close-capture to do. `--bd-prefix <p>` stays parsed and honored so
-# that caller can hand its prefix in without a second code path.
-#
-# The rung is no longer opt-in. The opt-in was a precedence workaround
-# wearing a flag: with the prefix above the basename, the only thing
-# stopping it from beating the directory name was a caller choosing not
-# to ask. Rung order does that job now, so the guard guards nothing and
-# rung 5 detects a prefix on its own when it is reached.
+# `loom_wing_from_bd_prefix` stays exported, because the caller the
+# prefix was written for does not want a ranked answer at all.
+# hooks/bd-close-capture.sh resolves a wing when cwd is not the project
+# repo, holding a bead id and no root it trusts. It already builds a
+# CANDIDATE SET, and loom-qw9i has it join this function's answer to that
+# set rather than asking the chain to rank one. A building block suits
+# that caller. A rung never did.
 #
 # DUAL MODE. The file is both a sourceable library and an executable CLI,
 # following lib/bd-id-extract.sh. Sourcing it defines the functions and
@@ -73,7 +71,8 @@
 #   loom_wing_project_root [dir]           the root policy, on its own
 #   loom_wing_from_mempalace_yaml <root>   rung 2 alone (rc 1 if absent)
 #   loom_wing_from_constitution <root>     rung 3 alone (rc 1 if absent)
-#   loom_wing_from_bd_prefix <root>        rung 5 detection (rc 1 if absent)
+#   loom_wing_from_bd_prefix <root>        the bd prefix, off the chain
+#                                          (rc 1 if there is no tracker)
 #
 # Flags (shared by both resolve functions and by the CLI):
 #   --root <path>       project root. Precedence: explicit --root →
@@ -81,20 +80,21 @@
 #                       explicit --root is an error, and an explicit one
 #                       is never redirected (loom-l78w).
 #   --wing <name>       rung 1. Wins over everything below it.
-#   --bd-prefix <p>     rung 5. A literal prefix, which is how a caller
-#                       hands one in. The word `auto` asks for the same
-#                       detection rung 5 does on its own, so passing it
-#                       changes nothing.
+#
+# Every flag here can change the answer, and that is a tested invariant
+# (loom-6fyj, section 14 of lib/tests/loom-wing-resolve.test.sh). Adding
+# one means showing it does something.
 #
 # CLI output (stdout, one key=value per line):
 #   wing=<name>
-#   wing_source=<flag|mempalace_yaml|constitution|basename|bd_prefix>
+#   wing_source=<flag|mempalace_yaml|constitution|basename>
 #
 # Exit codes:
 #   0   resolved (rung 4 always yields something, so this is the norm)
 #   2   bad flag, or an explicit --root that is not a directory
 #
-# Lineage: loom-pc3x (the chain), loom-kpke (the P1 that forced it).
+# Lineage: loom-pc3x (the chain), loom-kpke (the P1 that forced it),
+# loom-6fyj (dropping the rung that could not fire).
 
 # ---------------------------------------------------------------------
 # YAML scalar reading
@@ -158,13 +158,13 @@ loom_wing_from_constitution() {
 }
 
 # ---------------------------------------------------------------------
-# Rung 5 — bd id prefix
+# The bd prefix — a building block, not a rung
 # ---------------------------------------------------------------------
 
 # Load lib/bd-id-extract.sh on demand. Prefix parsing is that file's job
 # (loom-6mf7: parse sites adopt its functions instead of guessing at a
-# character class), and rung 5 sits under a rung that always answers, so
-# most calls never need it.
+# character class), and the chain below never calls it, so the load
+# happens only when a caller asks for the prefix directly.
 #
 # The source ladder puts LOOM_TEST_LIB_DIR first, per the Mode 6 rule in
 # .claude/rules/dispatched-agents.md. Without that rung a worker running
@@ -273,7 +273,7 @@ loom_wing_project_root() {
 # ---------------------------------------------------------------------
 
 loom_wing_resolve_kv() {
-  local root_flag="" wing_flag="" bd_prefix=""
+  local root_flag="" wing_flag=""
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -281,8 +281,6 @@ loom_wing_resolve_kv() {
       --root)        shift; root_flag="${1:-}" ;;
       --wing=*)      wing_flag="${1#--wing=}" ;;
       --wing)        shift; wing_flag="${1:-}" ;;
-      --bd-prefix=*) bd_prefix="${1#--bd-prefix=}" ;;
-      --bd-prefix)   shift; bd_prefix="${1:-}" ;;
       -h|--help)     loom_wing_resolve_usage; return 0 ;;
       *)
         printf 'loom-wing-resolve: unrecognized argument: %s\n' "$1" >&2
@@ -329,24 +327,13 @@ loom_wing_resolve_kv() {
     fi
   fi
 
+  # Rung 4, the last one. The root policy above always yields a root, so
+  # this always answers and the chain has no floor below it. That is why
+  # there is no fifth rung here (loom-6fyj): a rung under this one could
+  # never fire, and a flag feeding it could never change an answer.
   if [ -z "$wing" ] && [ -n "$root" ]; then
     wing=$(basename "$root")
     src="basename"
-  fi
-
-  # Rung 5. Unreachable while rung 4 has a root to take a basename of,
-  # which is the whole point of the amendment. It stays wired for the
-  # caller the prefix was written for, and `--bd-prefix <p>` is how that
-  # caller hands one in.
-  if [ -z "$wing" ]; then
-    local p="$bd_prefix"
-    if [ -z "$p" ] || [ "$p" = "auto" ]; then
-      p=$(loom_wing_from_bd_prefix "$root" 2>/dev/null) || p=""
-    fi
-    if [ -n "$p" ]; then
-      wing="$p"
-      src="bd_prefix"
-    fi
   fi
 
   printf 'wing=%s\n' "$wing"

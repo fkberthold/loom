@@ -111,7 +111,7 @@ language:
 Optional. The project's MemPalace wing, which is the wing every loom
 site files decision drawers into and searches for citation drift.
 
-This key is rung 3 of a five-rung chain that lives in one file,
+This key is rung 3 of a four-rung chain that lives in one file,
 `lib/loom-wing-resolve.sh`. Every site that needs a wing reads it from
 there, so no two sites can disagree about the same project:
 
@@ -121,7 +121,6 @@ there, so no two sites can disagree about the same project:
 | 2 | `<root>/mempalace.yaml`, key `wing:` |
 | 3 | This key |
 | 4 | `basename $root` |
-| 5 | The bd id prefix |
 
 Rung 2 sits above this one because `mempalace.yaml` is MemPalace's own
 descriptor and already carries the wing next to its rooms. A project
@@ -134,14 +133,20 @@ already matches, which is the common case. Rung 4 takes the directory
 name verbatim, with no `_`/`-` substitution and no case-folding, so
 `liza_base` and `golden-path` both resolve correctly on their own.
 
-Rung 5 sits under the directory name because the bd prefix turns out to
-be the worse guess. Across the 8 repos under `~/repos` that carry a bd
-tracker, the two disagree three times, and the directory name is right
-all three times. `dreamer-engine` tracks beads as `dream`, `sharedvoice`
-as `sv`, and neither `dream` nor `sv` is a wing that holds anything. So
-the prefix earns its rung only where it was needed in the first place,
-which is a caller holding a bead id and no project root. With a root in
-hand, rung 4 answers first and the chain stops there.
+The bd id prefix is not a rung, and the reason is worth stating because
+it was one twice. It is the worse guess: across the 8 repos under
+`~/repos` that carry a bd tracker, the prefix and the directory name
+disagree three times, and the directory name is right all three times.
+`dreamer-engine` tracks beads as `dream`, `sharedvoice` as `sv`, and
+neither `dream` nor `sv` is a wing that holds anything. That put it
+under the directory name (loom-pc3x). Rung 4 always answers, though,
+because a root is always in hand, so a rung under rung 4 can never fire.
+loom-6fyj dropped it, along with the flag that fed it.
+
+A caller that wants the prefix anyway calls
+`loom_wing_from_bd_prefix` and joins the answer to its own candidate
+set. That is the shape `bd-close-capture.sh` needs, since it holds
+a bead id and no project root and never wanted a ranked answer.
 
 **Example:**
 

@@ -142,11 +142,13 @@ repo="$(cd "$repo" && pwd)"
 # drift. When the two derived it separately they drifted apart, which is
 # loom-kpke.
 #
-# No --bd-prefix is passed, for the same reason it is left off in
-# loom-audit-resolve: this wrapper always holds a repo root, so rung 4
-# (basename) answers first and rung 5 (the bd id prefix) never fires.
-# Where the prefix and the directory name disagree the directory name is
-# the one that names a live wing (loom-pc3x, amended 2026-08-21).
+# The chain is four rungs: an explicit --wing, then mempalace.yaml, then
+# the constitution, then the basename. The bd id prefix is not one of
+# them, for the reason loom-audit-resolve states: this wrapper always
+# holds a repo root, so the basename always answers, and loom-6fyj
+# dropped the rung under it that could never fire. Where the prefix and
+# the directory name disagree the directory name is the one that names a
+# live wing (loom-pc3x).
 if [ -n "$wing" ]; then
   wing="$(loom_wing_resolve --root "$repo" --wing "$wing")"
 else

@@ -264,7 +264,7 @@ audit. This is a deliberately user-pulled workflow.
   in Check 5 (and any other palace-citation checks). This is rung 1 of
   the shared chain in `lib/loom-wing-resolve.sh`: the flag, then
   `<root>/mempalace.yaml`, then the constitution's `wing:` key, then
-  the basename of `--root` used verbatim, then the bd id prefix (no
+  the basename of `--root` used verbatim (no
   case-folding, no `_`↔`-` substitution, so `liza_base` →
   `liza_base` and `hundred_acre_woods` → `hundred_acre_woods`). Pass
   the flag for a checkout whose name matches neither its wing nor any
@@ -350,10 +350,6 @@ Resolve the project's MemPalace wing through the shared chain in
    → wing `liza_base`). The palace's de-facto wing convention follows
    filesystem naming, so the verbatim basename is the right default
    for a project that declares nothing.
-5. The bd id prefix. This rung is for a caller that holds a bead id
-   and no root, such as `hooks/bd-close-capture.sh`. The audit helper
-   always holds a root, so rung 4 answers first and this rung never
-   fires here.
 
 Verbatim at rung 4 is the only rule correct for both underscore wings
 (`liza_base`) and dash wings (`golden-path`). Rungs 2 and 3 exist for
@@ -363,12 +359,16 @@ named `tla-puzzles` while its 932 drawers sat in `tla_puzzles`
 (loom-kpke). Step 1b's variant WARN stays as the backstop for
 divergences nothing declares.
 
-The bd prefix sits below the directory name because it is the worse
-guess when a root is in hand (amended on loom-pc3x 2026-08-21). Across
-the 8 repos under `~/repos` carrying a bd tracker the two disagree
-three times, and the directory name is right all three times:
+The bd id prefix is not a rung. It is the worse guess when a root is in
+hand: across the 8 repos under `~/repos` carrying a bd tracker the two
+disagree three times, and the directory name is right all three times.
 `dreamer-engine` tracks as `dream`, `sharedvoice` as `sv`, and
-`tla-puzzles` as `tla`. Wings `dream` and `sv` hold nothing.
+`tla-puzzles` as `tla`. Wings `dream` and `sv` hold nothing. That put
+the prefix under the directory name (loom-pc3x), where it could never
+fire, since rung 4 always answers. loom-6fyj dropped it. A caller that
+holds a bead id and no root, such as `hooks/bd-close-capture.sh`, calls
+`loom_wing_from_bd_prefix` and joins the answer to its own candidate
+set instead of asking the chain to rank one.
 
 Detect the project's primitive directories from the filesystem
 (used by Checks 3 and 4). Probe each of these under the resolved
