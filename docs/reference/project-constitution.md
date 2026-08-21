@@ -150,9 +150,9 @@ wing: tla_puzzles
 ```
 
 The gap this fills is a silent one. Before the chain existed,
-`scripts/loom-audit-resolve` and `scripts/loom-mine-history` each took
-the directory basename on their own, and both resolved `tla-puzzles` to
-a wing of that name. No wing of that name exists. The project's 932
+`~/.claude/scripts/loom-audit-resolve` and
+`~/.claude/scripts/loom-mine-history` each took the directory basename
+on their own, and both resolved `tla-puzzles` to a wing of that name. No wing of that name exists. The project's 932
 drawers live in `tla_puzzles`. Nothing errored, and a mine run would
 have filed 144 new drawers into the empty spelling and split the
 project's memory in two (loom-kpke).
