@@ -387,6 +387,7 @@ if [ -f "$LOOM_ROOT/$OWNED_TEMPLATE" ]; then
   for tok in 'Files:' 'RED:' 'AUTOFAN-EXCLUDE:' \
              'Background dispatch' 'Worker-dispatch' \
              'Gate, don' 'explore' 'Splitting heuristic' \
+             'AgentTool' \
              '--limit 0'; do
     # `--` is load-bearing: one of the tokens is itself a flag-shaped
     # string (`--limit 0`), which grep would otherwise parse as an option.
@@ -447,6 +448,27 @@ if [ -f "$LOOM_ROOT/$OWNED_TEMPLATE" ]; then
     pass "owned template explains why the truncation notice is invisible"
   else
     fail "owned template explains why the truncation notice is invisible"
+  fi
+
+  # The harness ships an anti-dispatch line that lands AFTER project
+  # instructions, so this file has to answer it in words. Naming the line
+  # is the mechanism. A file that only asserts the default loses to
+  # whichever instruction the agent read last.
+  if grep -qiE 'overrides it|this file overrides' "$LOOM_ROOT/$OWNED_TEMPLATE"; then
+    pass "owned template overrides the harness anti-dispatch line"
+  else
+    fail "owned template overrides the harness anti-dispatch line"
+  fi
+
+  # Match against a whitespace-flattened copy. The phrase this looks for
+  # spans a line break in the wrapped markdown, and grep works a line at
+  # a time, so a literal search finds nothing and the gate reads GREEN on
+  # a file that never said it.
+  flat_owned="$(tr '\n' ' ' < "$LOOM_ROOT/$OWNED_TEMPLATE" | tr -s ' ')"
+  if printf '%s' "$flat_owned" | grep -qiE 'end of the prompt|later one tends to win'; then
+    pass "owned template explains why the harness line wins by position"
+  else
+    fail "owned template explains why the harness line wins by position"
   fi
 fi
 
