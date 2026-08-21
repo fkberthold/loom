@@ -54,6 +54,11 @@
 #                           per-cluster LLM cost); writes <out>/arcs.jsonl.
 #                           No-op on --dry-run. (bn7.2)
 #     --model=MODEL         claude model (default: a cheap tier)
+#     --wing=NAME           the repo's palace identity, used as the
+#                           `mined_from` object on every triple. Default:
+#                           the shared chain in lib/loom-wing-resolve.sh.
+#                           scripts/loom-mine-history always passes the
+#                           wing it resolved, so the two agree. (pc3x)
 #     --out=DIR             write candidates/drafts/triples into DIR.
 #                           A real (non-dry-run) pass also writes
 #                           <out>/watermark (the HEAD mined through, for
@@ -64,6 +69,37 @@
 
 # Default cheap model tier for the salience pass.
 _LMH_DEFAULT_MODEL="claude-haiku-4-5"
+
+# ---------------------------------------------------------------------
+# Wing resolution (loom-pc3x). The wrapper normally passes --wing, so
+# this only runs for a direct engine call. It defers to the shared chain
+# in lib/loom-wing-resolve.sh, a sibling of this file, and falls back to
+# the basename when that file is missing (a broken install, where the
+# engine still owes the caller a manifest).
+#
+# The LOOM_TEST_LIB_DIR rung comes first for the Mode 6 reason in
+# .claude/rules/dispatched-agents.md: without it a worker in a worktree
+# loads MAIN's copy and tests pass against code it never touched.
+# ---------------------------------------------------------------------
+_lmh_resolve_wing() {
+  local repo="$1"
+  local self_dir d
+  self_dir=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+  if ! declare -F loom_wing_resolve >/dev/null 2>&1; then
+    for d in "${LOOM_TEST_LIB_DIR:-}" "$self_dir" "$HOME/.claude/lib"; do
+      [ -n "$d" ] || continue
+      if [ -f "$d/loom-wing-resolve.sh" ]; then
+        # shellcheck source=./loom-wing-resolve.sh
+        . "$d/loom-wing-resolve.sh" 2>/dev/null && break
+      fi
+    done
+  fi
+  if declare -F loom_wing_resolve >/dev/null 2>&1; then
+    loom_wing_resolve --root "$repo"
+  else
+    basename "$repo"
+  fi
+}
 
 # ---------------------------------------------------------------------
 # JSON-string escaping (jq-free). Escapes backslash, quote, newline,
@@ -492,7 +528,7 @@ _lmh_harvest_gh() {
 # ---------------------------------------------------------------------
 loom_mine_history() {
   local repo="" since="" since_release="" since_sha="" max_units="" out=""
-  local dry_run=0 yes=0 resume=0 synthesize=0
+  local dry_run=0 yes=0 resume=0 synthesize=0 wing=""
   local model="$_LMH_DEFAULT_MODEL"
 
   # First positional is the repo path; flags may follow.
@@ -512,6 +548,8 @@ loom_mine_history() {
       --synthesize)      synthesize=1 ;;
       --model=*)         model="${1#--model=}" ;;
       --model)           shift; model="${1:-$model}" ;;
+      --wing=*)          wing="${1#--wing=}" ;;
+      --wing)            shift; wing="${1:-}" ;;
       --out=*)           out="${1#--out=}" ;;
       --out)             shift; out="${1:-}" ;;
       --since-sha)       shift; since_sha="${1:-}" ;;
@@ -537,6 +575,22 @@ loom_mine_history() {
   if [ "$resume" -eq 1 ] && [ -z "$out" ]; then
     echo "loom_mine_history: --resume requires --out (nowhere to checkpoint)" >&2
     return 2
+  fi
+
+  # The repo's palace identity, used as the `mined_from` object below.
+  # skills/loom-mine-history/SKILL.md step 4d says the repo entity is the
+  # resolved WING, and the engine used to emit `$repo`, a machine-local
+  # absolute path. One mine wrote two entities for the same repo, and the
+  # path one broke as soon as the checkout moved (loom-kpke: all 35
+  # triples from the 2026-08-05 tla-puzzles mine read `<sha> mined_from
+  # /home/frank/repos/tla-puzzles`).
+  #
+  # The wrapper passes --wing, so this fallback only runs for a direct
+  # engine call. It goes through the same shared chain (loom-pc3x) rather
+  # than taking a basename here, because a second derivation site is the
+  # defect, not the spelling.
+  if [ -z "$wing" ]; then
+    wing=$(_lmh_resolve_wing "$repo")
   fi
 
   # ---- STAGE 1: HARVEST ------------------------------------------
@@ -807,7 +861,7 @@ Files touched: $files"
       "$(printf '%s' "$decision" | _lmh_json_escape)" >> "$triples_jsonl"
     printf '{"subject":"%s","predicate":"mined_from","object":"%s"}\n' \
       "$(printf '%s' "$subject" | _lmh_json_escape)" \
-      "$(printf '%s' "$repo" | _lmh_json_escape)" >> "$triples_jsonl"
+      "$(printf '%s' "$wing" | _lmh_json_escape)" >> "$triples_jsonl"
     printf '{"subject":"%s","predicate":"authored_by","object":"%s"}\n' \
       "$(printf '%s' "$subject" | _lmh_json_escape)" \
       "$(printf '%s' "$author" | _lmh_json_escape)" >> "$triples_jsonl"

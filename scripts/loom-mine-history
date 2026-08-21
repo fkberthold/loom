@@ -20,9 +20,12 @@
 #       [--dry-run] [--model=MODEL] [--out <dir>]
 #
 #   --root <dir>          repo to mine (default: cwd's git toplevel)
-#   --wing <name>         MemPalace wing for filing (default: the repo
-#                         root basename VERBATIM — no `_`↔`-` subst, no
-#                         case-fold; matches scripts/loom-audit-resolve)
+#   --wing <name>         MemPalace wing for filing. Rung 1 of the shared
+#                         chain in lib/loom-wing-resolve.sh: --wing →
+#                         mempalace.yaml → the constitution's `wing:` →
+#                         the bd id prefix → basename VERBATIM (no
+#                         `_`↔`-` subst, no case-fold). Same chain
+#                         scripts/loom-audit-resolve reads.
 #   --since=DATE          only commits/PRs since DATE (git --since)
 #   --since-release=TAG   only history after TAG
 #   --max-units=N         cap survivors fed to the LLM pass
@@ -53,6 +56,21 @@ if [ ! -f "$lib" ]; then
 fi
 # shellcheck source=/dev/null
 . "$lib"
+
+# The shared wing resolver (loom-pc3x). LOOM_TEST_LIB_DIR first, so a
+# test reads the tree it is editing; otherwise the same self-relative
+# rule the engine lib above uses.
+if [ -n "${LOOM_TEST_LIB_DIR:-}" ] && [ -f "$LOOM_TEST_LIB_DIR/loom-wing-resolve.sh" ]; then
+  wing_lib="$LOOM_TEST_LIB_DIR/loom-wing-resolve.sh"
+else
+  wing_lib="$script_dir/../lib/loom-wing-resolve.sh"
+fi
+if [ ! -f "$wing_lib" ]; then
+  echo "loom-mine-history: wing resolver not found at $wing_lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$wing_lib"
 
 # --- Parse wrapper flags --------------------------------------------------
 root=""
@@ -109,22 +127,26 @@ fi
 repo="$(cd "$repo" && pwd)"
 
 # --- Resolve wing ---------------------------------------------------------
-# Precedence: --wing override, else the repo root basename used VERBATIM
-# (no `_`↔`-` substitution, no case-folding). Verbatim matches
-# scripts/loom-audit-resolve + the audit-project skill — REQUIRED so the
-# wing this miner FILES into is the same wing /audit-project SEARCHES for
-# citation drift. Verbatim is the only rule correct for both underscore
-# wings (liza_base) and dash wings (e2e-api-tests, golden-path); the old
-# `-`→`_` mangled dash wings (loom-kx2, confirmed live by the
-# e2e-api-tests dogfood: e2e-api-tests → e2e_api_tests, the wrong wing).
-if [ -z "$wing" ]; then
-  wing="$(basename "$repo")"
+# One call into the shared chain (lib/loom-wing-resolve.sh). Reading the
+# same chain scripts/loom-audit-resolve reads is what keeps the wing this
+# miner FILES into equal to the wing /audit-project SEARCHES for citation
+# drift. When the two derived it separately they drifted apart, which is
+# loom-kpke.
+#
+# Rung 4 (the bd id prefix) is left off for the same reason it is off in
+# loom-audit-resolve: this wrapper always holds a repo root, and where
+# the prefix and the directory name disagree the directory name is the
+# one that names a live wing.
+if [ -n "$wing" ]; then
+  wing="$(loom_wing_resolve --root "$repo" --wing "$wing")"
+else
+  wing="$(loom_wing_resolve --root "$repo")"
 fi
 
 # --- Invoke the engine ----------------------------------------------------
 if [ "$dry_run" -eq 1 ]; then
   # Cost-preview only: --dry-run, no --out → zero spend, no manifest.
-  loom_mine_history "$repo" --dry-run "${passthru[@]}"
+  loom_mine_history "$repo" --wing="$wing" --dry-run "${passthru[@]}"
   rc=$?
   echo "(wing for filing: $wing)"
   exit "$rc"
@@ -137,7 +159,7 @@ if [ -z "$out" ]; then
 fi
 mkdir -p "$out"
 
-loom_mine_history "$repo" --yes --out "$out" "${passthru[@]}"
+loom_mine_history "$repo" --wing="$wing" --yes --out "$out" "${passthru[@]}"
 rc=$?
 
 # The engine emits no wing; the wrapper surfaces it to the skill.

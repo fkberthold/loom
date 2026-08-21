@@ -65,8 +65,11 @@ re-spending on) everything.
 The repo entity is the resolved **wing** — the repo's stable palace
 identity, the same string the wrapper writes to `<out>/wing` and the
 `mined_from` object the engine's triples carry. Resolve it the way the
-wrapper does (the repo-root basename verbatim, or the user's `--wing`)
-so the query keys on the same entity the write in step 4d will use.
+wrapper does, through the shared chain in `lib/loom-wing-resolve.sh`
+(the user's `--wing`, then `<root>/mempalace.yaml`, then the
+constitution's `wing:` key, then the bd id prefix, then the repo-root
+basename verbatim), so the query keys on the same entity the write in
+step 4d will use.
 
 1. **Query** — `mempalace_kg_query(entity=<repo-entity>)` and look for an
    outgoing `history_mined_through` predicate. (Use the same repo-entity

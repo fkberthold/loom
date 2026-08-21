@@ -32,6 +32,19 @@ language:
   # Semver-ish pin. May be empty for bash / polyglot / unknown.
   version: "<3.13 | 1.24 | 20.11.0 | '' >"
 
+# OPTIONAL — the project's MemPalace wing. This is the one key you
+# DELETE rather than empty when it does not apply, because an empty
+# string is not a valid wing name.
+#
+# Loom resolves the wing through a five-rung chain: an explicit --wing
+# flag, then <root>/mempalace.yaml's `wing:`, then this key, then the bd
+# id prefix, then the repo directory's basename taken verbatim. Declare
+# it here only when the directory name is not the wing name AND the
+# project has no mempalace.yaml. A project that has one should declare
+# the wing there instead of naming it in two files.
+#
+# wing: <e.g. tla_puzzles>
+
 # Bash command patterns the agent must NEVER run in this project.
 # Typically used to lock in the package_manager choice (e.g. on a
 # uv-only project, forbid `pip install` and `poetry install`).

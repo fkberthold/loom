@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/fkberthold/loom/blob/main/references/project-constitution.schema.json",
   "title": "Project Constitution Front-Matter",
-  "description": "YAML front-matter schema for .claude/project-constitution.md. Locks each project's tooling profile (shell, package manager, language runtime, canonical commands, forbidden patterns, bypass patterns) so dispatched workers, hooks, and skills observe consistent conventions. See docs/reference/project-constitution.md for narrative coverage and loom-vin / loom-6f8 for lineage.",
+  "description": "YAML front-matter schema for .claude/project-constitution.md. Locks each project's tooling profile (shell, package manager, language runtime, canonical commands, forbidden patterns, bypass patterns) plus its optional MemPalace wing, so dispatched workers, hooks, and skills observe consistent conventions. See docs/reference/project-constitution.md for narrative coverage and loom-vin / loom-6f8 for lineage.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -48,6 +48,11 @@
           "description": "Semver-ish version pin (e.g. '3.13', '1.24', '20.11.0'). May be empty when language.runtime is 'bash', 'polyglot', or 'unknown'."
         }
       }
+    },
+    "wing": {
+      "type": "string",
+      "description": "The project's MemPalace wing — the wing every loom site files decision drawers into and searches for citation drift. Rung 3 of the shared chain in lib/loom-wing-resolve.sh: an explicit --wing flag wins, then <root>/mempalace.yaml's wing:, then this key, then the bd id prefix, then the repo directory's basename. Set it when the wing name differs from the directory name and the project has no mempalace.yaml (loom-kpke: tla-puzzles resolved to the nonexistent wing 'tla-puzzles' while its live wing is 'tla_puzzles'). Optional — a project whose directory name already equals its wing should omit it, and a project carrying a mempalace.yaml should declare the wing there instead of in two files. Lineage: loom-pc3x.",
+      "minLength": 1
     },
     "forbidden": {
       "type": "array",
