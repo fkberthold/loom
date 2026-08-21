@@ -710,6 +710,213 @@ else
 fi
 
 # =====================================================================
+# 13. LINKED WORKTREE — the DEFAULT root is the MAIN checkout (loom-l78w).
+#
+#     INVARIANT: resolving a wing from inside a linked worktree yields
+#     the same wing as resolving from the main checkout.
+#
+#     A worktree of loom is loom. Before this section the default root
+#     was the worktree's OWN toplevel, so rung 4 took its basename and
+#     answered `agent-<hash>` — a name that is not a wing and never will
+#     be. Filing there splits a project's memory across a directory name
+#     that will not exist next week, which is the harm loom-kpke filed.
+#
+#     The fix sits in the ROOT POLICY, not in rung 4, so rungs 2 and 3
+#     read the main checkout's mempalace.yaml and constitution too. The
+#     fixtures below write each declaration into MAIN only AFTER the
+#     worktree exists, so the worktree's own tree does not carry it:
+#     without the fix those rungs cannot fire from a worktree at all.
+#
+#     An explicit --root is NOT part of the invariant. A caller that
+#     names a worktree path on purpose is asking a different question
+#     and gets the answer it asked for.
+# =====================================================================
+echo "==> 13. linked worktree resolves against the main checkout"
+
+# mk_worktree <basename> <mempalace_wing|-> <constitution_wing|->
+#
+# Build a real git repo at <basename>, commit a seed, add a linked
+# worktree beside it under an agent-<hash>-shaped name, and only THEN
+# write the declaration files into MAIN. Echoes "<main_root> <worktree>".
+mk_worktree() {
+  local base="$1" mp="$2" con="$3"
+  local work proj wt
+  work=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; return 1; }
+  case "$work" in /tmp/*) : ;; *) echo "FATAL: mktemp gave unsafe dir '$work'" >&2; return 1 ;; esac
+  proj="$work/$base"
+  wt="$work/agent-d3adb33fca7e01234"
+  mkdir -p "$proj"
+  (
+    cd "$proj" || exit 1
+    git init -q -b main
+    git config user.email wing@test
+    git config user.name "Wing Test"
+    echo seed > README.md
+    git add -A
+    git -c core.hooksPath=/dev/null commit -q -m "seed"
+    git worktree add -q "$wt" -b wt-branch
+  ) >/dev/null 2>&1 || return 1
+
+  if [ "$mp" != "-" ]; then
+    {
+      printf 'wing: %s\n' "$mp"
+      printf 'rooms:\n'
+      printf '  - name: decisions\n'
+      printf '    description: Decision drawers\n'
+    } > "$proj/mempalace.yaml"
+  fi
+  if [ "$con" != "-" ]; then
+    mkdir -p "$proj/.claude"
+    {
+      printf -- '---\n'
+      printf 'package_manager: none\n'
+      printf 'wing: %s\n' "$con"
+      printf -- '---\n'
+      printf '\n# %s — project constitution\n' "$base"
+    } > "$proj/.claude/project-constitution.md"
+  fi
+
+  echo "$proj $wt"
+}
+
+# Resolve through the CLI with cwd set to $1, so the DEFAULT root policy
+# is what answers. `res` cannot do this: it runs from the suite's cwd.
+res_in() { local d="$1"; shift; ( cd "$d" && bash "$LIB" "$@" 2>&1 ); }
+
+# --- nothing declared: the basename must be MAIN's, not the worktree's
+read -r MAINR WTR <<< "$(mk_worktree wt-proj-alpha - -)"
+if [ -n "${MAINR:-}" ] && [ -d "${WTR:-/nonexistent}" ]; then
+  out=$(res_in "$WTR")
+  if [ "$(val "$out" wing)" = "wt-proj-alpha" ]; then
+    pass "default from inside a worktree → the MAIN checkout's basename"
+  else
+    fail "default from inside a worktree took the worktree's name" \
+         "got '$(val "$out" wing)' want 'wt-proj-alpha'"
+  fi
+  if [ "$(val "$out" wing_source)" = "basename" ]; then
+    pass "wing_source=basename (of the main root, not the worktree)"
+  else
+    fail "wing_source wrong from inside a worktree" "got '$(val "$out" wing_source)'"
+  fi
+
+  # THE INVARIANT, stated as an equality between two real resolutions.
+  from_wt=$(val "$(res_in "$WTR")" wing)
+  from_main=$(val "$(res_in "$MAINR")" wing)
+  if [ "$from_wt" = "$from_main" ]; then
+    pass "INVARIANT: worktree answer == main-checkout answer ($from_main)"
+  else
+    fail "INVARIANT broken: worktree and main disagree" \
+         "worktree '$from_wt' vs main '$from_main'"
+  fi
+
+  # An explicit --root naming the worktree is left exactly as given.
+  out=$(res --root "$WTR")
+  if [ "$(val "$out" wing)" = "agent-d3adb33fca7e01234" ]; then
+    pass "explicit --root <worktree> is honored verbatim (not redirected)"
+  else
+    fail "explicit --root <worktree> was redirected to the main checkout" \
+         "got '$(val "$out" wing)'"
+  fi
+
+  # From a SUBDIRECTORY of the main checkout nothing changes. Git reports
+  # --git-dir absolute and --git-common-dir relative there, so a detector
+  # that compares the two without canonicalizing reads "worktree" for an
+  # ordinary subdirectory. This pins that the answer is unaffected.
+  mkdir -p "$MAINR/sub/deeper"
+  out=$(res_in "$MAINR/sub/deeper")
+  if [ "$(val "$out" wing)" = "wt-proj-alpha" ]; then
+    pass "default from a subdirectory of the main checkout is unchanged"
+  else
+    fail "default from a main-checkout subdirectory regressed" "got '$(val "$out" wing)'"
+  fi
+
+  # CALL SITE — scripts/loom-audit-resolve defaults its own root, so the
+  # policy has to reach it too or the fix stops at the library.
+  out=$( cd "$WTR" && "$AUDIT" 2>&1 )
+  if [ "$(val "$out" wing)" = "wt-proj-alpha" ]; then
+    pass "loom-audit-resolve from inside a worktree → the main wing"
+  else
+    fail "loom-audit-resolve from inside a worktree took the worktree's name" \
+         "got '$(val "$out" wing)' want 'wt-proj-alpha'"
+  fi
+
+  cleanup_root "$MAINR"
+else
+  fail "13: worktree fixture (nothing declared) could not be built"
+fi
+
+# --- rung 2 must read the MAIN checkout's mempalace.yaml ---------------
+read -r MAINR WTR <<< "$(mk_worktree wt-proj-beta beta_wing -)"
+if [ -n "${MAINR:-}" ] && [ -d "${WTR:-/nonexistent}" ]; then
+  out=$(res_in "$WTR")
+  if [ "$(val "$out" wing)" = "beta_wing" ]; then
+    pass "rung 2 reads the MAIN checkout's mempalace.yaml from a worktree"
+  else
+    fail "rung 2 could not see the main checkout's mempalace.yaml" \
+         "got '$(val "$out" wing)' want 'beta_wing'"
+  fi
+  if [ "$(val "$out" wing_source)" = "mempalace_yaml" ]; then
+    pass "wing_source=mempalace_yaml from inside a worktree"
+  else
+    fail "wing_source wrong for rung 2 from a worktree" "got '$(val "$out" wing_source)'"
+  fi
+
+  # CALL SITE — scripts/loom-mine-history FILES into the wing it resolves,
+  # so this is the path where the defect costs drawers. $STUBS is the
+  # gh/claude stub dir built in section 9; the dry run must reach neither
+  # binary for real.
+  out=$( cd "$WTR" && PATH="$STUBS:$PATH" bash "$MINE" --dry-run 2>&1 )
+  if printf '%s' "$out" | grep -q "(wing for filing: beta_wing)"; then
+    pass "loom-mine-history from inside a worktree files into the main wing"
+  else
+    fail "loom-mine-history from inside a worktree resolved the wrong wing" "$out"
+  fi
+
+  cleanup_root "$MAINR"
+else
+  fail "13: worktree fixture (mempalace.yaml) could not be built"
+fi
+
+# --- rung 3 must read the MAIN checkout's constitution -----------------
+read -r MAINR WTR <<< "$(mk_worktree wt-proj-gamma - gamma_wing)"
+if [ -n "${MAINR:-}" ] && [ -d "${WTR:-/nonexistent}" ]; then
+  out=$(res_in "$WTR")
+  if [ "$(val "$out" wing)" = "gamma_wing" ]; then
+    pass "rung 3 reads the MAIN checkout's constitution from a worktree"
+  else
+    fail "rung 3 could not see the main checkout's constitution" \
+         "got '$(val "$out" wing)' want 'gamma_wing'"
+  fi
+  if [ "$(val "$out" wing_source)" = "constitution" ]; then
+    pass "wing_source=constitution from inside a worktree"
+  else
+    fail "wing_source wrong for rung 3 from a worktree" "got '$(val "$out" wing_source)'"
+  fi
+  cleanup_root "$MAINR"
+else
+  fail "13: worktree fixture (constitution) could not be built"
+fi
+
+# --- the REAL thing, when this suite is itself running in a worktree ---
+# A dispatched worker runs from .claude/worktrees/agent-<hash>/, which is
+# where the defect was measured. Everything above is synthetic; this is
+# the live case, and it skips in the main checkout.
+gd=$(cd "$LOOM_ROOT" && git rev-parse --absolute-git-dir 2>/dev/null)
+case "$gd" in
+  */.git/worktrees/*)
+    w=$(val "$(res_in "$LOOM_ROOT")" wing)
+    if [ "$w" = "loom" ]; then
+      pass "REAL worktree: resolver run from $(basename "$LOOM_ROOT") → loom"
+    else
+      fail "REAL worktree: resolver did not reach the main checkout" "got '$w' want 'loom'"
+    fi
+    ;;
+  *)
+    echo "  SKIP: this checkout is not a linked worktree"
+    ;;
+esac
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo ""
