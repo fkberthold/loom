@@ -264,7 +264,7 @@ audit. This is a deliberately user-pulled workflow.
   in Check 5 (and any other palace-citation checks). This is rung 1 of
   the shared chain in `lib/loom-wing-resolve.sh`: the flag, then
   `<root>/mempalace.yaml`, then the constitution's `wing:` key, then
-  the bd id prefix, then the basename of `--root` used verbatim (no
+  the basename of `--root` used verbatim, then the bd id prefix (no
   case-folding, no `_`↔`-` substitution, so `liza_base` →
   `liza_base` and `hundred_acre_woods` → `hundred_acre_woods`). Pass
   the flag for a checkout whose name matches neither its wing nor any
@@ -343,24 +343,32 @@ Resolve the project's MemPalace wing through the shared chain in
 3. `<root>/.claude/project-constitution.md` front matter, key `wing:`.
    Optional, and there so a project that already carries a
    constitution gets a home for the wing without a new file.
-4. The bd id prefix. This rung is for a caller that holds a bead id
-   and no root, such as `hooks/bd-close-capture.sh`. The audit helper
-   always holds a root, so it leaves this rung off.
-5. Basename of the resolved root, used verbatim — no case-folding,
+4. Basename of the resolved root, used verbatim — no case-folding,
    no `_`↔`-` substitution (e.g., a root at `/home/frank/repos/loom`
    → wing `loom`; a root at `/home/frank/repos/hundred_acre_woods` →
    wing `hundred_acre_woods`; a root at `/home/frank/repos/liza_base`
    → wing `liza_base`). The palace's de-facto wing convention follows
    filesystem naming, so the verbatim basename is the right default
    for a project that declares nothing.
+5. The bd id prefix. This rung is for a caller that holds a bead id
+   and no root, such as `hooks/bd-close-capture.sh`. The audit helper
+   always holds a root, so rung 4 answers first and this rung never
+   fires here.
 
-Verbatim at rung 5 is the only rule correct for both underscore wings
+Verbatim at rung 4 is the only rule correct for both underscore wings
 (`liza_base`) and dash wings (`golden-path`). Rungs 2 and 3 exist for
 the projects where the directory name is not the wing at all, which
-rung 5 alone got wrong in silence: tla-puzzles resolved to a wing
+rung 4 alone got wrong in silence: tla-puzzles resolved to a wing
 named `tla-puzzles` while its 932 drawers sat in `tla_puzzles`
 (loom-kpke). Step 1b's variant WARN stays as the backstop for
 divergences nothing declares.
+
+The bd prefix sits below the directory name because it is the worse
+guess when a root is in hand (amended on loom-pc3x 2026-08-21). Across
+the 8 repos under `~/repos` carrying a bd tracker the two disagree
+three times, and the directory name is right all three times:
+`dreamer-engine` tracks as `dream`, `sharedvoice` as `sv`, and
+`tla-puzzles` as `tla`. Wings `dream` and `sv` hold nothing.
 
 Detect the project's primitive directories from the filesystem
 (used by Checks 3 and 4). Probe each of these under the resolved

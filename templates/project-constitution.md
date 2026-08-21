@@ -37,11 +37,11 @@ language:
 # string is not a valid wing name.
 #
 # Loom resolves the wing through a five-rung chain: an explicit --wing
-# flag, then <root>/mempalace.yaml's `wing:`, then this key, then the bd
-# id prefix, then the repo directory's basename taken verbatim. Declare
-# it here only when the directory name is not the wing name AND the
-# project has no mempalace.yaml. A project that has one should declare
-# the wing there instead of naming it in two files.
+# flag, then <root>/mempalace.yaml's `wing:`, then this key, then the
+# repo directory's basename taken verbatim, then the bd id prefix.
+# Declare it here only when the directory name is not the wing name AND
+# the project has no mempalace.yaml. A project that has one should
+# declare the wing there instead of naming it in two files.
 #
 # wing: <e.g. tla_puzzles>
 

@@ -120,8 +120,8 @@ there, so no two sites can disagree about the same project:
 | 1 | An explicit `--wing` flag |
 | 2 | `<root>/mempalace.yaml`, key `wing:` |
 | 3 | This key |
-| 4 | The bd id prefix |
-| 5 | `basename $root` |
+| 4 | `basename $root` |
+| 5 | The bd id prefix |
 
 Rung 2 sits above this one because `mempalace.yaml` is MemPalace's own
 descriptor and already carries the wing next to its rooms. A project
@@ -130,9 +130,18 @@ rather than state the same name in two files.
 
 Set this key when the wing name differs from the directory name and the
 project has no `mempalace.yaml`. Leave it out when the directory name
-already matches, which is the common case. Rung 5 takes the directory
+already matches, which is the common case. Rung 4 takes the directory
 name verbatim, with no `_`/`-` substitution and no case-folding, so
 `liza_base` and `golden-path` both resolve correctly on their own.
+
+Rung 5 sits under the directory name because the bd prefix turns out to
+be the worse guess. Across the 8 repos under `~/repos` that carry a bd
+tracker, the two disagree three times, and the directory name is right
+all three times. `dreamer-engine` tracks beads as `dream`, `sharedvoice`
+as `sv`, and neither `dream` nor `sv` is a wing that holds anything. So
+the prefix earns its rung only where it was needed in the first place,
+which is a caller holding a bead id and no project root. With a root in
+hand, rung 4 answers first and the chain stops there.
 
 **Example:**
 

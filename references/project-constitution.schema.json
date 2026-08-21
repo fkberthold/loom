@@ -51,7 +51,7 @@
     },
     "wing": {
       "type": "string",
-      "description": "The project's MemPalace wing — the wing every loom site files decision drawers into and searches for citation drift. Rung 3 of the shared chain in lib/loom-wing-resolve.sh: an explicit --wing flag wins, then <root>/mempalace.yaml's wing:, then this key, then the bd id prefix, then the repo directory's basename. Set it when the wing name differs from the directory name and the project has no mempalace.yaml (loom-kpke: tla-puzzles resolved to the nonexistent wing 'tla-puzzles' while its live wing is 'tla_puzzles'). Optional — a project whose directory name already equals its wing should omit it, and a project carrying a mempalace.yaml should declare the wing there instead of in two files. Lineage: loom-pc3x.",
+      "description": "The project's MemPalace wing — the wing every loom site files decision drawers into and searches for citation drift. Rung 3 of the shared chain in lib/loom-wing-resolve.sh: an explicit --wing flag wins, then <root>/mempalace.yaml's wing:, then this key, then the repo directory's basename, then the bd id prefix. Set it when the wing name differs from the directory name and the project has no mempalace.yaml (loom-kpke: tla-puzzles resolved to the nonexistent wing 'tla-puzzles' while its live wing is 'tla_puzzles'). Optional — a project whose directory name already equals its wing should omit it, and a project carrying a mempalace.yaml should declare the wing there instead of in two files. Lineage: loom-pc3x.",
       "minLength": 1
     },
     "forbidden": {

@@ -8,27 +8,30 @@
 # file tests the resolver, and then tests that both call sites go
 # through it.
 #
-# THE CHAIN (decided by Frank 2026-08-21, recorded on loom-pc3x):
+# THE CHAIN (decided by Frank 2026-08-21 and amended the same day, both
+# recorded on loom-pc3x):
 #
 #   1. explicit --wing flag
 #   2. <root>/mempalace.yaml              wing:
 #   3. .claude/project-constitution.md    wing:
-#   4. bd id prefix
-#   5. basename $root
+#   4. basename $root
+#   5. bd id prefix
 #
 # Rung 2 outranks rung 3 because mempalace.yaml is MemPalace's own
-# declaration and already carries wing plus rooms; rung 3 exists so the
+# declaration and already carries wing plus rooms. Rung 3 exists so the
 # repos that already carry a constitution resolve without anyone writing
 # a new file.
 #
-# A per-rung test is not enough. The part a per-rung test misses is the
-# ORDER, so every adjacent pair below gets a fixture carrying BOTH
-# sources with DIFFERENT values, and asserts the higher rung wins.
+# A per-rung test is not enough, and this file's own history is the
+# reason. The part a per-rung test misses is the ORDER, so every
+# adjacent pair below gets a fixture carrying BOTH sources with
+# DIFFERENT values, and asserts the higher rung wins. When rungs 4 and 5
+# swapped, the pair tests are what moved.
 #
-# Rung 4 fires only when a bd prefix is SUPPLIED (`--bd-prefix <p>`, or
-# `--bd-prefix auto` to detect one from `<root>/.beads/issues.jsonl`).
-# It is not detected by default — see the RUNG 4 note in
-# lib/loom-wing-resolve.sh for the measurement behind that.
+# Rung 4 takes `basename $root` and always answers, so the chain does
+# not reach rung 5 while a root is in hand. Section 2 pins that
+# non-firing. See the WHY THE BASENAME OUTRANKS THE BD PREFIX note in
+# lib/loom-wing-resolve.sh for the measurement behind the order.
 #
 # Run:  bash lib/tests/loom-wing-resolve.test.sh
 
@@ -133,11 +136,11 @@ for fn in loom_wing_resolve loom_wing_resolve_kv loom_wing_from_mempalace_yaml \
 done
 
 # =====================================================================
-# 1. RUNG 5 — basename VERBATIM (no _<->- substitution, no case-fold).
+# 1. RUNG 4 — basename VERBATIM (no _<->- substitution, no case-fold).
 #    This is the pre-existing behavior of both call sites and must be
 #    preserved for every project that declares nothing.
 # =====================================================================
-echo "==> 1. rung 5 — basename verbatim"
+echo "==> 1. rung 4 — basename verbatim"
 
 PROJ=$(mk_root golden-path - - -)
 out=$(res --root "$PROJ")
@@ -149,7 +152,7 @@ fi
 if [ "$(val "$out" wing_source)" = "basename" ]; then
   pass "wing_source=basename when nothing is declared"
 else
-  fail "wing_source wrong for rung 5" "got '$(val "$out" wing_source)'"
+  fail "wing_source wrong for rung 4" "got '$(val "$out" wing_source)'"
 fi
 cleanup_root "$PROJ"
 
@@ -172,46 +175,74 @@ fi
 cleanup_root "$PROJ"
 
 # =====================================================================
-# 2. RUNG 4 — bd id prefix, when supplied.
+# 2. RUNG 5 — bd id prefix.
+#
+#    The 2026-08-21 amendment put the basename above this rung, so with
+#    a root in hand the chain answers at rung 4 and never gets here.
+#    That is the point of the demotion, so the tests below pin the
+#    NON-firing: every call shape a caller can use still resolves to the
+#    directory name. The detection machinery is exercised directly
+#    through loom_wing_from_bd_prefix, which stays exported for the
+#    caller that builds its own candidate list (loom-qw9i).
 # =====================================================================
-echo "==> 2. rung 4 — bd id prefix"
+echo "==> 2. rung 5 — bd id prefix"
 
 PROJ=$(mk_root dreamer-engine - - dream-boc)
-out=$(res --root "$PROJ" --bd-prefix dream)
-if [ "$(val "$out" wing)" = "dream" ]; then
-  pass "explicit --bd-prefix supplies rung 4"
+
+# The fixture carries BOTH a bd tracker and a plain directory name.
+# This is the case the amendment turns on: prefix `dream` names an
+# empty wing, `dreamer-engine` names the live one.
+for shape in "--bd-prefix dream" "--bd-prefix auto" ""; do
+  # shellcheck disable=SC2086  # $shape is a deliberate word-split call shape
+  out=$(res --root "$PROJ" $shape)
+  label="${shape:-no flag}"
+  if [ "$(val "$out" wing)" = "dreamer-engine" ]; then
+    pass "bd prefix does not beat the basename ($label)"
+  else
+    fail "bd prefix beat the basename ($label)" "got '$(val "$out" wing)' want 'dreamer-engine'"
+  fi
+  if [ "$(val "$out" wing_source)" = "basename" ]; then
+    pass "wing_source=basename ($label)"
+  else
+    fail "wing_source wrong ($label)" "got '$(val "$out" wing_source)'"
+  fi
+done
+
+# --bd-prefix stays a valid flag. A caller that hands one in must not
+# get an argument error for it (hooks/bd-close-capture.sh, loom-qw9i).
+out=$(res --root "$PROJ" --bd-prefix dream 2>&1); rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "--bd-prefix is still accepted (exit 0)"
 else
-  fail "explicit --bd-prefix ignored" "got '$(val "$out" wing)' want 'dream'"
-fi
-if [ "$(val "$out" wing_source)" = "bd_prefix" ]; then
-  pass "wing_source=bd_prefix for rung 4"
-else
-  fail "wing_source wrong for rung 4" "got '$(val "$out" wing_source)'"
+  fail "--bd-prefix rejected" "rc=$rc: $out"
 fi
 
-out=$(res --root "$PROJ" --bd-prefix auto)
-if [ "$(val "$out" wing)" = "dream" ]; then
-  pass "--bd-prefix auto detects the prefix from .beads/issues.jsonl"
+# Rung 5's own detection, called directly. This is how a caller reaches
+# the prefix now that the chain ranks it last.
+# shellcheck disable=SC1090  # $LIB is the file under test, resolved at runtime
+detected=$( . "$LIB" >/dev/null 2>&1; loom_wing_from_bd_prefix "$PROJ" 2>/dev/null )
+if [ "$detected" = "dream" ]; then
+  pass "loom_wing_from_bd_prefix reads the prefix from .beads/issues.jsonl"
 else
-  fail "--bd-prefix auto did not detect prefix" "got '$(val "$out" wing)' want 'dream'"
+  fail "loom_wing_from_bd_prefix did not detect the prefix" "got '$detected' want 'dream'"
 fi
-
-# Default: rung 4 is NOT auto-detected, so the basename still wins.
-out=$(res --root "$PROJ")
-if [ "$(val "$out" wing)" = "dreamer-engine" ]; then
-  pass "rung 4 is opt-in — no --bd-prefix means basename still wins"
-else
-  fail "rung 4 auto-fired without --bd-prefix" "got '$(val "$out" wing)'"
-fi
-
-# `auto` with no .beads present falls through rather than erroring.
 cleanup_root "$PROJ"
+
+# No tracker: the detection returns rc 1 rather than an empty wing, and
+# the chain still answers from the basename.
 PROJ=$(mk_root plainrepo - - -)
+# shellcheck disable=SC1090  # $LIB is the file under test, resolved at runtime
+( . "$LIB" >/dev/null 2>&1; loom_wing_from_bd_prefix "$PROJ" >/dev/null 2>&1 ); rc=$?
+if [ "$rc" -ne 0 ]; then
+  pass "loom_wing_from_bd_prefix returns rc 1 with no .beads present"
+else
+  fail "loom_wing_from_bd_prefix returned rc 0 with no .beads present"
+fi
 out=$(res --root "$PROJ" --bd-prefix auto)
 if [ "$(val "$out" wing)" = "plainrepo" ]; then
-  pass "--bd-prefix auto with no .beads falls through to basename"
+  pass "--bd-prefix auto with no .beads still resolves to the basename"
 else
-  fail "--bd-prefix auto did not fall through" "got '$(val "$out" wing)'"
+  fail "--bd-prefix auto did not resolve to the basename" "got '$(val "$out" wing)'"
 fi
 cleanup_root "$PROJ"
 
@@ -354,34 +385,40 @@ else
 fi
 cleanup_root "$PROJ"
 
-# 3 over 4 — a declared constitution wing beats the bd prefix.
+# 3 over 4 — a declared constitution wing beats the basename. The
+# fixture also carries a bd tracker, so this pins 3 over 5 at once.
 PROJ=$(mk_root somerepo - con_wing pre-abc)
 out=$(res --root "$PROJ" --bd-prefix auto)
 if [ "$(val "$out" wing)" = "con_wing" ]; then
-  pass "rung 3 > rung 4: constitution beats the bd prefix"
+  pass "rung 3 > rung 4: constitution beats the basename"
 else
   fail "rung 3 did NOT beat rung 4" "got '$(val "$out" wing)' want 'con_wing'"
 fi
 cleanup_root "$PROJ"
 
-# 4 over 5 — a supplied bd prefix beats the basename.
+# 4 over 5 — the basename beats the bd prefix. THE AMENDED PAIR, and
+# the one an ordering flip breaks first. Both call shapes, because a
+# caller can hand the prefix in or ask for detection.
 PROJ=$(mk_root dreamer-engine - - dream-boc)
-out=$(res --root "$PROJ" --bd-prefix auto)
-if [ "$(val "$out" wing)" = "dream" ]; then
-  pass "rung 4 > rung 5: bd prefix beats the basename"
-else
-  fail "rung 4 did NOT beat rung 5" "got '$(val "$out" wing)' want 'dream'"
-fi
+for shape in "--bd-prefix dream" "--bd-prefix auto"; do
+  # shellcheck disable=SC2086  # $shape is a deliberate word-split call shape
+  out=$(res --root "$PROJ" $shape)
+  if [ "$(val "$out" wing)" = "dreamer-engine" ]; then
+    pass "rung 4 > rung 5: basename beats the bd prefix ($shape)"
+  else
+    fail "rung 4 did NOT beat rung 5 ($shape)" "got '$(val "$out" wing)' want 'dreamer-engine'"
+  fi
+done
 cleanup_root "$PROJ"
 
-# 2 over 4 — non-adjacent, and the shape loom-kpke actually hit:
+# 2 over 5 — non-adjacent, and the shape loom-kpke actually hit:
 # tla-puzzles carries mempalace.yaml AND a `tla-` bd prefix.
 PROJ=$(mk_root tla-puzzles tla_puzzles - tla-033u)
 out=$(res --root "$PROJ" --bd-prefix auto)
 if [ "$(val "$out" wing)" = "tla_puzzles" ]; then
-  pass "rung 2 > rung 4: mempalace.yaml beats the bd prefix (tla-puzzles shape)"
+  pass "rung 2 > rung 5: mempalace.yaml beats the bd prefix (tla-puzzles shape)"
 else
-  fail "rung 2 did NOT beat rung 4" "got '$(val "$out" wing)' want 'tla_puzzles'"
+  fail "rung 2 did NOT beat rung 5" "got '$(val "$out" wing)' want 'tla_puzzles'"
 fi
 cleanup_root "$PROJ"
 
@@ -390,7 +427,7 @@ cleanup_root "$PROJ"
 PROJ=$(mk_root basename_wing yaml_wing con_wing pre-abc)
 out=$(res --root "$PROJ" --bd-prefix auto)
 if [ "$(val "$out" wing)" = "yaml_wing" ]; then
-  pass "all four declared sources present → rung 2 wins"
+  pass "all four lower sources present → rung 2 wins"
 else
   fail "full-chain resolution wrong" "got '$(val "$out" wing)' want 'yaml_wing'"
 fi
