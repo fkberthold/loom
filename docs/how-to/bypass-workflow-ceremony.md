@@ -19,12 +19,26 @@ capture has happened. To proceed without capturing:
 
 ```bash
 bd close <id> --force
-# or
-BD_CLOSE_FORCE=1 bd close <id>
 ```
 
-The `--force` flag is more discoverable. The env var is faster for
-batch closes of already-captured work.
+**Use the flag.** It is the only one of the two an agent can reach
+mid-turn. The hook runs on `PreToolUse`, before any shell does, so it
+reads the command TEXT — `--force` is in that text, and a command-prefix
+assignment is not. Written as a prefix, `BD_CLOSE_FORCE=1 bd close <id>`
+blocks exactly as the bare form does (loom-84nx). Long form only; `-f`
+is not matched.
+
+`BD_CLOSE_FORCE` still works, but only from the hook's own environment,
+which makes it a session-level switch rather than a per-call one:
+
+```bash
+# export it in the shell that launches Claude Code
+BD_CLOSE_FORCE=1 claude
+```
+
+Or add it to the top-level `env` block of `~/.claude/settings.json` and
+restart the session. Note that an `env` block nested under an entry in
+`mcpServers` reaches that server's subprocess only — never a hook.
 
 ## Lower the project's workflow mode
 
