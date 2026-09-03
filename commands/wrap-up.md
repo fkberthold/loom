@@ -9,15 +9,16 @@ capture + push, in order:
 
 ## 1. Verify ready to close
 
-**Discovery sub-step (before asking the user)**: scan main for beads
+**Discovery sub-step (runs first)**: scan main for beads
 that were merged but never closed. Surfaces stranded work from prior
 parallel-dispatch sessions where the user's memory was the only
 binding between "merged" and "closed" (loom-6p6, 2026-05-27 — after
 loom-7p6.2–.6 were merged 2026-05-26 but never closed). Run the
-snippet below; if it surfaces any IDs, present them as the default
-close-set to the user with `"Found N bead(s) merged-to-main but
-still open: <ids>. Close all?"` — user confirms, edits, or
-overrides. If empty, fall through silently.
+snippet below. An ID it surfaces is merged to main and still open,
+which is the whole condition for closing it, so fold every ID it
+returns into the close-set. Say so in one line: `Adding N
+merged-but-open bead(s) to the close-set: <ids>.` If the snippet
+returns nothing, fall through silently.
 
 ```bash
 # DISCOVERY:START — find beads merged to main but still open/in_progress.
@@ -49,10 +50,12 @@ fi
 # DISCOVERY:END
 ```
 
-Then continue with the user-confirmation flow:
+Then settle the close-set:
 
-- Confirm with the user which bead(s) are wrapping up. If multiple,
-  treat as a batch and process each in turn.
+- Take the bead(s) named in the invocation. With none named, wrap
+  every bead this session worked, plus whatever discovery added.
+- Name the close-set in one line before going on. If it holds more
+  than one bead, treat it as a batch and process each in turn.
 - Run `bd show <id>` for each bead to get the title + status (must be
   open or in_progress).
 - Identify the commits that landed each bead's fix (via
@@ -105,16 +108,19 @@ not an opt-in):
 - `kg-relationship-extractor` subagent with `bead-id` + commit SHAs.
   Returns up to 5 proposed KG triples.
 
-Central is the **reviewer-and-filer, not the author**: present each
-subagent's output (the draft) to the user for review — central does not
-hand-write the capture, it edits the drafts at the margins. After
-approval:
+Central is the **reviewer-and-filer, not the author**: it reads each
+subagent's draft, edits at the margins, and files. It does not
+hand-write the capture, and it does not route the review onward. This
+file already gave central the reviewer role, so there is no second
+review to ask for. Then:
 
 - `mempalace_check_duplicate` on the proposed drawer (similarity
-  threshold 0.9). If a near-duplicate exists, ask the user whether to
-  update the existing drawer (`update_drawer`) or file a new one.
-- `mempalace_add_drawer` with the approved drawer body.
-- `mempalace_kg_add` for each approved triple.
+  threshold 0.9). On a near-duplicate, read both bodies and decide:
+  `update_drawer` when the new body carries the same decision
+  forward, a new drawer when it carries a different one. Report which
+  way it went, and name the drawer either way.
+- `mempalace_add_drawer` with the reviewed drawer body.
+- `mempalace_kg_add` for each reviewed triple.
 - `mempalace_diary_write` (params: `agent_name`, `entry`, optional
   `topic`) with an AAAK-compressed one-line session summary in the
   `entry` field. Note: the plugin returns an opaque `-32000 Internal
@@ -134,11 +140,13 @@ approval:
 - `git push`.
 - Final `git status` to confirm "up to date with origin".
 
-## 5. Suggest follow-ups
+## 5. File follow-ups
 
-If the closing surfaced anything worth follow-up (deferred polish,
-related beads to file), surface that to the user before exiting. Don't
-file beads automatically — let the user decide.
+If the closing surfaced anything worth a follow-up (deferred polish, a
+related bug, work this bead implies), file it. A filed bead is not a
+prioritized bead, so a row nobody wants costs one `bd close`, while
+not filing loses the observation for good. List every bead you filed
+in the close report, so Frank can drop or reprioritize it there.
 
 ## 6. Surface project deploy hint (if configured)
 
@@ -184,9 +192,33 @@ never auto-runs a command. See
 ("install.sh — TWO RENAME-DEPLOY GAPS FOUND") for the earlier
 install.sh-gap lineage that lived in this section.
 
+## 7. Report the close
+
+Sections 1 through 6 run without stopping to ask, so this report is
+where Frank finds out what the ritual did. Print it as the last thing
+in the turn, one line per fact:
+
+- **Closed**: the bead IDs, marking which came from discovery rather
+  than from the invocation.
+- **Captured**: the drawer ID, and whether it was filed new or an
+  existing drawer extended. Name the drawer that got extended.
+- **Triples**: how many KG triples went in.
+- **Filed**: each follow-up bead, ID and title, one per line.
+- **Skipped**: whatever the ritual chose not to do, with its reason.
+
+Every line is somewhere Frank can push back. He reopens a bead that
+shouldn't have closed, drops a follow-up he doesn't want, or reads the
+drawer that got extended. None of that has to happen before the work
+does, and a report he can scan and object to costs him less than five
+prompts he has to answer in order.
+
 ## What to skip
 
-- If the bead was a trivial fix (≤ 1 line), the drawer + KG triples
-  may be overkill. Ask before dispatching the subagents.
+- Measure the bead's diff. At ≤ 1 changed line, skip the fan-out and
+  report the skip.
 - If the user explicitly says "no drawer", honour that but warn that
   future-Claude won't have lineage to find on the next sibling bug.
+
+The one-line threshold reads straight off the diff, so the ritual
+reads it instead of asking. A drawer and five triples cost more than
+a one-line fix carries forward.
