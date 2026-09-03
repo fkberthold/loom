@@ -54,9 +54,9 @@ work to the remote, follow these steps.
     "remote 'origin' not found" error — that's benign, skip it.
     See loom-hsb.
 
-11. **Suggest follow-ups.** If the work surfaced new beads, file
-    them now — but do not auto-create. The `/wrap-up` flow proposes;
-    you approve.
+11. **File follow-ups.** If the work surfaced new beads, file them
+    now. The `/wrap-up` flow files them for you and lists what it
+    filed, so drop or reprioritize anything you didn't want.
 
 ## Outcome
 
