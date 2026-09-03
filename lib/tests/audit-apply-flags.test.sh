@@ -575,8 +575,23 @@ assert_contains "SKILL describes PROMPT for unknown language" \
   "$SKILL_FILE" 'unknown.*PROMPT|PROMPT.*unknown'
 assert_contains "SKILL describes WARN for python/rust/node + go preflight" \
   "$SKILL_FILE" 'WARN.*preflight.*go|go-shaped|template starts with .go.'
-assert_contains "SKILL describes y/N/skip per-item gate for language fix" \
-  "$SKILL_FILE" 'y/N/skip|yes/skip/edit|y\\.N.*skip'
+# loom-42cw.1 (D8/D9): item 13's WARN gate was REMOVED. Detection is
+# decisive there, so the skill writes the matching template and
+# announces it; the user holds no fact the marker did not supply. The
+# PROMPT verdict KEEPS its gate (language=unknown is a real unreachable
+# fact) but must carry a recommendation instead of a six-way menu.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'Name two, never the full six'; then
+  pass "SKILL item 13 PROMPT names two options, not the full six (D8 recommendation)"
+else
+  fail "SKILL item 13 PROMPT names two options, not the full six (D8 recommendation)" \
+    "(two-option ranking statement not found in flattened SKILL.md)"
+fi
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'replaced the Go-shaped bd preflight template'; then
+  pass "SKILL item 13 WARN acts and announces rather than asking (D9)"
+else
+  fail "SKILL item 13 WARN acts and announces rather than asking (D9)" \
+    "(WARN announcement line not found in flattened SKILL.md)"
+fi
 assert_contains "SKILL describes .claude/loom-audit-state.json skip memo" \
   "$SKILL_FILE" 'loom-audit-state\.json'
 assert_contains "SKILL cites loom-r6g (this bead)" \
@@ -1162,15 +1177,30 @@ assert_contains "SKILL skip-worktree recipe logs the recovery snippet (--no-skip
 assert_contains "SKILL cites loom-jnn lineage" \
   "$SKILL_FILE" 'loom-jnn'
 
-echo "==> loom-jnn: commit-removal AUTOFIX is gated behind an explicit y/N confirmation"
-# The commit-removal path MUST NOT auto-apply on --apply-onboarding; it
-# must name the shared-content consequence and require y/N. Flatten line
-# wraps before matching so markdown reflow doesn't break the assertion.
-if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'dedup-hook-commit[^.]*(y/N|\(y/N\)|confirm)'; then
-  pass "SKILL: dedup-hook-commit is behind a y/N confirmation"
+echo "==> loom-jnn + loom-42cw.1: commit-removal AUTOFIX is gated on the contributor FACT"
+# The commit-removal path MUST NOT auto-apply on --apply-onboarding, and
+# it must name the shared-content consequence. loom-42cw.1 (D8) reshaped
+# the gate from an ACTION question (y/N "Proceed?") to the FACT the repo
+# does not record: whether every committer runs loom. The answer picks
+# which of the two recipes runs, so the options are all/some.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'Does everyone who commits to this repo run loom'; then
+  pass "SKILL: dedup-hook-commit asks the contributor fact, not the action"
 else
-  fail "SKILL: dedup-hook-commit must be behind a y/N confirmation" \
-    "(confirmation prompt not found near dedup-hook-commit in flattened SKILL.md)"
+  fail "SKILL: dedup-hook-commit must ask the contributor fact, not the action" \
+    "(contributor-fact question not found in flattened SKILL.md)"
+fi
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE '\(all / some\)'; then
+  pass "SKILL: dedup-hook-commit offers all/some, and the answer picks the recipe"
+else
+  fail "SKILL: dedup-hook-commit must offer all/some" \
+    "(all/some answer set not found in flattened SKILL.md)"
+fi
+# D8 also requires the surviving gate to carry a RECOMMENDATION.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE "git -C <root> log --format='%ae'"; then
+  pass "SKILL: dedup-hook-commit gate carries a recommendation from the committer count"
+else
+  fail "SKILL: dedup-hook-commit gate must carry a recommendation" \
+    "(committer-count recommendation not found in flattened SKILL.md)"
 fi
 assert_contains "SKILL commit-removal confirmation names the non-loom-dev consequence" \
   "$SKILL_FILE" 'Non-loom devs lose|non-loom devs lose'
