@@ -111,6 +111,7 @@ hook offers one.
 
 | Env var | Disables | Reference |
 |---|---|---|
+| `LOOM_ASKUSERQUESTION_OPTION_CAP_SKIP` | `askuserquestion-option-cap.sh` — the two-option cap on an `AskUserQuestion` call | [askuserquestion-option-cap](askuserquestion-option-cap-hook.md) |
 | `LOOM_CWD_DRIFT_GUARD_SKIP` | `cwd-drift-guard.sh` — central-op refusal when cwd is inside a worktree | [cwd-drift-guard](cwd-drift-guard.md) |
 | `LOOM_BD_WORKTREE_PRESEED_SKIP` | `bd-worktree-preseed.sh` — fresh-worktree dolt preseed | [bd-worktree-preseed](bd-worktree-preseed.md) |
 | `LOOM_DISPATCH_NUDGE_SKIP` | `dispatch-nudge.sh` — inline-vs-dispatch nudge (non-blocking) | [Hooks](hooks/index.md) |
@@ -121,6 +122,8 @@ hook offers one.
 | `LOOM_BD_POST_REWRITE_NO_COMMIT` | `post-rewrite.sh` — re-export the working tree but skip the auto-commit | [bd-state integrity](bd-state-integrity.md) |
 | `LOOM_PRE_PUSH_MKDOCS_SKIP` | `pre-push-mkdocs-strict.sh` — `mkdocs build --strict` at `git push` (WARN-only anyway) | [Hooks](hooks/index.md) |
 | `LOOM_SKILL_REDIRECT_SKIP` | `skill-redirect.sh` — `superpowers:brainstorming` → `beadpowers:brainstorming` redirect | [Hooks](hooks/index.md) |
+| `LOOM_JQ_BIN` | Test-only. Redirects the `askuserquestion-option-cap.sh` option counter's jq lookup | [askuserquestion-option-cap](askuserquestion-option-cap-hook.md) |
+| `LOOM_PY_BIN` | Test-only. Redirects the same counter's python3 fallback | [askuserquestion-option-cap](askuserquestion-option-cap-hook.md) |
 | `LOOM_SUBAGENT_LEAN` | `bd-prime-wrapper.sh` + `workflow-mode-onboarding.sh` SessionStart hooks (lean subagent payloads, loom-b1l/w58) | [loom-subagent-lean](loom-subagent-lean.md) |
 
 ## How `install.sh` wires it

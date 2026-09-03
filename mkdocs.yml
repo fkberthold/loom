@@ -154,6 +154,7 @@ nav:
           - All subagents (verbatim): reference/subagents/all-subagents.md
       - Hooks:
           - reference/hooks/index.md
+          - askuserquestion-option-cap: reference/askuserquestion-option-cap-hook.md
           - bd-claim-research: reference/hooks/bd-claim-research.md
           - bd-close-capture: reference/hooks/bd-close-capture.md
           - bd-preflight-docs-strict: reference/hooks/bd-preflight-docs-strict.md
