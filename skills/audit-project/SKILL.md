@@ -1,6 +1,6 @@
 ---
 name: audit-project
-description: Audit the current project's workflow infrastructure (git/branch hygiene, beads init, bd hooks, workflow.json, MemPalace wing, CLAUDE.md, .claude/rules/, .claude/agents/+commands/, bd memories) and — for projects that already have a Diataxis docs substrate — the docs/system/beads/MemPalace alignment of the project's documentation. Drives the project-onboarder subagent, presents the structured checklist to the user, and offers interactive template-based fixes per gap. Manual-only — never auto-suggested by session-startup or any activity recipe; only fires when the user invokes `/audit-project`.
+description: Audit the current project's workflow infrastructure (git/branch hygiene, beads init, bd hooks, workflow.json, MemPalace wing, CLAUDE.md, .claude/rules/, .claude/agents/+commands/, bd memories) and — for projects that already have a Diataxis docs substrate — the docs/system/beads/MemPalace alignment of the project's documentation. Drives the project-onboarder subagent, presents the structured checklist to the user, and applies template-based fixes per gap, asking only where a gap turns on a fact the tree does not carry. Manual-only — never auto-suggested by session-startup or any activity recipe; only fires when the user invokes `/audit-project`.
 ---
 
 # Audit-Project — Project Onboarding + Drift-Detection Skill
@@ -84,8 +84,10 @@ audit. This is a deliberately user-pulled workflow.
   for grammar-heavy projects that want the check in isolation. (loom-qvs.)
 - `--check=constitution` — run ONLY the project-constitution capture
   flow (Step 7 below): detect the project's tooling fingerprint,
-  render draft front-matter, confirm each field with the user **one
-  field at a time** (never lump-sum, per loom-xcw), write
+  render draft front-matter, **write the detected fields** and report
+  the marker behind each, **ask only `forbidden:` and
+  `bypass_patterns:`** (the two policy fields, **one field at a
+  time**, never lump-sum, per loom-xcw), write
   `.claude/project-constitution.md` UNSTAGED, mirror to the
   `<wing>/decisions` MemPalace drawer, and emit KG triples for the
   tooling. The prose body is emitted as a `[HUMAN AUTHOR]` TODO stub —
@@ -217,19 +219,21 @@ audit. This is a deliberately user-pulled workflow.
     never changes shared content, so it cannot break a non-loom dev's
     setup. The detection mechanism (`find-hook-dups.sh`) is unchanged —
     this recipe only consumes its WARN output (loom-jnn).
-  - `[AUTOFIX:dedup-hook-commit]` (item 12 WARN — gated behind an
-    explicit y/N confirmation) — the same detection, the opposite
+  - `[AUTOFIX:dedup-hook-commit]` (item 12 WARN — gated on a fact the
+    repo doesn't record) — the same detection, the opposite
     resolution: remove the duplicate hook stanza from the **tracked**
     `.claude/settings.json` and commit. Because this changes shared
-    content, the binary `apply` shape does NOT fit — the recipe
-    plumbs a confirmation prompt through and is **NOT auto-applied**
-    on `--apply-onboarding`. The prompt names the consequence
-    verbatim: `This commits a change to .claude/settings.json that
-    assumes loom adoption for all devs on this repo. Non-loom devs
-    lose <hook-name> registration. Proceed? (y/N)`. Only on a typed
-    `y` does it commit with subject `audit: dedup <hook-name>
-    SessionStart hook (loom-managed; plugin + user-global handle
-    registration)`. The empirical reason a resolution path is needed
+    content, the binary `apply` shape does NOT fit, so the recipe is
+    **NOT auto-applied** on `--apply-onboarding`. What it asks is
+    whether everyone who commits to the repo runs loom, since
+    Non-loom devs lose `<hook-name>` registration when the shared
+    file changes, and nothing in the tree records the team's tooling.
+    The count of distinct `git log` authors rides along as the
+    recommendation. Only on a typed `all` does it commit with subject
+    `audit: dedup <hook-name> SessionStart hook (loom-managed; plugin
+    + user-global handle registration)`. On `some` it falls back to
+    the per-user `[AUTOFIX:dedup-hook-skip-worktree]` recipe. The
+    empirical reason a resolution path is needed
     at all: hook layering is **additive across all four layers**
     (plugin + user-global + project-tracked + project-local) — empty
     arrays in `settings.local.json` do NOT cancel an inherited
@@ -631,8 +635,9 @@ case (detection via `find-hook-dups.sh` is unchanged): the DEFAULT
 `[AUTOFIX:dedup-hook-skip-worktree]` (per-user, reversible —
 `git update-index --skip-worktree` the tracked file + strip the dup
 locally + log the recovery snippet), and the opt-in
-`[AUTOFIX:dedup-hook-commit]` behind an explicit y/N confirmation
-that names the shared-content consequence. The empirical reason a
+`[AUTOFIX:dedup-hook-commit]` behind a question about whether every
+committer runs loom, which is the fact the shared-content consequence
+turns on. The empirical reason a
 resolution is needed at all — empty-array overrides in
 `settings.local.json` do NOT cancel inherited hook registrations
 because Claude Code hook layering is **additive across all four
@@ -662,15 +667,29 @@ Tie-break rule: never guess on polyglot. The onboarder reads
 Verdicts the onboarder emits, and the skill's response:
 
 - **PROMPT** (language=unknown AND preflight.template unset / bd-default).
-  The skill prompts the user interactively:
+  `unknown` means the tree gave conflicting markers or none at all,
+  so the language is a fact the repo doesn't record and the skill
+  can't read. That's what earns a question here. Ask it with a
+  recommendation attached, not as a menu.
+
+  Rank whatever partial markers the detector did see (a `*.py` tree
+  with no `pyproject.toml`, a `package.json` under a polyglot root, a
+  `scripts/` dir of `*.sh`) and name the top two, the skill's own
+  pick first:
 
   ```
-  Item 13: project language is unknown and preflight.template is
-  unset / bd-default Go-shaped. Pick a language for the preflight
-  template: (python / go / rust / node / shell / skip)
+  Item 13: I can't pin the project language, so the bd preflight
+  template is still the Go-shaped default. I read the partial
+  markers as <best> (<marker>), with <runner-up> (<marker>) second.
+  Which shape should the preflight template use?
+  (<best> / <runner-up> / other / skip)
   ```
 
-  On a non-skip answer the skill writes the matching template into
+  Name two, never the full six. A six-way menu hands back the
+  ranking the skill just did. `other` reopens the full set (python /
+  go / rust / node / shell) for the case where both picks are wrong.
+
+  On a language answer the skill writes the matching template into
   `.beads/preflight.template` (or the equivalent field in
   `config.yaml`). On `skip`, the skill writes a per-check memo into
   `<root>/.claude/loom-audit-state.json` so future runs render this
@@ -678,21 +697,29 @@ Verdicts the onboarder emits, and the skill's response:
 
 - **WARN** (language ∈ {python, rust, node, shell} AND
   preflight.template starts with `go ` or is the bd-default
-  Go-shaped template). The skill offers a y/N/skip diff preview
-  showing the proposed template replacement. On `y` it writes; on
-  `N` it leaves the row in the queue; on `skip` it writes the
-  state-file memo. The skill does NOT add a new AUTOFIX recipe —
-  the choice of replacement template is content-aware and stays in
-  the per-item conversational gate.
+  Go-shaped template). Detection was decisive, so nothing is left to
+  ask: the user can't tell the skill anything the marker didn't.
+  Write the matching template, then say what changed and why:
+
+  ```
+  Item 13: replaced the Go-shaped bd preflight template with the
+  <lang> one. I read <lang> from <marker>. Tell me if the Go shape
+  was deliberate and I'll put it back.
+  ```
+
+  The skill does NOT add a new AUTOFIX recipe. The replacement is
+  content-aware, so it stays in this check instead of joining the
+  deterministic Step 3.5 recipe set.
 
 - **PASS** otherwise.
 
 Test mocking surface: the env var `LOOM_AUDIT_PROMPT_ANSWER` lets
-test fixtures inject the PROMPT/WARN answer non-interactively (e.g.
+test fixtures inject the PROMPT answer non-interactively (e.g.
 `LOOM_AUDIT_PROMPT_ANSWER=python` or `LOOM_AUDIT_PROMPT_ANSWER=skip`).
 The skill checks this env var first when running under tests; in
 real interactive sessions it stays unset and the conversational
-gate fires normally.
+gate fires normally. WARN takes no answer, so it reads nothing from
+the env var.
 
 ##### Item 14 — `claude-md-solo-aware`
 
@@ -716,15 +743,29 @@ fi
 Verdicts:
 
 - **WARN** (solo workspace AND unguarded `bd dolt push` present in
-  CLAUDE.md's BEADS INTEGRATION block). The skill offers a y/N/skip
-  diff preview that rewrites the canonical block to the loom-hsb
-  guard shape. If the surrounding block has been hand-edited
-  beyond pattern recognition (e.g., the surrounding `bd dolt push`
-  is part of a larger custom workflow, or the lines around it
-  don't match the canonical `bd init`-generated template), the
-  fix refuses with a one-line pointer to loom's own CLAUDE.md
-  ("Reference shape lives in loom/CLAUDE.md — copy by hand").
-  `skip` writes the state-file memo for `claude-md-solo-aware`.
+  CLAUDE.md's BEADS INTEGRATION block). `bd dolt remote list --json`
+  already answered the only open question, and the guard is loom's
+  own boilerplate rather than authored convention, so there's
+  nothing to put to the user. Rewrite the block to the loom-hsb
+  guard shape, then say so:
+
+  ```
+  Item 14: wrapped the bare `bd dolt push` in CLAUDE.md in the
+  loom-hsb solo guard. `bd dolt remote list --json` came back
+  empty, so I read this workspace as solo.
+  ```
+
+  If the surrounding block has been hand-edited beyond pattern
+  recognition (e.g., the surrounding `bd dolt push` is part of a
+  larger custom workflow, or the lines around it don't match the
+  canonical `bd init`-generated template), the rewrite refuses with
+  a one-line pointer to loom's own CLAUDE.md ("Reference shape
+  lives in loom/CLAUDE.md, copy by hand"). That refusal is a limit
+  of the matcher, not a gate. There's no question for the user in
+  it, only a block the skill can't parse safely. The row stays
+  until a human fixes the block by hand, or until someone writes a
+  `claude-md-solo-aware` memo into
+  `<root>/.claude/loom-audit-state.json` to silence it.
 
 - **PASS** otherwise (no CLAUDE.md; no BEADS INTEGRATION block;
   block already uses the guard; skip memo exists;
@@ -759,19 +800,32 @@ inside other words (heirloom-data, etc.). The five canonical signals:
 Verdicts:
 
 - **INFO** = at least one matching bead lacks the `upstream:loom`
-  label. The skill renders the matching beads in a y/N/skip gate per
-  bead — the user decides whether to apply the label. **Informational
-  only — never auto-applies.** On `y` the skill runs
-  `bd label add <id> upstream:loom`; on `N` it leaves the row in
-  the queue; on `skip` it writes a `upstream-loom-label-suggest` memo
-  to `.claude/loom-audit-state.json` so the same row does not re-prompt.
+  label. The regex above is the whole judgment, and the skill has
+  already run it. Apply the label to every match with
+  `bd label add <id> upstream:loom`, then say what the sweep did and
+  how to undo it:
+
+  ```
+  Item 15: labeled <N> bead(s) `upstream:loom` on the loom-keyword
+  regex. I assumed each one is really waiting on a loom fix. For any
+  that only mention loom in passing:
+  `bd label remove <id> upstream:loom`.
+  ```
+
+  A pre-existing `upstream-loom-label-suggest` memo in
+  `.claude/loom-audit-state.json` still silences the row.
 - **PASS** otherwise (no matching beads; all matching beads already
   carry the label; skip memo exists).
 
-**No AUTOFIX tag** — applying the label per-bead is a real human
-choice (the regex catches structural workaround beads, but also
-catches beads that mention loom in passing without being a workaround).
-The gate stays interactive.
+**No AUTOFIX tag.** The sweep runs inside this check rather than as a
+Step 3.5 recipe, because it writes to bd instead of to a file.
+
+The regex over-matches on purpose: it catches structural workaround
+beads, and it also catches beads that mention loom in passing. That
+argues for a cheap undo, not for a question per bead. A wrong label
+costs one `bd label remove`, while a gate over <N> beads costs <N>
+user turns, and neither the user nor the skill has any evidence about
+a given bead that the regex hasn't already weighed.
 
 The companion `/check-loom-upstream` slash command runs the same
 sweep on-demand outside of an audit and additionally pairs labeled
@@ -804,26 +858,43 @@ the verdict.
 Verdicts the onboarder emits, and the skill's response:
 
 - **MISS** (`workflow.json` exists AND `.deploy` is `absent`). The
-  skill prompts the user interactively with the loom-1tq prompt
-  verbatim:
+  deploy ritual routinely lives outside the tree, in a CI pipeline or
+  a runbook or somebody's head. That makes it a genuine unreachable
+  fact, and this row keeps its question. Detect first anyway, so the
+  question that survives is only the residual.
+
+  Detection, first hit wins. An executable `<root>/script/deploy` or
+  `<root>/scripts/deploy` gives that path. A `Makefile` with a
+  `deploy:` target gives `make deploy`. A non-empty
+  `canonical_commands.deploy` in
+  `<root>/.claude/project-constitution.md` gives that value. An
+  executable `<root>/install.sh` gives `./install.sh`.
+
+  Ask with the best candidate carried as the default:
 
   ```
-  Item 21: .deploy is unset in <root>/.claude/workflow.json. What
-  command should /wrap-up surface as the project deploy hint? (e.g.
-  ./install.sh, make deploy, ./scripts/build. Leave blank to
-  explicitly opt out — sets .deploy: "".)
+  Item 21: /wrap-up can surface a deploy hint after a bead closes,
+  and .deploy is unset in <root>/.claude/workflow.json. Best
+  candidate in the tree is `<cmd>` (from <marker>), but deploy often
+  lives somewhere I can't read. Take it, or give me the real one?
+  (accept / <command> / none / skip)
   ```
 
-  On a **non-blank** answer the skill writes the command verbatim via
-  `workflow_config_deploy_set "<command>" <root>` — no validation, no
-  auto-detection (both out of scope, loom-1tq). On a **blank** answer
-  (the explicit opt-out) the skill writes `.deploy: ""` via
-  `workflow_config_deploy_set "" <root>`; the empty string flips the
-  state from `absent` to `empty` so future audits report PASS and do
-  NOT re-prompt — empty means "explicitly chose nothing", distinct
-  from absent's "never decided". Either write preserves `.mode`,
-  `.v`, and any `.guest` block. On a literal `skip` answer the skill
-  writes a `workflow-deploy-hint` skip memo into
+  When detection finds nothing, drop the candidate sentence and ask
+  for the command outright. That's the same residual with no default
+  to offer.
+
+  On `accept` the skill writes the detected candidate. On a typed
+  command it writes that command verbatim via
+  `workflow_config_deploy_set "<command>" <root>`, with no validation
+  (out of scope, loom-1tq). On `none` (the explicit opt-out) it
+  writes `.deploy: ""` via `workflow_config_deploy_set "" <root>`.
+  The empty string flips the state from `absent` to `empty`, so
+  future audits report PASS and do NOT re-prompt. Empty means
+  "explicitly chose nothing", distinct from absent's "never
+  decided". Either write preserves `.mode`, `.v`, and any `.guest`
+  block. On a literal `skip` answer the skill writes a
+  `workflow-deploy-hint` skip memo into
   `<root>/.claude/loom-audit-state.json` so the row renders as a
   silent PASS on future runs.
 
@@ -867,9 +938,9 @@ respect "user said no". Schema:
 Recognised check-names: `preflight-language-match`,
 `claude-md-solo-aware`, `upstream-loom-label-suggest`,
 `workflow-deploy-hint` (item 21 — skip memo when the user declines to
-set or opt out of `.deploy`), `script-convention` (item 23 — skip memo
-when the user declines the `script/`-skeleton scaffold offer and/or the
-`.deploy` → `canonical_commands.deploy` migration offer),
+set or opt out of `.deploy`), `script-convention` (item 23 — memo that
+suppresses the `script/`-skeleton scaffold and the `.deploy` →
+`canonical_commands.deploy` migration),
 `dedup-hook-skip-worktree` (item 12 —
 stores the recovery snippet applied by the default AUTOFIX, not a
 skip memo). The skill
@@ -1638,28 +1709,47 @@ form), apply the recipe:
   }
   ```
 
-- **`[AUTOFIX:dedup-hook-commit]`** — the OPT-IN duplicate-hook
-  resolution (item 12 WARN) that **never auto-applies** without an
-  explicit y/N confirmation. This recipe changes **shared content** (it removes the
-  duplicate stanza from the *tracked* `.claude/settings.json` and
-  commits), so the binary `apply` shape does NOT fit — even with
-  `--apply-onboarding` set, the recipe **MUST NOT auto-apply**. It
-  plumbs a confirmation prompt through and obeys the same
+- **`[AUTOFIX:dedup-hook-commit]`** — the duplicate-hook resolution
+  (item 12 WARN) that changes **shared content** and therefore
+  **MUST NOT auto-apply**, whatever `--apply-onboarding` is set to.
+  It removes the duplicate stanza from the *tracked*
+  `.claude/settings.json` and commits, so the binary `apply` shape
+  does not fit.
+
+  What blocks it is one fact the repo doesn't record: whether
+  everyone who commits here runs loom. `.claude/settings.json` says
+  what the hooks are, never who has them installed, and no file in
+  the tree carries the team's tooling. So ask that fact rather than
+  the action. The two recipes split on exactly this axis, so the
+  answer picks one and the skill runs it.
+
+  Gate first (`refuse_if_guest AUTOFIX:dedup-hook-commit`), then
+  count the distinct committers, to carry a recommendation into the
+  question:
+
+  ```bash
+  git -C <root> log --format='%ae' | sort -u | wc -l
+  ```
+
+  One author reads as `all`. More than one reads as `some`, because
+  Non-loom devs lose `<hook-name>` registration the moment the shared
+  file changes. Put the fact to the user with that reading attached
+  (substitute the offending hook name from the item-12 WARN line):
+
+  ```
+  Does everyone who commits to this repo run loom? git log shows <N>
+  distinct author(s), so I read this as `<recommendation>`. On `all`
+  I'll dedup the tracked .claude/settings.json and commit. On `some`
+  I'll take the per-user route and leave the shared file alone.
+  (all / some)
+  ```
+
+  This is a USER-approval gate and obeys the same
   conversational-pause invariant as Step 4 (loom-xcw): after printing
   the prompt, STOP and wait for a user-typed reply.
 
-  Gate first (`refuse_if_guest AUTOFIX:dedup-hook-commit`), then print
-  the confirmation prompt verbatim (substitute the offending hook name
-  from the item-12 WARN line):
-
-  ```
-  This commits a change to .claude/settings.json that assumes loom
-  adoption for all devs on this repo. Non-loom devs lose <hook-name>
-  registration. Proceed? (y/N)
-  ```
-
-  On a typed `y` (and only then): strip the duplicate stanza from the
-  tracked file and commit with the scoped subject —
+  On a typed `all` (and only then): strip the duplicate stanza from
+  the tracked file and commit with the scoped subject —
 
   ```bash
   cd <root>
@@ -1668,11 +1758,13 @@ form), apply the recipe:
   git commit -m "audit: dedup <hook-name> SessionStart hook (loom-managed; plugin + user-global handle registration)"
   ```
 
-  On `N` (or any non-`y` reply): leave the row in the per-item queue
-  and emit `AUTOFIX:dedup-hook-commit: declined — left for manual
-  handling`. The `LOOM_AUDIT_PROMPT_ANSWER` env var injects the
-  y/N answer non-interactively under tests (same mocking surface as
-  items 13/14).
+  On `some` (or any reply that isn't `all`): run
+  `[AUTOFIX:dedup-hook-skip-worktree]` instead. It resolves the same
+  WARN per-user and never touches shared content, so a mixed team
+  loses nothing. Emit `AUTOFIX:dedup-hook-commit: contributors are
+  mixed, took the per-user route`. The `LOOM_AUDIT_PROMPT_ANSWER` env
+  var injects the answer non-interactively under tests (same mocking
+  surface as items 13/14).
 
   The reason a resolution path is needed at all: Claude Code hook
   layering is **additive across all four layers** (plugin +
@@ -1754,28 +1846,44 @@ skip the second half's queue.
    `/docs-scaffold`'s own per-file substitution+approval flow and
    `--check=constitution`'s dedicated field-level diff.
 
-3. **Drive the engine:**
+3. **Drive the engine, approving every item.** The queue is uniform:
+   every entry copies one loom-owned file to a path loom owns. The
+   owned templates carry their own do-not-edit contract, and the
+   scaffold entries land in the read-only mirror rather than in the
+   project's live customized file. Neither is a call the user is
+   better placed to make than the skill, so approve them all.
+
+   Build the decisions from the items file, then hand both to the
+   engine:
 
    ```bash
-   bash <loom>/scripts/loom-drift-resolve --items <items-file>
+   cut -f1 <items-file> | sed 's/$/=approve/' > <decisions-file>
+   bash <loom>/scripts/loom-drift-resolve --items <items-file> \
+     --decisions <decisions-file>
    ```
 
-   With no `--decisions` flag and no `LOOM_AUDIT_RESOLVE_DECISIONS`
-   env var set, the engine prompts **interactively, per item** —
-   printing a diff preview then asking `Apply? (approve/skip/quit)`
-   — which satisfies the same loom-xcw conversational-pause invariant
-   Step 4 already honors: STOP after each prompt and wait for a
-   user-typed reply; never treat `--dangerously-skip-permissions` as
-   an answer. Test/CI callers drive it non-interactively via
-   `--decisions <file>` or the env var (see
-   `lib/tests/loom-drift-resolve.test.sh`).
+   Then say what synced, because a live-path write to
+   `.claude/rules/loom-conventions.md` is worth naming even when it
+   was loom's file to begin with:
 
-4. **Never-auto-apply, by construction.** An item the user does not
-   explicitly `approve` (skip, quit, or simply never reached because
-   an earlier item was `quit`) is left completely untouched — this is
-   enforced by `scripts/loom-drift-resolve` itself, not by SKILL.md
-   prose discipline, so it holds even outside an agent-driven session
-   (e.g. a human running the script by hand).
+   ```
+   Synced <N> file(s) from loom's current templates: <targets>. Owned
+   files were applied in place. Scaffold files went to
+   .claude/loom-templates/ for you to diff against your own.
+   ```
+
+   Test/CI callers drive the same engine through the same door, via
+   `--decisions <file>` or the `LOOM_AUDIT_RESOLVE_DECISIONS` env var
+   (see `lib/tests/loom-drift-resolve.test.sh`).
+
+4. **No write without an explicit `approve`, by construction.** An
+   item nothing explicitly `approve`s (skip, quit, or simply never
+   reached because an earlier item was `quit`) is left completely
+   untouched — this is enforced by `scripts/loom-drift-resolve`
+   itself, not by SKILL.md prose discipline, so it holds even outside
+   an agent-driven session (e.g. a human running the script by hand).
+   Step 3 changes who supplies the approval, never whether the engine
+   requires one.
 
 5. Fold the engine's `[APPLY]` / `[SKIP]` / `[FAIL]` / `[QUIT]`
    output verbatim into the `## Auto-applied` section (below) under a
@@ -1802,14 +1910,14 @@ skip the second half's queue.
    [SYNC] recorded <root>/.claude/.loom-sync (last_synced=<hash>, date=<date>) — <N> item(s) applied
    ```
 
-   **If `N == 0` (zero applied) — including the all-`[SKIP]` case where
-   the user was offered every item and skipped every one — do NOT
-   re-stamp; zero applied is a CHECK, not a sync.** Step
+   **If `N == 0` (zero applied) — the all-`[SKIP]` or all-`[FAIL]`
+   case, whoever supplied the decisions — do NOT re-stamp; zero
+   applied is a CHECK, not a sync.** Step
    1c already recorded the check; nothing further is written, and the
    drift nudge keeps firing. The rule: *a run that leaves the project
    byte-identical must leave the nudge state byte-identical.* An
-   all-skip `--apply-drift` changes not one byte of the project, so it
-   is indistinguishable in outcome from a read-only `--check=drift`,
+   zero-applied `--apply-drift` changes not one byte of the project, so
+   it is indistinguishable in outcome from a read-only `--check=drift`,
    and it must be indistinguishable in effect. Note the polarity of the
    two possible errors — a false "synced" is silent and invisible
    (this bead's bug), while a false "not synced" is a one-line
@@ -1913,15 +2021,15 @@ Print a `## Auto-applied` section listing every change made:
   apply.
 - **Does not retry on failure.** A failed Edit / Bash / Write step
   emits one error line and continues to the next item; the
-  per-item approval queue in Step 4 still has the failed items for
-  manual handling.
+  Step 4 apply walk still has the failed items for manual
+  handling.
 - **Does not touch WARN items.** Onboarding WARNs (item 1 dirty
   tree, item 4 malformed workflow.json, etc.) imply real conflict
   — apply flags never auto-resolve them.
 - **Does not draft or apply `.claude/rules/` CONTENT (loom-d50 —
   HARD EXCLUSION).** Item 7's `.claude/rules/<x>.md` MISS carries NO
   `[AUTOFIX:...]` tag, so this walk never processes it. Even outside
-  the apply walk — in the Step 4 per-item gate — the rules-file fix is
+  the apply walk — in Step 4's own apply pass — the rules-file fix is
   **scaffold-stub-or-suggest ONLY**: the skill may write an EMPTY
   `<root>/.claude/rules/<x>.md` whose body is a single
   `> [HUMAN AUTHOR] TODO: author the <x> convention here.` placeholder
@@ -1935,7 +2043,7 @@ Print a `## Auto-applied` section listing every change made:
   thing the skill writes for a rules gap; the authored content stays a
   human-authored MISS.
 
-### Step 4 — present combined report + drive interactive fixes
+### Step 4 — present combined report + apply the fixes
 
 Produce one combined report:
 
@@ -1967,44 +2075,63 @@ auto-applied: <K> · skipped (untagged): <S>
 Top 3 gaps to fix first: <ordered short list>
 ```
 
-For each non-auto-applied gap, ask the user:
+For each non-auto-applied gap, apply the suggested fix (a template for
+onboarding gaps, a surgical edit for docs drift), then report it in
+one line:
 
-> Item: <one-line>. Apply suggested fix? (yes / skip / edit)
+> Item: <one-line>. Applied: <what changed>. Assumed: <the reading
+> that picked this fix>.
 
-**Invariant (loom-xcw): the per-item gate is a conversational pause,
-not a tool-permission prompt.** Two distinct gates can be confused
-here:
+Naming the assumption is what makes acting safe. The user overturns
+any line of it in their next message, so a redirect is a follow-up
+rather than a precondition.
+
+Four rows still ask before they act, because each one turns on a fact
+the tree doesn't carry:
+
+1. Item 13's language pick, when detection came back `unknown`.
+2. Item 21's deploy hint, when the ritual lives outside the tree.
+3. `[AUTOFIX:dedup-hook-commit]`, which turns on whether every
+   committer runs loom.
+4. Step 7c's `forbidden:` and `bypass_patterns:`, which encode a
+   posture rather than a marker.
+
+Everything else is the skill's call. A gap that only needs its fix to
+be right doesn't need a user turn to make it right, and asking anyway
+spends the user's attention on a question they have no better answer
+to than the audit does.
+
+**Invariant (loom-xcw): where a gate does fire, it's a conversational
+pause, not a tool-permission prompt.** Two distinct gates can be
+confused here:
 
 - **TOOL permission** — Claude Code's built-in prompt before
   Write/Edit/Bash. `--dangerously-skip-permissions` silently
   auto-accepts this gate. It is about which tools the harness is
   allowed to invoke, not about whether the USER approved the change.
-- **USER approval** — the per-item question above. This is a real
-  conversational pause that requires a user-typed reply ("yes",
-  "skip", or "edit"). `--dangerously-skip-permissions` MUST NOT
-  auto-resolve this gate; running with it does NOT imply blanket
-  user consent.
+- **USER approval** — any of the four questions above. This is a real
+  conversational pause that requires a user-typed reply.
+  `--dangerously-skip-permissions` MUST NOT auto-resolve this gate,
+  and running with it does NOT imply blanket user consent.
 
 The two gates are NOT interchangeable. A session with
-`--dangerously-skip-permissions` set still owes the user an explicit
-yes/skip/edit reply per item — the flag only removes the
+`--dangerously-skip-permissions` set still owes the user a typed
+answer to each of the four — the flag only removes the
 tool-permission friction layer, never the user-approval layer.
 
-**Execution rule.** After printing the prompt, STOP. Do NOT call
-any tool (no Edit, no Write, no Bash, no further analysis) until
-the user replies with a message containing one of `yes` / `skip` /
-`edit`. Treat the next user message as the answer; if the user's
-reply is ambiguous, re-prompt rather than guessing. This is the
-fix for the loom-wxo / loom-xcw symptom where three items applied
-without an intervening user turn.
+**Execution rule.** After printing one of those prompts, STOP. Do NOT
+call any tool (no Edit, no Write, no Bash, no further analysis) until
+the user replies with a message carrying one of that prompt's named
+answers. Treat the next user message as the answer, and re-prompt
+rather than guessing when the reply is ambiguous. This is the fix for
+the loom-wxo / loom-xcw symptom where three items applied without an
+intervening user turn.
 
-On `yes`: generate the fix (template for onboarding gaps; surgical
-edit for docs drift), preview the diff, then write to disk.
-On `skip`: move on. On `edit`: ask the user for the corrected text
-and use that.
-
-Never auto-apply a fix outside `--apply-trivial` / `--apply-onboarding`
-scope. The skill is a co-pilot for cleanup, not an autonomous editor.
+Two things stay outside the apply walk, and neither is a gate that
+went missing. `.claude/rules/` content stays a human-authored MISS
+(Step 3.5), and the constitution's prose body stays a
+`[HUMAN AUTHOR]` stub (Step 7d). Those are content the skill never
+writes at all, whatever anyone answers.
 
 ### Step 5 — capture findings to `<wing>/decisions`
 
@@ -2094,7 +2221,7 @@ Dispatch the `project-onboarder` subagent (or, if it was already
 dispatched in Step 2, reuse its fingerprint section) to scan
 `<root>` and return a tooling fingerprint. The onboarder is
 read-only — it reports the fingerprint; this skill owns every write,
-the per-field confirmation, and the MemPalace mirror.
+the policy-field questions, and the MemPalace mirror.
 
 The detection heuristics (all filesystem-marker based, relative to
 `<root>`), in the order they resolve each field:
@@ -2142,38 +2269,71 @@ Render the detected fingerprint into the YAML front-matter shape from
 `templates/project-constitution.md` (and validated by
 `references/project-constitution.schema.json`). Every required key is
 present; detected fields carry their value; undetected fields carry
-`""` / `[]`. Do NOT write the file yet — Step 7c confirms each field
-first.
+`""` / `[]`. Do NOT write the file yet — Step 7c writes the detected
+fields and asks the two policy ones first.
 
-#### Step 7c — per-field interactive confirmation (one field at a time)
+#### Step 7c — write the detected fields, ask only the policy ones
 
-**Invariant (loom-xcw): confirm ONE field at a time — never
-lump-sum.** Walk the front-matter fields in schema order
-(`shell.enter`, `shell.run_prefix`, `package_manager`,
-`language.runtime`, `language.version`, each `canonical_commands.*`
-verb, `forbidden`, `bypass_patterns`). For EACH field, show the
-detected value and ask the user to confirm, edit, or clear it:
+The front-matter splits in two, and the two halves get opposite
+treatment.
+
+**Detected fields are written, not confirmed.** `shell.enter`,
+`shell.run_prefix`, `package_manager`, `language.runtime`,
+`language.version` and every `canonical_commands.*` verb came off a
+filesystem marker in Step 7a. Confirming those one at a time asks the
+user to re-read a tree the skill just read. Write them, and report
+the whole fingerprint in one block naming the marker behind each
+value:
 
 ```
-Field `<name>`: detected `<value>` (from `<marker>`).
-Keep / edit / clear? (keep / <new value> / clear)
+Constitution drafted for <project> from <N> markers:
+  shell.enter              <value>   (from <marker>)
+  package_manager          <value>   (from <marker>)
+  language.runtime         <value>   (from <marker>)
+  canonical_commands.test  <value>   (from <marker>)
+  ...
+Undetected fields are left empty. The file is unstaged, so correct
+any line before you commit it.
 ```
 
-After printing each field's prompt, STOP and wait for a user-typed
-reply before moving to the next field. Do NOT batch all fields into
-one prompt and accept a single lump-sum approval — that is exactly
-the loom-xcw / loom-wxo failure mode (multiple items applied without
-an intervening user turn). This is a USER-approval gate (a
-conversational pause), distinct from the TOOL-permission gate;
-`--dangerously-skip-permissions` does NOT auto-resolve it.
+The marker column is what makes the block reviewable at a glance: a
+wrong value is almost always a wrong marker, and naming it puts the
+error where the reader can see it.
+
+**`forbidden:` and `bypass_patterns:` ask, one at a time.** Neither
+is detected (Step 7a). They encode a lock-in posture, which is a
+judgment about how the project wants to be worked rather than a fact
+about the tree, so this is the one axis the user has to rank. Propose
+a starting set rather than an empty list. The detected
+`package_manager` names its competitors, and those are the
+`forbidden:` candidates:
+
+```
+Field `forbidden`: nothing detected. This one is policy, not a
+marker. Given package_manager `<pm>`, the usual lock-in guard is
+<competing installers>. Take that, edit it, or leave it empty?
+(take / <your list> / empty)
+```
+
+Ask `bypass_patterns:` the same way, proposing whatever diagnostic
+invocations the project's own hooks and scripts already run.
+
+After printing either prompt, STOP and wait for a user-typed reply
+before moving to the next field. Do NOT batch the two into one prompt
+and accept a single lump-sum approval — that is the loom-xcw /
+loom-wxo failure mode (multiple items applied without an intervening
+user turn). Both are USER-approval gates (a conversational pause),
+distinct from the TOOL-permission gate, and
+`--dangerously-skip-permissions` does NOT auto-resolve either.
 
 Test mocking surface: the `LOOM_AUDIT_PROMPT_ANSWER` env var (same
-surface as items 13/14) injects per-field answers non-interactively
-for fixtures.
+surface as items 13/14) injects the policy-field answers
+non-interactively for fixtures.
 
 #### Step 7d — write the file UNSTAGED + stub the prose body
 
-After every field is confirmed, write
+Once the detected fields are written and the two policy fields are
+answered, write
 `<root>/.claude/project-constitution.md`:
 
 - The confirmed YAML front-matter.
@@ -2229,13 +2389,17 @@ becomes a drift check rather than a fresh capture:
    [CONSTITUTION DRIFT] <field>
      captured:   <value in the file>
      detected:   <value from the current tree>
-     suggested:  confirm / skip (per-field — same one-at-a-time gate
-                 as Step 7c)
+     suggested:  confirm / skip (one field at a time)
    ```
 
-4. The drift loop reuses the Step 7c one-field-at-a-time confirmation
-   — the user confirms or skips each drifted field. Only the
-   front-matter is rewritten, and only for confirmed fields.
+4. The drift loop asks per drifted field, one at a time, and the user
+   confirms or skips each. Only the front-matter is rewritten, and
+   only for confirmed fields. This gate stands where Step 7c's
+   detected-field gate does not, and the difference is what the value
+   in the file means: at first capture it is the skill's own reading
+   of a marker, while on re-run it is a value a human already
+   reviewed and kept. Overwriting that is a redirect the user could
+   plausibly want to refuse, so it gets asked.
 
 **The prose body is NEVER overwritten on re-run.** Detection is
 read-only against the prose; the drift check rewrites front-matter
@@ -2341,18 +2505,19 @@ This check recognizes the loom **`script/` convention** (GitHub
 "scripts to rule them all" lineage, locked in the loom-adm
 `script/`-convention decision drawer; canonical skeleton shipped by
 loom-oxs.1 at `templates/scripts/`), surfaces missing/half-wired
-canonical scripts, OFFERS to scaffold the skeleton from
-`templates/scripts/`, and OFFERS the `workflow.json .deploy` →
-`canonical_commands.deploy` migration. It runs as part of the
+canonical scripts, scaffolds the skeleton from `templates/scripts/`,
+and migrates `workflow.json .deploy` into
+`canonical_commands.deploy`. It runs as part of the
 project-onboarder scan (item 23) on `--check=onboarding|all`, so a
 default audit surfaces it without a dedicated flag.
 
 The onboarder (item 23) owns the read-only detection; the skill (this
-file) owns the rendered report lines AND the interactive offers + the
-writes. There is **no AUTOFIX tag** — both fixes are interactive
-(per-file scaffold y/N; per-candidate `.deploy` migration y/N/skip),
-mirroring the items 13/14/21 conversational gates rather than the
-deterministic Step 3.5 AUTOFIX recipes.
+file) owns the rendered report lines AND the writes. There is **no
+AUTOFIX tag** — both fixes live in this check rather than in the
+deterministic Step 3.5 recipe set, and neither asks: a scaffolded
+`exit 2` stub commits the project to nothing, and the `.deploy`
+migration only carries a value the user already authored into its
+second home.
 
 #### The 8 canonical scripts
 
@@ -2373,8 +2538,8 @@ name) directory. The recognizer probes `<root>/script/` first, then
 dir. **EITHER name is recognized** — they are treated equivalently;
 new projects should prefer the singular `script/`. Neither present →
 the convention is not recognized (no canonical scripts to compare
-against, so the skill emits the whole-skeleton scaffold offer instead
-of per-script gaps).
+against, so the skill scaffolds the whole skeleton instead of
+reporting per-script gaps).
 
 #### Per-script gap surfacing — PASS / WARN / MISS
 
@@ -2394,41 +2559,44 @@ Report line shape:
   PASS:  setup test lint
   WARN:  server (still the exit-2 stub), deploy (non-executable)
   MISS:  bootstrap update cibuild
-  suggested: scaffold the 3 MISS scripts from templates/scripts/ (per-file y/N)
+  applied:   scaffolded the 3 MISS scripts from templates/scripts/
 ```
 
 When NO `script/` or `scripts/` dir exists, emit a single line instead
 of 8 MISS lines:
 
 ```
-[SCRIPT] no script/ convention dir — offer to scaffold the canonical
+[SCRIPT] no script/ convention dir — scaffolded the canonical
   8-script skeleton (bootstrap setup update server test lint cibuild
   deploy) from templates/scripts/ into <root>/script/
 ```
 
-#### Scaffold offer (from `templates/scripts/`)
+#### Scaffold (from `templates/scripts/`)
 
 When ≥1 canonical script is MISS (or the whole dir is absent), the
-skill OFFERS to scaffold from `templates/scripts/`. The offer is a
-per-file conversational gate (the same pause-and-wait contract as the
-Step 4 per-item gate — present, then STOP and wait for the user's
-typed reply; do NOT call any tool until the user replies). On `y` for a
-given script, copy `templates/scripts/<s>` into `<root>/<dir>/<s>` and
-`chmod +x` it; on `N`, leave it. The adopter then wires each scaffolded
-stub up (uncomment the per-type comment hint, replace the `exit 2`
-body) or marks it N/A (`exit 0`) per the `templates/scripts/README.md`
-adoption guide. On a literal `skip`, write a `script-convention` skip
-memo into `<root>/.claude/loom-audit-state.json` so the row renders as
-a silent PASS on future runs.
+skill scaffolds every missing one from `templates/scripts/`: copy
+`templates/scripts/<s>` into `<root>/<dir>/<s>` and `chmod +x` it.
+
+No gate, and no announcement either. What lands is an `exit 2` stub
+that does nothing until someone wires it, so there is no assumption
+to disclose and nothing to redirect. The adopter then wires each
+scaffolded stub up (uncomment the per-type comment hint, replace the
+`exit 2` body) or marks it N/A (`exit 0`) per the
+`templates/scripts/README.md` adoption guide. The scaffolded files
+appear in the report's `## Auto-applied` section like any other write.
+
+A pre-existing `script-convention` memo in
+`<root>/.claude/loom-audit-state.json` still renders the row as a
+silent PASS and suppresses the scaffold.
 
 The scaffold copies the templates **verbatim** as `exit 2` stubs — the
 audit never wires a script to a real command (that is the adopter's
 edit, and auto-wiring would re-import the design→build mismatch the
-stub-default exists to prevent). `LOOM_AUDIT_PROMPT_ANSWER` injects the
-answer non-interactively under tests (same mocking surface as items
-13/14/21).
+stub-default exists to prevent). That verbatim-stub rule is also what
+makes the copy safe to do unasked: a stub commits the project to
+nothing.
 
-#### `.deploy` → `canonical_commands.deploy` migration offer
+#### `.deploy` → `canonical_commands.deploy` migration
 
 `workflow.json`'s `.deploy` (loom-0k0) and the constitution's
 `canonical_commands.deploy` (loom-oxs.3) are two homes for the same
@@ -2436,11 +2604,10 @@ fact: the project's deploy command. `.deploy` is the legacy wrap-up
 hint; `canonical_commands.deploy` is the constitution-schema field that
 `script/deploy` resolves through (`lib/loom-script-resolve.sh`'s
 `loom_resolve_command deploy`). When a project carries the legacy
-`.deploy` but has not set `canonical_commands.deploy`, the audit OFFERS
-to migrate the value forward.
+`.deploy` but has not set `canonical_commands.deploy`, the audit
+migrates the value forward.
 
-Detection (the onboarder reports candidacy; the skill drives the
-offer):
+Detection (the onboarder reports candidacy; the skill does the write):
 
 - Read `<root>/.claude/workflow.json` `.deploy` via
   `workflow_resolve_deploy` (`lib/workflow-config.sh`).
@@ -2451,30 +2618,36 @@ offer):
 - **NOOP** = both set (already migrated), or `.deploy` is empty
   (nothing to migrate), or no constitution file exists.
 
-When a MIGRATE candidate is found, the skill OFFERS a y/N/skip gate:
+When a MIGRATE candidate is found, the skill migrates it: write
+`<cmd>` into the constitution's `canonical_commands.deploy` field,
+preserving the rest of the front-matter and the prose body untouched.
+
+No gate, and no announcement. The value is one the user already
+authored, and it's moving into its second home rather than changing.
+Both homes end up saying what the user said, so there's no assumption
+being made on their behalf and nothing for them to redirect. The
+report line lands in `## Auto-applied` like any other write:
 
 ```
-[SCRIPT] .deploy migration available
-  workflow.json .deploy:            "<cmd>"
-  canonical_commands.deploy:        (empty)
-  suggested: migrate the .deploy value into canonical_commands.deploy
-             so script/deploy and the constitution agree. (y/N/skip)
+[SCRIPT] .deploy migrated into canonical_commands.deploy: "<cmd>"
 ```
 
-On `y`, write `<cmd>` into the constitution's
-`canonical_commands.deploy` field (preserving the rest of the
-front-matter + the prose body untouched). On `N`, leave the row in the
-queue. On `skip`, write the `script-convention` skip memo. The offer is
-suggest-only — never write without explicit per-item approval, and
-never overwrite a non-empty `canonical_commands.deploy`.
+Two limits hold regardless. Never overwrite a non-empty
+`canonical_commands.deploy`, since that is a second authored value
+rather than an empty slot, and a conflict between two authored values
+is a real question the NOOP verdict already keeps out of this path. A
+pre-existing `script-convention` memo still silences the row.
 
-#### No AUTOFIX tag — interactive only
+#### No AUTOFIX tag — this check owns both writes
 
-Neither the scaffold nor the `.deploy` migration is AUTOFIX-tagged: the
-scaffold is a per-file user choice (which scripts to bring in), and the
-migration copies a user-authored command into a second home. Both stay
-in the per-item conversational gate. The `--apply-onboarding` flag does
-NOT auto-apply this check's offers — they require a typed reply.
+Neither the scaffold nor the `.deploy` migration is AUTOFIX-tagged,
+and neither is gated. They sit here rather than in the Step 3.5 recipe
+set because each is content-aware: the scaffold reads which of the 8
+canonical scripts are missing, and the migration reads two files to
+decide there is anything to move. Being ungated is what makes the
+`--apply-onboarding` flag irrelevant to them. They run on any audit
+that reaches this check, and a `script-convention` memo is the only
+thing that stops either.
 
 Lineage: loom-oxs.4 (2026-06-09), umbrella epic loom-oxs (the `script/`
 convention). Canonical skeleton: loom-oxs.1 (`templates/scripts/`).

@@ -232,13 +232,26 @@ assert_contains "SKILL surfaces script gap as MISS verdict" \
   "$SKILL_FILE" 'MISS'
 assert_contains "SKILL offers scaffold from templates/scripts/" \
   "$SKILL_FILE" 'templates/scripts/'
-# The scaffold must be described as an OFFER (the bead's contract: it
-# OFFERS scaffold, it does not silently auto-apply).
-if tr '\n' ' ' <"$SKILL_FILE" | grep -qE '(offer.*scaffold|scaffold.*offer|offer to scaffold|scaffold.*templates/scripts)'; then
-  pass "SKILL describes scaffold-from-templates/scripts/ as an OFFER"
+# loom-42cw.1 (D8/D9): the per-file scaffold gate was REMOVED. What
+# lands is an `exit 2` stub that does nothing until someone wires it, so
+# there is no fact to ask for and no assumption to disclose. D9 puts
+# this in the SILENT class explicitly ("copying a stub"), so the skill
+# scaffolds and reports, without an announcement.
+#
+# The old assertion here matched /scaffold.*templates\/scripts/, which
+# still matches the ungated prose - it would have passed while the
+# contract it named was gone. Pin the new contract instead.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'skill scaffolds every missing one from'; then
+  pass "SKILL scaffolds every MISS script without a per-file gate (D8)"
 else
-  fail "SKILL describes scaffold-from-templates/scripts/ as an OFFER" \
-    "(offer-to-scaffold statement not found in flattened SKILL.md)"
+  fail "SKILL scaffolds every MISS script without a per-file gate (D8)" \
+    "(ungated scaffold statement not found in flattened SKILL.md)"
+fi
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'No gate, and no announcement either'; then
+  pass "SKILL states the scaffold is silent because the stub is inert (D9)"
+else
+  fail "SKILL states the scaffold is silent because the stub is inert (D9)" \
+    "(inert-stub silence rationale not found in flattened SKILL.md)"
 fi
 # The onboarder owns the read-only detection; it must enumerate the 8
 # canonical scripts and the per-script PASS/WARN/MISS verdict.
@@ -301,12 +314,32 @@ assert_contains "SKILL describes workflow.json .deploy field as the migration so
   "$SKILL_FILE" 'workflow\.json.*\.deploy|\.deploy.*workflow\.json|workflow\.json. .deploy'
 assert_contains "SKILL names canonical_commands.deploy as the migration target" \
   "$SKILL_FILE" 'canonical_commands\.deploy'
-# The migration must be described as an OFFER (interactive), not silent.
-if tr '\n' ' ' <"$SKILL_FILE" | grep -qE '(offer.*migrat|migrat.*offer|offer to migrate|migrate.*\.deploy.*canonical_commands|\.deploy.*->.*canonical_commands|\.deploy.*to.*canonical_commands\.deploy)'; then
-  pass "SKILL describes the .deploy -> canonical_commands.deploy migration as an OFFER"
+# loom-42cw.1 (D8/D9): the y/N/skip migration gate was REMOVED. The
+# value is one the user already authored, moving into its second home
+# rather than changing, so D9 names it in the SILENT class ("migrating a
+# value into its second home") - act, and do not announce.
+#
+# The old assertion's /\.deploy.*to.*canonical_commands\.deploy/ branch
+# still matches the ungated prose, so it would have passed on a contract
+# that no longer exists. Pin the new one.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'the skill migrates it'; then
+  pass "SKILL migrates .deploy without a gate (D8)"
 else
-  fail "SKILL describes the .deploy -> canonical_commands.deploy migration as an OFFER" \
-    "(offer-to-migrate statement not found in flattened SKILL.md)"
+  fail "SKILL migrates .deploy without a gate (D8)" \
+    "(ungated migration statement not found in flattened SKILL.md)"
+fi
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'moving into its second home'; then
+  pass "SKILL states the migration is silent because the value is unchanged (D9)"
+else
+  fail "SKILL states the migration is silent because the value is unchanged (D9)" \
+    "(second-home silence rationale not found in flattened SKILL.md)"
+fi
+# The one limit that survives: never clobber a second AUTHORED value.
+if tr '\n' ' ' <"$SKILL_FILE" | grep -qE 'Never overwrite a non-empty'; then
+  pass "SKILL still refuses to overwrite a non-empty canonical_commands.deploy"
+else
+  fail "SKILL still refuses to overwrite a non-empty canonical_commands.deploy" \
+    "(non-empty overwrite guard not found in flattened SKILL.md)"
 fi
 # The onboarder reports the migration candidacy.
 assert_contains "onboarder reports the .deploy migration candidacy" \

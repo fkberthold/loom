@@ -303,11 +303,28 @@ assert_contains "SKILL: Makefile / scripts -> canonical_commands" \
   "$SKILL_FILE" 'Makefile|\./scripts/'
 
 echo "==> SKILL.md documents the capture-flow invariants"
-# Per-field confirmation, one field at a time (loom-xcw), NEVER lump-sum.
-assert_contains "SKILL: per-field confirmation, one at a time (loom-xcw)" \
-  "$SKILL_FILE" '(one field at a time|per-field|field[ -]by[ -]field)'
+# loom-42cw.1 (D8/D9) SPLIT this gate. Detected fields (shell,
+# package_manager, language.*, canonical_commands.*) come off a
+# filesystem marker the skill already read, so confirming them asks the
+# user to re-read the tree: they are WRITTEN and reported, not gated.
+# `forbidden:` / `bypass_patterns:` are NOT detected (Step 7a) - they
+# encode a lock-in posture, which is the axis only the user can rank -
+# so those two KEEP the gate, one field at a time, never lump-sum.
+#
+# A bare /one at a time|per-field/ match is too weak to pin this: those
+# strings survive elsewhere in the file (Step 7f's drift loop), so the
+# old assertions would pass whichever side of the split moved. Pin both
+# halves by name.
+assert_contains "SKILL: detected fields are written, not confirmed (D8)" \
+  "$SKILL_FILE" 'Detected fields are written, not confirmed'
+assert_contains "SKILL: policy fields keep the gate, one at a time (loom-xcw)" \
+  "$SKILL_FILE" 'forbidden:. and .bypass_patterns:. ask, one at a time'
 assert_contains "SKILL: never lump-sum confirmation" \
   "$SKILL_FILE" '(never lump|not lump-sum|one at a time)'
+# D8 requires a surviving gate to carry a RECOMMENDATION, not an empty
+# list: the detected package_manager names its competing installers.
+assert_contains "SKILL: policy-field gate proposes a starting set (D8 recommendation)" \
+  "$SKILL_FILE" '(Propose a starting set|usual lock-in guard)'
 # Write the file UNSTAGED.
 assert_contains "SKILL: writes project-constitution.md UNSTAGED" \
   "$SKILL_FILE" '\.claude/project-constitution\.md'
