@@ -1,5 +1,5 @@
 ---
-description: "Router for the activity-shaped recipes. Takes a bead-id (and optional --recipe=<name> override), runs `bd show`, scores by bead.type + description heuristics, and dispatches to the matching `<activity>-a-bead` recipe. On ambiguity (2+ recipes tied at top score), lists candidates with a one-line 'because' for each and prompts the user to pick or re-invoke with --recipe=<name>. Direct invocation of a specific recipe (`/bugfix-a-bead`, `/feature-a-bead`, etc.) still works and bypasses the router."
+description: "Router for the activity-shaped recipes. Takes a bead-id (and optional --recipe=<name> override), runs `bd show`, scores by bead.type + description heuristics, and dispatches to the matching `<activity>-a-bead` recipe. On a keyword tie (2+ recipes level at top score), breaks the tie by reading the bead text against the tied recipes' definitions, dispatches, and says in one line which it picked and why (--recipe=<name> overrides). Direct invocation of a specific recipe (`/bugfix-a-bead`, `/feature-a-bead`, etc.) still works and bypasses the router."
 disable-model-invocation: true
 ---
 
@@ -12,19 +12,18 @@ Parse the slash-command argument. Two cases:
 
 - **Bead-id given** (e.g., `/working-a-bead loom-foo`): treat that as
   the chosen bead. Continue to Step 2.
-- **No argument**: run `bd ready` and surface the top of the queue.
-  Before confirming a single bead, run `~/.claude/scripts/loom-fanout-detect`
+- **No argument**: run `bd ready` and take the top of the queue.
+  Before settling on a single bead, run `~/.claude/scripts/loom-fanout-detect`
   (the fan-out detector). If it emits a wave of ≥2 independent ready
-  beads (no dep edge between them + disjoint `Files:`), propose
-  parallelizing them as the **default** —
-  "loom-X / loom-Y / loom-Z are independent — dispatch N parallel
-  workers? [y / edit / serial]" — handing `y` off to
-  `superpowers:dispatching-parallel-agents`. On `serial` (or if the
-  detector emits no wave), confirm with the user which single bead to
-  work BEFORE dispatching, then re-enter Step 2 with the chosen
-  bead-id. The detector is a proposal, never an auto-dispatch; if it's
-  absent or errors, skip silently and fall back to the single-bead
-  flow. (See session-startup SKILL.md step 6a for the full contract.)
+  beads (no dep edge between them + disjoint `Files:`), dispatch that
+  wave through `superpowers:dispatching-parallel-agents`, one worker
+  per bead, then say in one line what you dispatched and what the wave
+  assumed. If the detector emits no wave, take the top bead, name it,
+  and re-enter Step 2 with it. Neither route waits for a go-ahead:
+  both read from the tracker, and the line you print is what the user
+  redirects against. If the detector is absent or errors, skip
+  silently and fall back to the single-bead flow. (See session-startup
+  SKILL.md step 6a for the full contract.)
 
 Optional second argument: `--recipe=<name>` (where `<name>` is one of
 `bugfix`, `feature`, `refactor`, `research`, `cleanup`, `docs`).
@@ -39,12 +38,20 @@ Run `bd show <id>` (and optionally `bd show <id> --json` if you need
 to parse the type field cleanly). Capture:
 
 - `type` (one of `bug`, `feature`, `task`, `epic`)
-- `status` — if already `closed`, warn and ask whether to reopen
-  before proceeding. If `blocked`, list the blockers and ask whether
-  to proceed anyway.
+- `status` — a `closed` or `blocked` bead gets its evidence read
+  first (see below)
 - `title` and `description` — the keyword-match surface for tasks.
 
 If `bd show` fails (bead doesn't exist), tell the user and stop.
+
+**A `closed` or `blocked` status is answerable by reading.** For a
+closed bead, open the closing comment and the commits it names, then
+decide whether they cover the work being asked for now. Reopen when
+they don't, carry on when they do, and say which way you read it in
+one line. A blocked bead works the same way: read each blocker, route
+past the ones already satisfied, and stop on the first one that's
+still real, naming it. Neither call needs the user, because `bd show`
+and the log hold the whole answer (loom-42cw, D8).
 
 ## Step 3 — Score against the six recipes
 
@@ -86,18 +93,32 @@ Determine the winner:
 
 ### Ambiguity case
 
-Surface a numbered list of the tied candidates, each with a one-line
-"because" naming the matched keywords. Example:
+A tie in the keyword count is not a tie in the bead. Read the title and
+description against the tied recipes' own definitions and take the one
+whose variable middle matches the work being asked for:
+
+- **refactor-a-bead** restructures without changing behavior
+- **cleanup-a-bead** removes something and hunts its orphan references
+- **docs-a-bead** produces a tracked document
+- **research-a-bead** answers a question and files findings
+
+If the bead's text still doesn't separate them, take the recipe whose
+keywords land in the title rather than only in the description. The
+title is what the filer wrote to name the work.
+
+Dispatch, then say what you took and why, in one line:
 
 ```
-Bead loom-foo (task) matches two recipes equally:
-  1. refactor-a-bead — matched: "refactor", "extract"
-  2. cleanup-a-bead — matched: "remove", "deprecated"
-
-Pick a number, or re-invoke with `--recipe=<name>`.
+Bead loom-foo (task) tied on keywords between refactor-a-bead and
+cleanup-a-bead. Routing to cleanup-a-bead: the bead removes the flag
+and its call sites, and the restructuring is what's left behind.
+Re-invoke with `--recipe=refactor` to override.
 ```
 
-Wait for the user's pick before dispatching. Do **not** guess.
+This doesn't stop to ask. Both inputs to the tie-break, the bead's own
+text and the six recipe definitions, are already in front of you, so
+there's nothing here the user knows that you don't (loom-42cw, D8).
+The one-line note is what makes the override cheap (D9).
 
 ### Epic case
 
@@ -136,9 +157,10 @@ After dispatching, the conversation belongs to the activity recipe.
 The router's job is done. Don't continue narrating the recipe's
 phases yourself; let the recipe's SKILL.md drive.
 
-If the recipe's first action would be inappropriate (e.g., it wants
-to claim a bead that's already closed), the recipe will surface that
-itself and prompt for direction.
+If the recipe's first action turns out to be wrong for this bead, the
+recipe surfaces that itself. The router doesn't pre-empt it. Step 2
+has already settled the closed-and-blocked cases by reading, so those
+never reach the recipe as an open question.
 
 ## Notes
 
