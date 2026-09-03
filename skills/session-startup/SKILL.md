@@ -32,8 +32,18 @@ override):
   prime the palace or pick a bead unless the user asks explicitly.
 
 If the SessionStart onboarding hook just asked the user to pick a mode
-(no `<project>/.claude/workflow.json`), surface that prompt and resolve
-it before running the rest of this skill.
+(no `<project>/.claude/workflow.json`), resolve that pick before running
+the rest of this skill. Carry a recommendation into it, not three flat
+options. This is one of the few asks that survives loom's ask contract
+(loom-42cw, D8): the axis is ceremony against speed, and on a project
+central has just met there's no basis for ranking it.
+
+Recommend **full**. On a project nobody has primed yet, a missed
+in-progress bead or a stale decision drawer costs more than the extra
+passes do. Offer **light** as the single alternative, and say where it
+wins: sessions that are short edits, where the palace and KG passes cost
+more than they return. Mention that **off** exists and leave it there.
+It's the opt-out, not a third option to weigh.
 
 ## Steps
 
@@ -123,18 +133,17 @@ it before running the rest of this skill.
 5. **Reconcile.** Compare what `bd ready` says with what the most recent diary/decision drawers recommend as the entry point. They should agree. If they don't (e.g., a drawer points at a now-closed bead), flag the divergence to the user.
 6. **Pick a bead.** Default = top of `bd ready`. If user named a bead, use that. Run `bd show <id>` for context.
 
-6a. **Propose a parallel wave when ready beads are independent (fan-out detector).** Run `~/.claude/scripts/loom-fanout-detect`. It reads `bd ready --json --limit 0` + each candidate's `bd show <id> --json`, and emits — one wave per line, space-separated IDs — each group of ready beads that have **NO dependency edge between them AND NO overlapping `Files:` path**. Beads with no `Files:` line declared are excluded (conservative: footprint unknown → not provably disjoint). When it emits a wave of ≥2 beads, surface this as the **DEFAULT** proposal *before* falling back to the serial single-bead pick from step 6:
+6a. **Dispatch a parallel wave when ready beads are independent (fan-out detector).** Run `~/.claude/scripts/loom-fanout-detect`. It reads `bd ready --json --limit 0` + each candidate's `bd show <id> --json`, and emits — one wave per line, space-separated IDs — each group of ready beads that have **NO dependency edge between them AND NO overlapping `Files:` path**. Beads with no `Files:` line declared are excluded (conservative: footprint unknown → not provably disjoint). When it emits a wave of ≥2 beads, **dispatch that wave** instead of falling back to the serial single-bead pick from step 6: hand off to `superpowers:dispatching-parallel-agents`, one worker per bead in the wave.
+
+   Then say what you dispatched, in one line:
 
    ```
-   loom-X / loom-Y / loom-Z are independent (no dep edge, disjoint Files:).
-   Dispatch N parallel workers? [y / edit / serial]
+   Dispatched 3 workers in parallel on loom-X / loom-Y / loom-Z. No dependency
+   edge between them, declared Files: sets disjoint. Beads that declare no
+   Files: line sat this wave out.
    ```
 
-   - `y` → hand off to `superpowers:dispatching-parallel-agents`, one worker per bead in the wave.
-   - `edit` → let the user prune/add beads, then dispatch the adjusted set.
-   - `serial` → fall back to the single-bead pick (step 6).
-
-   This is a **proposal, not an auto-dispatch** — central never fans out workers without the user's go-ahead (loom's nudge-not-block design). Why this step exists: `bd ready` is otherwise popped as a serial queue, so independence computed at bead *creation* (the splitting heuristic) is never re-surfaced at *work* time, and central does parallelizable beads one-at-a-time inline (loom-yb5; the bn7 session was all-inline/all-serial — exhibit A). The detector only sees beads that declare `Files:`; nudge under-declaring beads toward the convention rather than silently dropping them. Tolerance: if `~/.claude/scripts/loom-fanout-detect` is absent, `jq` is missing, or it errors, emit nothing and continue to step 7. **Never fail the skill on this step.**
+   **Why this doesn't ask first.** The wave is computed from the dependency graph and the `Files:` lines, and both of those live in the tracker. There's no fact the user holds that would change the answer. The wave also reorders work already at the top of the ready queue, rather than adding any. That's the ask contract's test, and this gate failed it (loom-42cw, D8). The announcement is what covers a redirect: it names the assumption the wave rests on, so pruning it or going serial costs the user one sentence on their next message (D9). Why this step exists: `bd ready` is otherwise popped as a serial queue, so independence computed at bead *creation* (the splitting heuristic) is never re-surfaced at *work* time, and central does parallelizable beads one-at-a-time inline (loom-yb5; the bn7 session was all-inline/all-serial — exhibit A). The detector only sees beads that declare `Files:`; nudge under-declaring beads toward the convention rather than silently dropping them. Tolerance: if `~/.claude/scripts/loom-fanout-detect` is absent, `jq` is missing, or it errors, emit nothing and continue to step 7. **Never fail the skill on this step.**
 7. **Surface the right process skill** for the chosen bead BEFORE acting:
 
 | Bead shape | Skill to invoke |
@@ -149,9 +158,9 @@ it before running the rest of this skill.
 | Verifying completion before commit | `superpowers:verification-before-completion` |
 | Upstream PR or issue contribution | `upstream-a-bead` |
 
-8. **Confirm intent.** Tell the user the bead, the process skill, and the immediate next action (1-2 sentences). Wait for `yes` / redirect before claiming or coding.
+8. **State the pick, then go.** Tell the user the bead, the process skill, and the immediate next action (1-2 sentences), then claim it and start. Don't wait for a `yes`. The pick came off the top of `bd ready`, which is a priority the user already recorded, so re-litigating it asks nothing the user hasn't already answered (loom-42cw, D8). Naming the bead and the skill in the same breath is what leaves room for a redirect (D9).
 
-9. **Hand off to the bead-execution recipe.** Once the user confirms the bead, invoke the activity recipe matching the bead's shape (today: `bugfix-a-bead`; coming: `feature-a-bead`, `refactor-a-bead`, `research-a-bead`, `cleanup-a-bead`, `docs-a-bead`) — or have the user trigger `/working-a-bead <id>` once the router lands. The recipe defers to `bead-lifecycle-shell` for phases A (search + claim), B (verification), C (commit + finish-branch), and D (close + capture); the recipe itself only owns the activity-specific variable middle. The lookup table in step 7 is the *index* into the right recipe.
+9. **Hand off to the bead-execution recipe.** Once step 8 has named the bead, invoke the activity recipe matching the bead's shape (today: `bugfix-a-bead`; coming: `feature-a-bead`, `refactor-a-bead`, `research-a-bead`, `cleanup-a-bead`, `docs-a-bead`) — or have the user trigger `/working-a-bead <id>` once the router lands. The recipe defers to `bead-lifecycle-shell` for phases A (search + claim), B (verification), C (commit + finish-branch), and D (close + capture); the recipe itself only owns the activity-specific variable middle. The lookup table in step 7 is the *index* into the right recipe.
 
 ## Example
 
@@ -168,7 +177,7 @@ You: bd ready leads with 13p.4.2 (P0, MemPalace drawer rewrites). The latest
      session-close drawer recommends doing this before any other work because
      the old PHASE 4 START HERE drawer is misleading future sessions. No
      in_progress beads. I'll use superpowers:brainstorming if any drawer rewrites
-     need design judgment, otherwise straight edits. Proceed?
+     need design judgment, otherwise straight edits. Claiming it and starting.
 ```
 
 ## Critical
@@ -176,6 +185,6 @@ You: bd ready leads with 13p.4.2 (P0, MemPalace drawer rewrites). The latest
 - **Don't skip MemPalace.** `bd ready` shows queue; the palace shows *why* the queue looks that way. Acting on bead state alone has bitten this workflow before — the bead's description may be stale relative to the most recent decision drawer.
 - **Reconcile before acting.** If a drawer says "start with X" and X is closed, the drawer is stale and the queue is right. Surface the mismatch — it's usually a sign that 13p.4.2-style cleanup work is itself the next priority.
 - **Process skill before action.** Per superpowers:using-superpowers / beadpowers:using-beadpowers — the relevant skill must be invoked before coding or filing. This step is where it happens.
-- **Confirm before claiming.** `bd update <id> --claim` is reversible but noisy. Don't claim until the user signs off on the bead choice.
+- **State the pick, then claim.** `bd update <id> --claim` doesn't wait for a sign-off. Nothing the user knows changes which bead sits at the top of the ready queue, and "reversible but noisy" was never a reason to ask (loom-42cw, D8). Name the bead, the skill, and the next action, then start.
 - **Don't run this skill mid-task.** Designed for cold starts. Mid-session use wastes context.
 - **Search MemPalace at the design moment, not just at session start.** The cold-start search recovers context; the bead-claim search recovers patterns. Both matter. The `bead-lifecycle-shell` skill enforces the second search at phase A1 (called by every activity recipe); this cold-start skill only covers the first.
