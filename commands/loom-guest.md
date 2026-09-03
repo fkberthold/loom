@@ -17,18 +17,26 @@ repo or any host repo you're a guest in.
 
 **Step 1.** Run `~/.claude/scripts/loom-guest on`.
 
-**Step 2.** If it errors with "no host .beads/ found", ask the user:
+**Step 2.** If it errors with "no host .beads/ found", re-run with
+`--personal-bd`:
 
-> No host bd workspace was detected. How should bd integration work?
->
-> - **personal**: external personal bd workspace at
->   `~/.loom/guests/<repo-key>/.beads/` (gitignored, not visible to
->   host). Choose this if you want bd-tracked work that doesn't bleed
->   into the host's repo.
-> - **none**: skip bd integration entirely. Recipes that require a
->   bead won't have one to operate on.
+```bash
+~/.claude/scripts/loom-guest on --personal-bd
+```
 
-Then re-run with the chosen flag (`--personal-bd` or `--no-bd`).
+Then say in one line what that set up and where:
+
+> No host bd workspace here, so I put a personal one at
+> `~/.loom/guests/<repo-key>/.beads/`. It's outside the host tree and
+> gitignored, so nothing of yours reaches their repo. Pass `--no-bd`
+> instead if you'd rather this repo have no bd at all.
+
+Don't put that choice to the user first. `--no-bd` is the other flag
+the script takes, and it buys nothing `--personal-bd` doesn't. Both
+keep bd state out of the host tree, and the personal workspace also
+leaves the recipes that need a bead something to operate on. There's no
+position from which `--no-bd` is the better answer, so there's no
+question to ask.
 
 If the host *does* have its own `.beads/`, `on` defaults silently to
 `bd_mode=host`. In that case your bd commands operate on the host's

@@ -11,7 +11,7 @@
 # Covers loom-k2g.4. Cases per the dispatcher brief:
 #   1. refusal on uncommitted-changes
 #   2. refusal on open watch-bead reference
-#   3. clean prune with user assent
+#   3. clean prune once both gates pass (no prompt, loom-42cw)
 #   4. empty upstream dir no-op
 #
 # Run:  bash lib/tests/loom-upstream-gc.test.sh
@@ -48,16 +48,19 @@ EOF
   echo "$d"
 }
 
-# Run the per-clone gating logic with the requested user-answer.
+# Run the per-clone gating logic.
 # The function consolidates the bash body from commands/loom-upstream-gc.md
 # (Step 1 + Step 2 + Step 3 + Step 4) into a single executable so
 # tests don't need to re-parse the markdown. Updates here MUST mirror
 # any change to the command body's bash blocks.
+#
+# It takes no user-answer parameter: under loom-42cw the per-clone
+# prompt was removed, so the two gates are the whole decision and there
+# is no third input to vary.
 run_gc() {
-  local user_answer="$1"   # "yes" or "no" — applied to every clone prompt
-  local loom_home="$2"
-  local bd_dir="$3"
-  PATH="$bd_dir:$PATH" LOOM_HOME="$loom_home" USER_ANSWER="$user_answer" bash <<'SCRIPT'
+  local loom_home="$1"
+  local bd_dir="$2"
+  PATH="$bd_dir:$PATH" LOOM_HOME="$loom_home" bash <<'SCRIPT'
 set -uo pipefail
 LOOM_HOME=${LOOM_HOME:-$HOME/.loom}
 UPSTREAM_ROOT="$LOOM_HOME/upstream"
@@ -97,7 +100,6 @@ for slug in sorted(seen):
 
 pruned_count=0
 refused_count=0
-kept_count=0
 
 for clone in "${CLONES[@]}"; do
   rel="${clone#$UPSTREAM_ROOT/}"
@@ -124,23 +126,18 @@ for clone in "${CLONES[@]}"; do
   fi
 
   echo "  Both safety gates passed."
-  if [ "$USER_ANSWER" = "yes" ]; then
-    rm -rf "$clone"
-    echo "  PRUNED: $clone"
-    pruned_count=$((pruned_count + 1))
-    owner_dir="$(dirname "$clone")"
-    if [ -d "$owner_dir" ] && [ -z "$(ls -A "$owner_dir")" ]; then
-      rmdir "$owner_dir"
-      echo "  Removed empty owner dir: $owner_dir"
-    fi
-  else
-    echo "  KEPT (user declined)."
-    kept_count=$((kept_count + 1))
+  rm -rf "$clone"
+  echo "  PRUNED: $clone"
+  pruned_count=$((pruned_count + 1))
+  owner_dir="$(dirname "$clone")"
+  if [ -d "$owner_dir" ] && [ -z "$(ls -A "$owner_dir")" ]; then
+    rmdir "$owner_dir"
+    echo "  Removed empty owner dir: $owner_dir"
   fi
 done
 
 echo "----"
-echo "Summary: $pruned_count clone(s) pruned, $refused_count refused, $kept_count kept."
+echo "Summary: $pruned_count clone(s) pruned, $refused_count refused."
 SCRIPT
 }
 
@@ -168,7 +165,7 @@ LOOM_HOME=$(mk_loom_home)
 mkdir -p "$LOOM_HOME/upstream"
 BD_DIR=$(mk_bd_stub '[]')
 
-out=$(run_gc no "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+out=$(run_gc "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
 
 if [ "$rc" -eq 0 ]; then
   pass "exit 0 on empty upstream cache"
@@ -194,7 +191,7 @@ LOOM_HOME=$(mk_loom_home)
 # Don't create $LOOM_HOME/upstream at all.
 BD_DIR=$(mk_bd_stub '[]')
 
-out=$(run_gc no "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+out=$(run_gc "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
 
 if [ "$rc" -eq 0 ]; then
   pass "exit 0 when upstream dir absent"
@@ -220,7 +217,7 @@ LOOM_HOME=$(mk_loom_home)
 mk_clone_repo "$LOOM_HOME/upstream/obra/superpowers" dirty
 BD_DIR=$(mk_bd_stub '[]')
 
-out=$(run_gc yes "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+out=$(run_gc "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
 
 if [ "$rc" -eq 0 ]; then
   pass "exit 0 even when refusing (refusal is not fatal)"
@@ -235,7 +232,7 @@ else
 fi
 
 if [ -d "$LOOM_HOME/upstream/obra/superpowers" ]; then
-  pass "dirty clone NOT removed despite user answering 'yes'"
+  pass "dirty clone NOT removed (gate 1 short-circuits)"
 else
   fail "dirty clone was removed — refusal failed to short-circuit"
 fi
@@ -262,7 +259,7 @@ mk_clone_repo "$LOOM_HOME/upstream/obra/superpowers" clean
 WATCH_JSON='[{"id":"foo-001","title":"watch upstream obra/superpowers#42","description":"PR URL: https://github.com/obra/superpowers/pull/42"}]'
 BD_DIR=$(mk_bd_stub "$WATCH_JSON")
 
-out=$(run_gc yes "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+out=$(run_gc "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
 
 if [ "$rc" -eq 0 ]; then
   pass "exit 0 on watch-bead refusal"
@@ -277,7 +274,7 @@ else
 fi
 
 if [ -d "$LOOM_HOME/upstream/obra/superpowers" ]; then
-  pass "watch-referenced clone NOT removed despite user answering 'yes'"
+  pass "watch-referenced clone NOT removed (gate 2 short-circuits)"
 else
   fail "watch-referenced clone was removed — refusal failed"
 fi
@@ -285,10 +282,10 @@ fi
 rm -rf "$LOOM_HOME" "$BD_DIR"
 
 # -------------------------------------------------------------------
-# 4. Clean prune with user assent.
+# 4. Clean prune once both gates pass.
 # -------------------------------------------------------------------
 
-echo "==> 4. Clean tree + no watch-ref + user yes → prunes"
+echo "==> 4. Clean tree + no watch-ref → prunes"
 
 LOOM_HOME=$(mk_loom_home)
 mk_clone_repo "$LOOM_HOME/upstream/obra/superpowers" clean
@@ -297,7 +294,7 @@ BD_DIR=$(mk_bd_stub '[]')
 # Sanity precondition.
 [ -d "$LOOM_HOME/upstream/obra/superpowers/.git" ] || { echo "  SETUP FAIL"; exit 1; }
 
-out=$(run_gc yes "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+out=$(run_gc "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
 
 if [ "$rc" -eq 0 ]; then
   pass "exit 0 on successful prune"
@@ -306,9 +303,9 @@ else
 fi
 
 if [ ! -d "$LOOM_HOME/upstream/obra/superpowers" ]; then
-  pass "clone removed on user assent"
+  pass "clone removed once both gates pass"
 else
-  fail "clone NOT removed despite gates passing + user yes"
+  fail "clone NOT removed despite both gates passing"
 fi
 
 if [ ! -d "$LOOM_HOME/upstream/obra" ]; then
@@ -326,36 +323,58 @@ fi
 rm -rf "$LOOM_HOME" "$BD_DIR"
 
 # -------------------------------------------------------------------
-# 4b. Clean tree + no watch-ref + user no → keeps (doesn't prune).
+# 4b. The per-clone prompt is gone from the command body (loom-42cw).
+#
+# This replaces the old "user decline keeps the clone" case, which
+# pinned a behavior D8 retired: the two gates already establish that
+# the clone is clean and unreferenced, so the prompt asked for assent
+# to a decision it had finished making, once per clone.
+#
+# It is a grep-contract check over the markdown rather than a run of
+# run_gc, because run_gc is a COPY of the command's bash. A copy can
+# agree with itself while the command body drifts, which is exactly
+# how this file passed 23/23 against a body that no longer matched.
 # -------------------------------------------------------------------
 
-echo "==> 4b. User decline keeps the clone"
+echo "==> 4b. Command body carries no per-clone prompt"
 
-LOOM_HOME=$(mk_loom_home)
-mk_clone_repo "$LOOM_HOME/upstream/obra/superpowers" clean
-BD_DIR=$(mk_bd_stub '[]')
+CMD_FILE="$LOOM_ROOT/commands/loom-upstream-gc.md"
 
-out=$(run_gc no "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+if [ -f "$CMD_FILE" ]; then
+  pass "commands/loom-upstream-gc.md exists"
 
-if [ "$rc" -eq 0 ]; then
-  pass "exit 0 on user decline"
+  # This was the only AskUserQuestion call in the repo. Keep it gone.
+  if grep -q 'AskUserQuestion' "$CMD_FILE"; then
+    fail "no AskUserQuestion in the command body" \
+      "(the per-clone assent prompt was removed under loom-42cw)"
+  else
+    pass "no AskUserQuestion in the command body"
+  fi
+
+  # No prompt shape survives either.
+  if grep -qiE 'prompt for assent|\(y/N\)|user assent|on user decline' "$CMD_FILE"; then
+    fail "no per-clone assent prompt survives" \
+      "(found prompt-shaped text in the command body)"
+  else
+    pass "no per-clone assent prompt survives"
+  fi
+
+  # The contract section says the gates carry the decision.
+  if grep -qiE 'gates are the whole decision|gates carry the whole decision' "$CMD_FILE"; then
+    pass "contract states the gates are the whole decision"
+  else
+    fail "contract does not state the gates are the whole decision"
+  fi
+
+  # The command reports what it pruned (D9: act, then say what you did).
+  if grep -qiE 'report what went|reports what it removed|name the clones' "$CMD_FILE"; then
+    pass "command reports what it pruned"
+  else
+    fail "command does not say it reports the pruned clones"
+  fi
 else
-  fail "non-zero exit on user decline (rc=$rc)" "$out"
+  fail "commands/loom-upstream-gc.md exists" "(file missing: $CMD_FILE)"
 fi
-
-if [ -d "$LOOM_HOME/upstream/obra/superpowers" ]; then
-  pass "clone preserved on user decline"
-else
-  fail "clone removed despite user declining"
-fi
-
-if echo "$out" | grep -q "Summary: 0 clone(s) pruned, 0 refused, 1 kept"; then
-  pass "summary tallies kept-clone correctly"
-else
-  fail "summary missing kept count" "$out"
-fi
-
-rm -rf "$LOOM_HOME" "$BD_DIR"
 
 # -------------------------------------------------------------------
 # 5. Multi-clone: one prunable, one watch-blocked, one dirty.
@@ -371,7 +390,7 @@ mk_clone_repo "$LOOM_HOME/upstream/mempalace/mempalace" dirty # blocked by dirty
 WATCH_JSON='[{"id":"foo-001","title":"watch upstream gastownhall/beads#7","description":"https://github.com/gastownhall/beads/pull/7"}]'
 BD_DIR=$(mk_bd_stub "$WATCH_JSON")
 
-out=$(run_gc yes "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
+out=$(run_gc "$LOOM_HOME" "$BD_DIR" 2>&1); rc=$?
 
 if [ "$rc" -eq 0 ]; then pass "multi-clone run exits 0"; else fail "multi-clone rc=$rc" "$out"; fi
 

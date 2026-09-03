@@ -19,8 +19,12 @@
 #      constitution (loom-8jz/ld4) not landed.
 #   P2/P3 are order-independent.
 #
-#   Behavior: PER-PHASE CHECKPOINT interactivity (announce -> confirm ->
-#   run -> show -> proceed; NOT one-shot autonomous, NOT per-file nag).
+#   Behavior: PER-PHASE ANNOUNCEMENT (announce -> run -> show ->
+#   proceed). The per-phase CONFIRM beat was removed under loom-42cw
+#   (D8/D9): the presence probes already decide which phases run, so
+#   asking "Run phase Pn? (yes/skip/stop)" put a question where the
+#   enumeration had made the answer. The delegated primitives keep
+#   their own gates, P4's cost gate above all.
 #   GRACEFUL DEGRADATION: unbuilt-primitive phases skipped with a logged
 #   reason; the phase list is enumerated DYNAMICALLY from what is
 #   installed. IDEMPOTENT + RESUMABLE: re-run = re-audit skip-satisfied +
@@ -191,19 +195,30 @@ assert_contains "P5 skip if constitution (loom-8jz/ld4) not landed" \
   'loom-8jz|loom-ld4|constitution.*(not (landed|installed|built|present|shipped))'
 
 # =====================================================================
-echo "==> 3. Per-phase checkpoint interactivity (not autonomous, not per-file nag)"
+echo "==> 3. Per-phase loop announces every phase and gates none (loom-42cw)"
 # =====================================================================
-# announce -> confirm -> run -> show -> proceed.
-assert_contains "checkpoint loop: announce" 'announce'
-assert_contains "checkpoint loop: confirm" 'confirm'
-assert_contains "checkpoint loop: per-phase checkpoint named" \
-  'per.?phase checkpoint|checkpoint.*phase|phase.*checkpoint'
-# It is NOT one-shot autonomous AND NOT a per-file nag — the two
-# explicitly-rejected extremes.
-assert_contains "rejects one-shot autonomous extreme" \
-  'not.*(one.?shot|autonomous)|one.?shot autonomous'
-assert_contains "rejects per-file nag extreme" \
-  'per.?file nag|not.*per.?file'
+# The loop is announce -> run -> show -> proceed, stated as an ordered
+# sequence on one line.
+assert_contains "phase loop is announce -> run -> show -> proceed" \
+  'announce.*run.*show.*proceed'
+assert_contains "loop runs once per phase, not per file" \
+  'once per phase|per phase, NOT once'
+
+# The per-phase CONFIRM beat is gone. Assert on the numbered loop step
+# rather than the words "yes / skip / stop", which the prose still
+# quotes when explaining what was removed.
+assert_absent "no Confirm step in the phase loop" \
+  '^[0-9]+\. \*\*Confirm'
+assert_contains "prose states there is no confirm beat" \
+  'no confirm beat|gates? none of them|not asked to approve'
+
+# Removing the OUTER beat must not touch the inner gates the delegated
+# primitives own. P4's cost gate is asserted on its own in section 4;
+# here we pin that the skill still says it adds none of its own.
+assert_contains "delegated primitives keep their own gates" \
+  'OWN internal interactivity|own gates|owns its own'
+assert_contains "skill adds no gate of its own" \
+  'adds none of its own|does not layer a second|no gate of its own'
 
 # =====================================================================
 echo "==> 4. History-mine phase nests its OWN cost-preview gate"

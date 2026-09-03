@@ -1,6 +1,6 @@
 ---
 name: docs-scaffold
-description: Scaffold a Diataxis-shaped MkDocs Material docs/ tree into the current loom-managed project by copying templates/diataxis/ with variable substitution and per-file approval. Refuses against non-loom-managed projects and against projects carrying the docs/.no-diataxis opt-out marker. Manual-only — never auto-suggested by session-startup or any activity recipe; only fires when the user invokes `/docs-scaffold`.
+description: Scaffold a Diataxis-shaped MkDocs Material docs/ tree into the current loom-managed project by copying templates/diataxis/ with variable substitution, writing only the files the project doesn't already have. Refuses against non-loom-managed projects and against projects carrying the docs/.no-diataxis opt-out marker. Manual-only — never auto-suggested by session-startup or any activity recipe; only fires when the user invokes `/docs-scaffold`.
 ---
 
 # Docs-Scaffold — Diataxis Skeleton Copier
@@ -13,10 +13,10 @@ catalog pages for primitives the project actually has.
 
 The discipline this skill codifies, restated:
 **loom recommends Diataxis; the project decides.** The scaffold is
-opt-in (manual slash command), per-file approval-gated (the user can
-decline any single file), and explicitly opt-out-respecting (a
-`docs/.no-diataxis` marker terminates the skill with an explanation).
-Loom ships the bones; the project owns the voice.
+opt-in (manual slash command), non-destructive (it writes the files the
+project is missing and never overwrites one it has), and explicitly
+opt-out-respecting (a `docs/.no-diataxis` marker terminates the skill
+with an explanation). Loom ships the bones; the project owns the voice.
 
 Invocation: explicit only. `/docs-scaffold` fires this skill. The
 slash command and this skill both carry `disable-model-invocation:
@@ -148,49 +148,58 @@ Four cases, each handled differently:
 3. **`<root>/docs/` absent or empty.** Clean scaffold path. Proceed to M4.
 
 4. **`<root>/docs/` exists with content** (and is NOT detected as
-   generated). List every existing file under `<root>/docs/` and
-   ask the user how to proceed:
+   generated). Proceed to M4. Write the bones the project is missing
+   and leave every file it already has alone.
 
-   - **skip** — abort the scaffold, leave existing docs alone.
-   - **merge** — proceed; at M5 the user will approve per-file, so
-     existing files won't be silently overwritten. Files the scaffold
-     would write that already exist are flagged as `[EXISTS — would
-     overwrite]` in the M5 preview; the user explicitly approves
-     each overwrite or declines.
-   - **refuse** — abort with a note suggesting the user move `docs/`
-     aside (`mv docs docs.bak`) and re-run for a clean scaffold.
+   Don't put the disposition to the user first. The two cases with
+   real stakes already stopped the run above: an opted-out project
+   refuses at case 1, and a generated tree refuses at case 2. What
+   reaches case 4 is a project with hand-written docs and no marker
+   saying to stay out, and adding the files it doesn't have takes
+   nothing away from it.
 
-   Default to skip if the user is unclear.
+   Overwriting is off the table entirely (M5), so there's no per-file
+   stake left to weigh either. A user who wanted a clean scaffold
+   instead moves `docs/` aside (`mv docs docs.bak`) and re-runs, which
+   is one command and keeps the old tree in their hands.
 
-   Sub-case: if `docs/` already has the four quadrant subdirs
-   (`tutorials/`, `how-to/`, `reference/`, `explanation/`) and each
-   has at least an `index.md`, treat this as **idempotent re-scaffold**:
-   M5 will show only the skeleton-bones diffs (mkdocs.yml, workflow,
-   requirements.txt, catalog index pages); existing quadrant content
-   is left alone unless the user explicitly approves the overwrite.
+   This makes a re-scaffold idempotent by construction. A project that
+   already has the four quadrant subdirs (`tutorials/`, `how-to/`,
+   `reference/`, `explanation/`) with an `index.md` in each gets only
+   the skeleton bones it's missing (mkdocs.yml, workflow,
+   requirements.txt, catalog index pages), and its quadrant content is
+   untouched.
 
 ### M4 — Gather variables
 
-Three variables drive the substitution. Each has a detection step
-that the user can override at the prompt:
+Three variables drive the substitution:
 
-| Variable | Default source | Example |
+| Variable | Source | Example |
 |---|---|---|
 | `{{ project_name }}` | `git -C <root> config --get remote.origin.url` basename, falling back to `basename "<root>"` | `acme-widgets` |
 | `{{ repo_url }}` | `git -C <root> config --get remote.origin.url`, normalized to https form | `https://github.com/acme/widgets` |
-| `{{ short_description }}` | (no default — prompt the user) | `Widget orchestration for the Acme platform.` |
+| `{{ short_description }}` | the user (no mechanical source) | `Widget orchestration for the Acme platform.` |
 
-Show the user each detected default and ask whether to accept or
-edit. Never silently use a default for `short_description` — the
-landing page reads badly without it, and asking once is cheap.
+Use the detected values for the first two. Don't show them for
+confirmation first. Both read straight out of `git config`, so
+confirming them asks the user to check a lookup they'd have to run the
+same command to check. The M5 report names both, which is where a wrong
+detection actually gets caught, and by then it's a one-line edit rather
+than a question standing between the user and the scaffold.
 
-If the project has no git remote, prompt the user for `repo_url`
-directly. Refuse to proceed with a placeholder; the GH Pages
-workflow needs a real URL to do anything useful.
+Ask for `short_description`. It's the one input with no mechanical
+source in the repo, and a sentence saying what the project is for is
+something the user knows and `git config` doesn't. That difference is
+the whole reason it's worth a question where the other two aren't.
 
-### M5 — Preview the diff
+Ask for `repo_url` too when the project has no git remote, for the same
+reason. With no remote there's nothing to read, and the GH Pages
+workflow needs a real URL to do anything useful. Don't proceed with a
+placeholder.
 
-Build the full list of files the scaffold will create or replace.
+### M5 — Sort the file list
+
+Build the full list of files the scaffold will create.
 The list is the contents of `templates/diataxis/` (the loom repo's
 canonical skeleton — see `templates/diataxis-README.md` for the
 inventory) **minus** any `docs/reference/<thing>/index.md` pages
@@ -198,34 +207,34 @@ whose primitive type was absent at M2, **with** every `*.template`
 file renamed to drop the suffix (the substituted content lands at
 the suffixless path).
 
-For each file, show one of these tags (existence checked under `<root>`):
+Tag each file (existence checked under `<root>`):
 
-- `[NEW]` — file does not exist at `<root>/<path>`. Will be created.
-- `[EXISTS — would overwrite]` — file exists at `<root>/<path>`.
-  Requires explicit approval to overwrite (declined → skip this file).
-- `[EXISTS — identical]` — file exists at `<root>/<path>` with
-  byte-identical content. No-op; show in the preview but do not prompt.
+- `[NEW]` — file does not exist at `<root>/<path>`. Write it.
+- `[EXISTS — differs]` — the project has its own version. Leave it.
+- `[EXISTS — identical]` — already byte-identical to the template.
+  No-op.
 
-For each `[NEW]` and `[EXISTS — would overwrite]` line, ask:
+Write every `[NEW]` file. Leave both `[EXISTS]` classes alone. There's
+no per-file question because there's no per-file decision left: a
+`[NEW]` file displaces nothing, and an existing file is never
+overwritten, so neither outcome turns on something the user knows and
+the skill doesn't.
 
-> File: `<path>` `[NEW|EXISTS — would overwrite]`. Apply? (yes / skip)
+That's a change from an earlier contract, where a `merge` disposition
+could overwrite an existing file given per-file approval. Overwriting
+is gone rather than automated. The approval beat existed to make sure
+nobody lost hand-written docs to a template stub, and not writing over
+them gets the same property without asking N times for the same answer.
 
-`yes` → queue for write. `skip` → drop from the apply set.
-
-Per-file approval is **not optional**. The user must answer for
-every flagged file. A bulk "yes to all" / "skip all remaining"
-shortcut is acceptable for ergonomics, but do not default to silent
-acceptance.
-
-If the user skips a `mkdocs.yml.template` or the
-`.github/workflows/docs.yml`, **warn** that the scaffold will be
-non-functional without those files and confirm the skip. Do not
-refuse — the user may have their own. Just make the consequence
-visible.
+If a `[EXISTS — differs]` file is `mkdocs.yml` or
+`.github/workflows/docs.yml`, say so in the M6 report and name the
+consequence: the tree won't build or won't publish on the scaffold's
+terms until the project's own copy carries the same wiring. Report it,
+don't refuse. The project may well have its own and be right to.
 
 ### M6 — Apply
 
-For each approved file:
+For each `[NEW]` file:
 
 1. Copy the file from `templates/diataxis/<path>` into `<root>` at
    the corresponding path (creating directories as needed).
@@ -252,7 +261,7 @@ After writes complete, emit a summary:
 ## Scaffold complete
 
 Wrote: <N> files
-Skipped: <K> files (per user decision)
+Left alone: <K> existing files (listed below)
 Variables substituted: project_name=<...>, repo_url=<...>,
   short_description=<...>
 
@@ -275,6 +284,10 @@ Variables substituted: project_name=<...>, repo_url=<...>,
    between docs/ and the system / beads / MemPalace.
 ```
 
+List the files left alone by name. Two detected variables and a set of
+untouched files are the whole of what the user needs to check, and a
+count on its own doesn't let them check anything.
+
 If any catalog pages were dropped at M2, surface that in the summary
 so the user knows: "Note: skipped `docs/reference/agents/index.md`
 because no `agents/` directory was detected. Re-run after adding
@@ -282,9 +295,9 @@ agents to surface them."
 
 ## What this skill does NOT do
 
-- **Does not write to disk without per-file user approval.** Every
-  `[NEW]` and `[EXISTS — would overwrite]` file requires explicit
-  approval. There is no `--apply-all` flag in v1.
+- **Does not overwrite a file the project already has.** Every write
+  goes to a path that was empty. An existing file is reported and left,
+  whatever its contents.
 - **Does not run `mkdocs build` or `mkdocs serve`.** The summary
   *names* the next steps; the user runs them. The skill is a copier,
   not a builder.
@@ -315,10 +328,10 @@ trivially.
 
 The slash command + skill triple (rather than a one-shot `loom
 configure-project --diataxis` mega-command) is deliberate: scaffold
-is **write-heavy and project-permanent**, and the audit-project
-discipline of read-only-checklist + per-item-approval is the proven
-shape. Per the D1 drawer §D, conflating detect + scaffold + audit
-into one pass would violate that discipline. Keep the surfaces
+is **write-heavy and project-permanent**, so it stays a surface the
+user invokes on purpose rather than one that fires as a side effect of
+something else. Per the D1 drawer §D, conflating detect + scaffold +
+audit into one pass would violate that discipline. Keep the surfaces
 separate.
 
 The opt-out marker (`docs/.no-diataxis`) exists because golden-path
