@@ -8,8 +8,9 @@ Invoke the `dispatch-middle` skill and follow it exactly as presented.
 If the user supplied a bead-id as the slash-command argument, treat
 that `<bead>` as the bead whose middle to dispatch and start at the
 skill's Step 1 (ensure a worktree `frank/<bead>`). If no bead-id was
-supplied, run `bd ready` first and confirm with the user which bead to
-work before dispatching.
+supplied, run `bd ready` first and take the top ready bead. Say in one
+line which bead you picked. If the pick is wrong, the user says so on
+the next turn.
 
 Before dispatching, confirm a locked CONTRACT exists for `<bead>` —
 the bead's `RED:` line, an M1 spec, or an acceptance criterion. The
