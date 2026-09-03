@@ -43,8 +43,9 @@ watermark spans runs, `--resume` spans an interruption within one run.
 ## The locked contract (do not redesign)
 
 1. **Two-pass cost gate.** Run the wrapper `--dry-run` FIRST (zero spend).
-   Surface the preview. Await an explicit go-ahead. ONLY THEN run the real
-   pass. Never spend without the confirm beat.
+   Surface the preview with central's recommendation attached. Await an
+   explicit go-ahead. ONLY THEN run the real pass. Never spend without the
+   confirm beat.
 2. **Seam.** Wrapper resolves + invokes; this skill files via MCP.
 3. **Project's own wing, shared room, `provenance:mined` tag.** Mined
    drawers land in `<resolved-wing>/decisions` — the SAME room as native
@@ -115,7 +116,7 @@ calls`), the gated candidate list, and the resolved wing
 (`(wing for filing: <wing>)`). No `--out` on the dry-run — it writes no
 manifest and calls no model.
 
-### 2 — Surface the preview, await go-ahead
+### 2 — Surface the preview, recommend, await go-ahead
 
 Present to the user, in one beat:
 
@@ -128,8 +129,27 @@ Present to the user, in one beat:
 - the resolved **wing** the drawers will land in;
 - the gated candidates (so they can sanity-check what survived).
 
-Then STOP and ask for explicit confirmation. Do not proceed to the paid
-pass on implicit assent — wait for a clear go-ahead. If the user wants a
+Then attach central's recommendation, in the same beat as the preview.
+This gate asks the user to rank budget against coverage, and that
+ranking is theirs. Central owes them a position on it, not a bare
+number.
+
+**Recommend proceeding at the previewed size** in the ordinary case.
+`--max-units` truncates rather than samples. The engine applies it as a
+`head -n` over the gated survivors, and the harvest runs PRs first, then
+`git log` newest-first. So a cap buys a smaller mine, not a cheaper look
+at the same one. It leaves behind the old rationale the mine exists to
+recover.
+
+**Recommend a smaller `--max-units` first** when the estimate is more
+than the user wants to spend in one sitting. That's the world where the
+cap wins, and on a repo with thousands of units it's a live one. Say what
+the cap costs in the same line. It reads the front of the harvest and
+the rest waits for a second pass.
+
+Then STOP and wait for a clear go-ahead. The recommendation isn't the
+answer. Do not proceed to the paid pass on implicit assent, and do not
+read silence as agreement with the recommendation. If the user wants a
 tighter run, re-run step 1 with `--max-units`/`--since` and re-preview.
 
 ### 3 — Real pass (paid; only after go-ahead)
