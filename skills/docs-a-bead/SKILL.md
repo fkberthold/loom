@@ -359,10 +359,11 @@ Follow `bead-lifecycle-shell` phase C:
   body should name the gap (one sentence from M1), the change made,
   and the verification evidence (which examples were run, which
   links were checked). Co-author trailer per project convention.
-- **C3.** `superpowers:finishing-a-development-branch` — pick from
-  the four options. Docs PRs benefit from human review more often
-  than tiny code fixes do; default to push & PR unless the change
-  is genuinely trivial.
+- **C3.** Merge the branch, then say what merged onto what.
+
+A project whose convention wants docs reviewed before they publish
+takes the PR path instead. That comes off the project's stated rule,
+not off a question at merge time.
 
 ### Phase D — closeout (delegate to shell)
 

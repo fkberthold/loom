@@ -308,8 +308,7 @@ Follow `bead-lifecycle-shell` phase C:
 - **C2.** Commit on the branch (sets stage `commit`). Subject + body
   should name what was removed, why it was dead, the kill-list size,
   and the smoke surfaces exercised at M4. Co-author trailer.
-- **C3.** `superpowers:finishing-a-development-branch` — pick from
-  the four options.
+- **C3.** Merge the branch, then say what merged onto what.
 
 ### Phase D — closeout (delegate to shell)
 

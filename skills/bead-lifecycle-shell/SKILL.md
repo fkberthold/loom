@@ -1,6 +1,6 @@
 ---
 name: bead-lifecycle-shell
-description: Cross-activity lifecycle scaffolding for working a beads issue from claim to merged. Owns MemPalace bug-family search, claim, optional worktree, verification, commit, finishing-a-development-branch, preflight + close + push, and decision drawer + KG triples + diary capture. Each activity recipe (bugfix-a-bead, feature-a-bead, refactor-a-bead, research-a-bead, etc.) references the lettered phases below and supplies its own VARIABLE MIDDLE between phase B and phase C. Internal building block — invoked indirectly via an activity recipe, not directly by the user.
+description: Cross-activity lifecycle scaffolding for working a beads issue from claim to merged. Owns MemPalace bug-family search, claim, optional worktree, verification, commit, branch merge, preflight + close + push, and decision drawer + KG triples + diary capture. Each activity recipe (bugfix-a-bead, feature-a-bead, refactor-a-bead, research-a-bead, etc.) references the lettered phases below and supplies its own VARIABLE MIDDLE between phase B and phase C. Internal building block — invoked indirectly via an activity recipe, not directly by the user.
 ---
 
 # Bead Lifecycle Shell — Cross-Activity Scaffolding
@@ -132,7 +132,7 @@ actually is, and continue.
             ║ PHASE C — INTEGRATION (shell owns)    ║
             ║   C1. (per task) requesting-code-rev. ║
             ║   C2. commit on branch                ║
-            ║   C3. finishing-a-development-branch  ║
+            ║   C3. merge the branch                ║
             ╚═══════════════════════════════════════╝
                             ↓
             ╔═══════════════════════════════════════╗
@@ -470,10 +470,9 @@ wrong premise is still wrong.
   isolation worktree (the RED test crosses between them over the
   content-bridge, not a shared disk). Central does not Edit/Write
   here; it invokes once and writes nothing.
-- **C (commit + finish-branch):** CENTRAL — the pipeline commits on
-  the branch; central reviews, runs phase B verification, then
-  drives `superpowers:finishing-a-development-branch` for
-  integration.
+- **C (commit + merge):** CENTRAL. The pipeline commits on the
+  branch, central reviews, runs phase B verification, then merges
+  the branch and announces what landed.
 - **D (file outputs):** CENTRAL files; drafting is SUBAGENT work —
   `drawer-author` drafts the decision drawer, `kg-relationship-
   extractor` drafts the KG triples, central reviews and files
@@ -617,11 +616,35 @@ commit). Skip this bypass when committing from the main repo path
 — the hook works correctly there and the canonical export is
 desired.
 
-### C3. Finish the branch
+### C3. Merge the branch
 
-Invoke `superpowers:finishing-a-development-branch`. Presents the
-four options (merge locally / push & PR / keep branch / discard) and
-handles cleanup correctly per option.
+Merge the bead branch into `main` from the main repo path, with
+`--no-ff` so the bead keeps its own bubble in the history:
+
+```bash
+cd <main-repo-root>
+git merge --no-ff frank/<bead>
+```
+
+Then say in one line what you did and what you assumed:
+
+> Merged `frank/<bead>` onto `main`, no-ff, 7 files changed. I took
+> the local-merge default, since the bead isn't upstream-shaped.
+
+Don't offer a menu here. The project's convention already answers
+which integration path to take, so asking spends an interruption on
+a question the recipe can answer for itself. The announcement is
+what keeps the user able to redirect.
+
+**The upstream case.** Push and open a PR when the bead is
+upstream-shaped. Read that off the bead rather than polling for it.
+Work that lands in someone else's repo has nowhere local to merge,
+and `upstream-a-bead` owns the path. A project whose stated
+convention wants review before merge picks PR the same way, from
+its own rule.
+
+After the merge, remove the worktree and delete the branch.
+`/cleanup-orphans` sweeps what gets left behind.
 
 For batched multi-bead sessions: merge sequentially in dependency
 order, run verification once after all merges, fix any cross-branch
