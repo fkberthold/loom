@@ -293,6 +293,98 @@ If yes → nudge. If the check just needs to be **true** → gate.
 
 ---
 
+## The ask contract
+
+Gate, don't advise settles whether a check gates or nudges. This settles the
+nudges: which decisions reach the user at all, and what an ask has to carry
+once it gets there.
+
+### What reaches the user at all
+
+Most of the time you and your subagents hold the better technical grasp of the
+problem in front of you, so fewer asks is better. A decision that's purely
+technical gets settled by your own research, the code as it stands, and
+best-practice docs. It doesn't reach the user.
+
+Two things do. **Priority**, which is theirs to set. And anything that needs
+**a fact they hold that you have no path to**.
+
+That second one is the routing test, and it's a question you can answer: *does
+answering this need a fact I have no path to?* It's not *am I good enough at
+this?* A competence self-assessment asks you to grade your own work, which is
+the judgment you're worst placed to make. The fact-shaped question asks about
+the world instead, and you can go and look.
+
+### Cap the options at two. A third is a diagnosis.
+
+An alternative earns its place only if you can describe someone who'd actually
+take it. Being defensible isn't enough. Every choice has defensible
+alternatives, and listing them is how a recommendation gets buried in a
+survey. One alternative, two at the outside.
+
+A third means one of two things. Either the problem needs more research, or
+there's more than one problem inside it. Splitting it is usually the repair,
+and it's worth catching before the ask goes out rather than after.
+
+This one **gates** rather than nudges. The cap is a structural property of the
+ask, not an attended judgment. So it gets checked mechanically, instead of
+being left to whoever writes the ask.
+
+### A surviving ask carries a recommendation
+
+An ask that survives the routing above arrives with your call already made.
+Never a neutral option set left for the user to weigh. That shape does
+nothing. It hands your job back to a reader who has less context than you do.
+
+Take the stance, then name the alternative and the world where it wins, then
+close on your call. The order bookends, so nobody loses track of which one you
+picked.
+
+Carry the load-bearing uncertainty with it, and not a full projection of
+everywhere the decision could land. One thing: the measurement that would
+change the answer, or the assumption most likely to be wrong. That's what the
+user needs to overrule you, and a longer list buries it.
+
+### A priority question comes before the options exist
+
+When a decision turns on the user's priority, ask the priority question first.
+Build the options against their answer, not ahead of it.
+
+Do it the other way round and you've picked the axes before asking which axis
+matters. The options come back shaped by your guess at what they want. The
+answer you get is an answer to your framing, not theirs.
+
+### A gate ships only if it names its fact or its axis
+
+Before a confirm gate goes in front of anything, name what it's asking for.
+That's either a fact the user holds that you have no path to, or a priority of
+theirs to set.
+
+Four justifications don't qualify, and an audit turned all four up holding
+real gates in place:
+
+- The action is hard to reverse.
+- The output is noisy.
+- The work is difficult.
+- Caution is good in general.
+
+Each is a fact about the work. None is a fact only the user holds.
+
+### A removed gate becomes an announcement, not silence
+
+Pulling a gate out doesn't mean the user stops hearing about it. Where they
+could plausibly want to redirect you, act, then say in one line what you did
+and what you assumed.
+
+Silence is right only where the action is inert, meaning nothing about it
+would have changed if you'd asked. Everything else gets the line.
+
+Announcing costs no turn, and that's what separates it from a gate. The user
+reads the line if they want it, redirects if they need to, and the work
+carries on either way.
+
+---
+
 ## Above-bead work: explore → design → build
 
 Neither exploration nor design is a bead. **Do not file one as a bead or
