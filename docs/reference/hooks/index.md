@@ -2,8 +2,8 @@
 
 Source: `hooks/*.sh` in this repository. Each `.sh` file is one hook
 script. Most are wired into Claude Code via `~/.claude/settings.json`
-— `hooks.PreToolUse` with a `Bash`, `Edit|Write|MultiEdit`, or
-`Skill` matcher, and `hooks.SessionStart` for
+— `hooks.PreToolUse` with an `AskUserQuestion`, `Bash`,
+`Edit|Write|MultiEdit`, or `Skill` matcher, and `hooks.SessionStart` for
 `workflow-mode-onboarding.sh`. Two (`post-rewrite.sh`,
 `pre-push-mkdocs-strict.sh`) are git-native hooks installed into
 `.git/hooks/` rather than registered through settings.json. Header
@@ -21,6 +21,7 @@ behaviour, and block strategy.
 
 | Hook | Event | Matcher | Block strategy | Bypass |
 |---|---|---|---|---|
+| `askuserquestion-option-cap.sh` | PreToolUse | `AskUserQuestion` call whose largest `tool_input.questions[].options` array holds 3 or more authored options | Blocks (exit 2) naming the option count and both branches of D3's diagnosis (more research needed, or more than one problem) | `LOOM_ASKUSERQUESTION_OPTION_CAP_SKIP=1` (literal "1"); unreadable payload, absent `jq` and `python3`, 2 or fewer options |
 | `bd-claim-research.sh` | PreToolUse | `Bash` cmd matches `bd update.*--claim` | Non-blocking (exit 0); advisory | Mode `light`/`off` silences |
 | `bd-close-capture.sh` | PreToolUse | `Bash` cmd matches `bd close` | Blocks (exit 2) in mode `full` unless bypass | `--force` flag, `BD_CLOSE_FORCE=1`, mode `light`/`off` |
 | `bd-preflight-docs-strict.sh` | PreToolUse | `Bash` cmd starts with `bd close` or `bd preflight`, cwd has `mkdocs.yml`, branch diff touches docs-relevant paths | Blocks (exit 2) in mode `full` with first WARNING/ERROR + hint; `light` → exit 0 with WARN | `LOOM_BD_PRECLOSE_STRICT_SKIP=1`; no `mkdocs.yml`; mode `off`; mkdocs absent |

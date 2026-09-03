@@ -91,6 +91,7 @@ curated_page() {
     skills:loom-adopt|commands:loom-adopt)               echo "loom-adopt.md" ;;
     skills:loom-mine-history|commands:loom-mine-history) echo "loom-mine-history.md" ;;
     skills:upstream-a-bead|commands:upstream-a-bead)     echo "upstream-a-bead.md" ;;
+    hooks:askuserquestion-option-cap) echo "askuserquestion-option-cap-hook.md" ;;
     hooks:constitution-enforce)     echo "constitution-enforce-hook.md" ;;
     hooks:cwd-drift-guard)          echo "cwd-drift-guard.md" ;;
     hooks:edit-write-pwd-guard)     echo "edit-write-pwd-guard.md" ;;
