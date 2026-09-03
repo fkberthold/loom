@@ -1,24 +1,29 @@
 ---
-description: "Interactive prune of stale `~/.loom/upstream/<owner>/<repo>/` clones. Refuses removal if any open `upstream:watch` bead references the clone OR if the clone has uncommitted changes. Asks user per-dir before destructive ops. Never auto-destructive."
+description: "Prune stale `~/.loom/upstream/<owner>/<repo>/` clones. Refuses removal if any open `upstream:watch` bead references the clone OR if the clone has uncommitted changes. Prunes what clears both gates and reports what it removed."
 disable-model-invocation: true
 ---
 
-Interactive garbage-collection sweep for the central upstream clone
-cache (`~/.loom/upstream/<owner>/<repo>/`). The cache is shared
-across loom-managed projects so we don't re-clone a popular upstream
-N times; over time some entries become stale (their watch-beads
-closed, the contribution merged or rejected). This command surfaces
-each candidate clone, refuses the unsafe ones, and asks the user
-per-clone before any `rm -rf`.
+Garbage-collection sweep for the central upstream clone cache
+(`~/.loom/upstream/<owner>/<repo>/`). The cache is shared across
+loom-managed projects so we don't re-clone a popular upstream N times.
+Over time some entries go stale, their watch-beads closed and the
+contribution merged or rejected. This command refuses the unsafe
+clones, prunes the rest, and reports what it removed.
 
-**Never auto-destructive.** Two structural refusals fire BEFORE the
-prompt, and the prompt itself requires explicit user assent.
+**Two structural refusals decide it.** A clone with uncommitted changes
+is refused, and so is one that an open `upstream:watch` bead still
+points at. What clears both is a clone with nothing in it to lose and
+nobody waiting on it, and getting it back costs a `git clone`.
 
 Design source: drawer `drawer_loom_decisions_a6e64f9cfb21a9d16fc47604`
 (loom/decisions wing, 2026-05-27 — "Manual prune via
 `/loom-upstream-gc` — interactive, asks per clone; refuses removal
 if open `upstream:watch` bead points at it OR if dir has uncommitted
 changes."). Tracks loom-k2g.4.
+
+The per-clone ask in that drawer was retired under loom-42cw. The two
+gates run first and settle the answer, so the prompt was asking for
+assent to a decision it had already finished making, once per clone.
 
 ## Resolve the cache root
 
@@ -86,11 +91,11 @@ trailing-`.git` suffix. If `bd list` returns empty or the python
 parse fails, `WATCH_REFS` is empty — and the per-clone refusal step
 falls back to a "no open watch-beads detected" state (safe).
 
-## Step 3 — per-clone gating + user prompt
+## Step 3 — per-clone gating + prune
 
-For each clone, run both safety gates BEFORE asking the user. If
-either gate fires, REFUSE this clone (don't prompt) and continue to
-the next.
+For each clone, run both safety gates. If either fires, REFUSE this
+clone and continue to the next. A clone that clears both is pruned in
+the same pass.
 
 ```bash
 for clone in "${CLONES[@]}"; do
@@ -120,60 +125,65 @@ for clone in "${CLONES[@]}"; do
     continue
   fi
 
-  # Both gates passed — ask user before destructive op.
+  # Both gates passed. Prune.
   echo "  Both safety gates passed (clean tree + no open watch-bead reference)."
+  rm -rf "$clone"
+  echo "  PRUNED: $clone"
+  # Clean up an empty owner-dir to avoid leaving stub directories.
+  owner_dir="$(dirname "$clone")"
+  if [ -d "$owner_dir" ] && [ -z "$(ls -A "$owner_dir")" ]; then
+    rmdir "$owner_dir"
+    echo "  Removed empty owner dir: $owner_dir"
+  fi
 done
 ```
 
-After both gates pass for a clone, surface the candidate to the
-user and prompt for assent. Use `AskUserQuestion` for the prompt
-(matches the interactive house style — see also `/audit-project`'s
-item gates). Prompt shape:
+The gates carry the whole decision, so there's no prompt between them
+and the `rm -rf`. Each is a fact this command can read for itself:
+`git status --porcelain` says whether anything would be lost, and the
+watch-bead scan says whether anything is still waiting on the clone.
+Neither is a fact the user holds and this command doesn't, and a prompt
+that fires once per clone for an answer already settled N times over is
+the shape loom-42cw retired.
 
-> "Prune clone `<owner>/<repo>` at `<full-path>`? (y/N)"
-
-Options: `Yes — rm -rf this clone` / `No — keep it`. Default to
-"No". Only on explicit "Yes" do you proceed.
-
-On user assent:
-```bash
-rm -rf "$clone"
-echo "  PRUNED: $clone"
-# Clean up an empty owner-dir to avoid leaving stub directories.
-owner_dir="$(dirname "$clone")"
-if [ -d "$owner_dir" ] && [ -z "$(ls -A "$owner_dir")" ]; then
-  rmdir "$owner_dir"
-  echo "  Removed empty owner dir: $owner_dir"
-fi
-```
-
-On user decline (or any non-Yes answer), skip and move on. Never
-re-prompt — one prompt per clone, decline is final for this run.
-
-## Step 4 — summary
+## Step 4 — report what went
 
 After iterating, report counts:
 
 ```bash
 echo "----"
-echo "Summary: $pruned_count clone(s) pruned, $refused_count refused, $kept_count kept."
+echo "Summary: $pruned_count clone(s) pruned, $refused_count refused."
 ```
 
 (Track counts in the loop with `pruned_count=$((pruned_count + 1))`
 on the prune branch, etc. The exact accounting is implementation
 detail — the contract is "user sees a final tally".)
 
-## Contract — never auto-destructive
+Then name the clones, both lists. Say which slugs were pruned, and for
+each refusal say which gate fired:
 
-This command **NEVER** removes a clone without:
-1. Both safety gates passing (clean tree AND no open watch-bead
-   reference), AND
-2. The user explicitly answering "Yes" to the per-clone prompt.
+> Pruned `obra/superpowers`. Refused `gastownhall/beads` (open watch
+> bead) and `mempalace/mempalace` (uncommitted changes). Re-clone any
+> of these on demand.
 
-A gate failure short-circuits to "REFUSE" with no prompt. A user
-decline short-circuits to "skip" with no removal. There is no
-`--all` / `--force` / `--yes` flag — manual prune means per-clone
-manual.
+The pruned list is the part that has to be there. Deleting a clone is
+cheap to undo but only if the user knows which one went, and the slug
+is the whole of what they need to get it back.
+
+## Contract — the gates are the whole decision
+
+This command removes a clone only when both safety gates pass: a clean
+tree AND no open watch-bead reference. A gate failure short-circuits to
+"REFUSE" with no removal, and the summary names the gate that fired.
+
+The old contract carried one more rule, that no `--all` / `--force` /
+`--yes` flag may exist. That rule was guarding the prompt rather than
+the clones, and with the prompt gone it guards nothing, so it goes with
+it. A `--yes` flag has nothing left to answer for.
+
+Overriding a gate is still not on offer, and that's a separate point
+from the flag rule. Forcing past one deletes either uncommitted work or
+a clone an open bead is still waiting on, and neither is worth a flag.
 
 ## Related
 

@@ -1,6 +1,6 @@
 ---
 name: loom-adopt
-description: One-shot "make this repo fully loom-standard" orchestrator. Composes the existing loom primitives — audit-project (workflow infra), scripts-scaffold, docs-scaffold, history-mine, constitution — into a dependency-ordered phase machine with per-phase checkpoint interactivity, graceful degradation over unbuilt primitives, and an idempotent + resumable run model. Delegates every phase to the primitive that owns it; never re-implements one. Manual-only — fires when the user invokes `/loom-adopt`.
+description: One-shot "make this repo fully loom-standard" orchestrator. Composes the existing loom primitives — audit-project (workflow infra), scripts-scaffold, docs-scaffold, history-mine, constitution — into a dependency-ordered phase machine that announces each phase as it runs, degrades gracefully over unbuilt primitives, and is idempotent + resumable. Delegates every phase to the primitive that owns it; never re-implements one. Manual-only — fires when the user invokes `/loom-adopt`.
 ---
 
 # Loom-Adopt — Full-Treatment Brownfield Onboarding Orchestrator
@@ -14,8 +14,8 @@ dependency-ordered phase machine.
 
 It is an **orchestrator, not a worker**. Every phase is **delegated**
 to the primitive that owns it; this skill writes nothing of its own
-except the closing adoption report and the per-phase checkpoint
-prompts. The composition discipline is the whole point — `/loom-adopt`
+except the per-phase banners and the closing adoption report. The
+composition discipline is the whole point — `/loom-adopt`
 is to the adoption primitives what `/working-a-bead` is to the activity
 recipes: a router that sequences them, gates between them, and reports
 across them.
@@ -39,12 +39,11 @@ The governing postures, stated up front:
   dropped and never a hard error. A brownfield run on a loom checkout
   that predates scripts-scaffold (loom-oxs) or the constitution surface
   (loom-8jz/ld4) simply skips those phases and says so.
-- **Per-phase checkpoint interactivity.** The user is in the loop once
-  per phase (announce → confirm → run → show → proceed). This is the
-  middle path between the two rejected extremes: **NOT one-shot
-  autonomous** (the user never sees a five-primitive juggernaut run to
-  completion unattended) and **NOT a per-file nag** (each delegated
-  primitive owns its own internal approval granularity).
+- **Announce each phase, gate none of them.** The user sees every
+  boundary as it goes past (announce → run → show → proceed), and is
+  not asked to approve a phase the enumeration already decided. The
+  gates that remain are the delegated primitives' own, P4's cost
+  preview above all, and this skill adds none of its own on top.
 
 Invocation: explicit only. `/loom-adopt` fires this skill. The slash
 command carries `disable-model-invocation: true` — the user has to ask.
@@ -149,42 +148,44 @@ version that lands loom-oxs and loom-8jz/ld4 will, without any change to
 this skill, light those phases up — the enumeration reads the filesystem,
 not a frozen list.
 
-## Per-phase checkpoint loop
+## Per-phase loop
 
 For **each phase in the dynamically-enumerated list**, run this loop.
-The checkpoint is per-phase — once around this loop per phase, NOT once
-per file the delegated primitive touches.
+It runs once per phase, NOT once per file the delegated primitive
+touches.
 
 1. **Announce.** Print a one-line banner: which phase, what it will do,
-   and which primitive it delegates to. For a skipped phase, announce the
-   skip + reason and continue to the next phase (no confirm beat for a
-   skip — there is nothing to confirm).
-2. **Confirm.** Ask the user `Run phase <Pn> (<name>)? (yes / skip /
-   stop)`. Then **STOP and wait for the user's next message** — this is a
-   conversational pause, not a tool-permission gate (same invariant as
-   `/audit-project` Step 4, loom-xcw). `yes` → run; `skip` → record
-   `skipped (user)` and move on; `stop` → end the run cleanly, writing
-   the resume state so a later `--resume` picks up here.
-3. **Run.** Delegate to the owning primitive (see each phase below).
+   and which primitive it delegates to. For a skipped phase, announce
+   the skip + reason and continue to the next phase.
+2. **Run.** Delegate to the owning primitive (see each phase below).
    The delegated primitive owns its OWN internal interactivity — P1's
-   per-item audit gate, P3's per-file scaffold approval, P4's two-pass
-   cost-preview gate. `/loom-adopt` does NOT re-implement or override
-   those; it hands control to the primitive and waits for it to return.
-4. **Show.** Surface the delegated primitive's result summary verbatim
-   (audit PASS/WARN/MISS counts; scaffold wrote/skipped counts; mine
+   per-item audit gate, P4's two-pass cost-preview gate. `/loom-adopt`
+   does NOT re-implement or override those; it hands control to the
+   primitive and waits for it to return.
+3. **Show.** Surface the delegated primitive's result summary verbatim
+   (audit PASS/WARN/MISS counts; scaffold wrote/left-alone counts; mine
    adoption summary; etc.), then record the phase outcome in the run
    state.
-5. **Proceed.** Move to the next phase. The user is back in the loop at
-   that phase's announce/confirm beat.
+4. **Proceed.** Move to the next phase.
 
-The loop is deliberately the middle of two rejected extremes:
+**There is no confirm beat between phases.** The presence probes above
+already made that decision: a phase whose primitive isn't installed
+skips itself, and a phase whose primitive is installed is one the user
+asked for when they typed `/loom-adopt`. Asking `Run phase <Pn>? (yes /
+skip / stop)` five times puts a question where the enumeration has
+already answered it, and the announce banner tells the user what's
+happening either way.
 
-- **NOT one-shot autonomous.** There is a confirm beat per phase; the
-  user can `skip` or `stop` between any two phases. A five-primitive run
-  never executes start-to-finish without the user seeing each boundary.
-- **NOT a per-file nag.** The checkpoint is per *phase*. Each delegated
-  primitive owns its own finer-grained approval (per-file, per-item,
-  per-cost-gate). `/loom-adopt` does not add a second nag layer on top.
+Two things that did NOT change with it:
+
+- **The delegated primitives keep their own gates.** P4's cost-preview
+  gate is the load-bearing one, and it still runs in full. Removing the
+  outer beat removes a checkpoint on *entering* a phase, not any gate
+  inside one.
+- **`/loom-adopt` still adds no gate of its own.** It never did, and
+  the point stands with the confirm beat gone: each primitive owns its
+  own finer-grained interactivity, and this skill does not layer a
+  second one on top.
 
 ## The phases
 
@@ -246,11 +247,11 @@ wing — this is the P1→P4 dependency edge).
 P4 **nests its own cost-preview gate.** The `loom-mine-history` skill
 owns the mandatory two-pass cost gate: a zero-spend `--dry-run` preview →
 explicit user go-ahead → the paid LLM salience pass → MCP filing.
-`/loom-adopt` does NOT bypass, pre-confirm, or re-implement that gate —
-the per-phase `confirm` beat authorizes *entering* P4; the cost-preview
-gate inside P4 is a SECOND, finer gate that still requires its own
-explicit go-ahead before any spend. The two gates compose; neither
-substitutes for the other.
+`/loom-adopt` does NOT bypass, pre-confirm, or re-implement that gate.
+It is now the only gate on this phase, and it authorizes **spend**
+rather than entry, so nothing upstream of it can stand in for it.
+Reaching P4 is not consent to spend. The explicit go-ahead inside P4
+is, and it is still required before any paid pass runs.
 
 On a re-run, P4 mines **incrementally via watermark** (only history past
 the last-mined point), so re-adoption does not re-mine and re-file
@@ -304,8 +305,8 @@ watermark.
   This is what makes `/loom-adopt` double as a "refresh to current loom
   standards" pass.
 
-- **Resumable after interruption.** If a run is interrupted (the user
-  said `stop`, or the session crashed mid-phase), the run-state file
+- **Resumable after interruption.** If a run is interrupted (the
+  session crashed mid-phase, or the user stopped it), the run-state file
   records the **unfinished phase**. A later `/loom-adopt --resume`
   reads that state and **resumes at the unfinished phase**, treating
   the already-`done` phases as skip-satisfied. The user does not re-walk
@@ -363,15 +364,16 @@ pass did and did not do.
 - **Does not re-enumerate the audit checklist.** P1 delegates wholesale.
   The onboarding-check list lives in `skills/audit-project/SKILL.md`.
 - **Does not bypass the history-mine cost gate.** P4's two-pass
-  cost-preview gate is the `loom-mine-history` skill's, run in full —
-  the per-phase confirm beat authorizes entering P4, not spending in it.
+  cost-preview gate is the `loom-mine-history` skill's, run in full. It
+  is the only thing standing between a run and a paid pass, and nothing
+  in this skill pre-answers it.
 - **Does not run a phase whose primitive is unbuilt.** Such phases are
   skipped with a logged reason and surfaced in `skipped-why`; an unbuilt
   primitive is never a hard error.
-- **Does not auto-run end-to-end.** The per-phase checkpoint requires a
-  user-typed `yes` / `skip` / `stop` per phase. `--dangerously-skip-permissions`
-  removes the tool-permission layer, not the per-phase user-approval beat
-  (loom-xcw).
+- **Does not spend without the cost gate.** A run walks its phases on
+  its own and then stops at P4's cost preview until the user answers it.
+  `--dangerously-skip-permissions` removes the tool-permission layer,
+  not that gate (loom-xcw).
 - **Does not commit on the user's behalf** beyond what the delegated
   primitives do (e.g. the audit's bd-hooks absorbing commit). The user
   reviews and commits the adoption changes.
@@ -385,11 +387,11 @@ decision record already sitting in git, and none of the five surfaces
 wired. Adopting loom on a brownfield repo meant running five primitives
 by hand, in the right order, remembering which depend on which.
 
-`/loom-adopt` collapses that into one gated pass. The value is the same
-as the design-cycle's value over ad-hoc design: predictability. A user
-adopting loom on a new repo runs one command, answers one confirm per
-phase, and gets a report of exactly what landed and what was skipped and
-why — no archaeology, no five-step checklist to remember, no silent gaps.
+`/loom-adopt` collapses that into one pass. The value is the same as
+the design-cycle's value over ad-hoc design: predictability. A user
+adopting loom on a new repo runs one command and gets a report of
+exactly what landed and what was skipped and why — no archaeology, no
+five-step checklist to remember, no silent gaps.
 
 The composition-not-reimplementation discipline is load-bearing. If
 `/loom-adopt` forked the audit checklist or the scaffold logic, those
