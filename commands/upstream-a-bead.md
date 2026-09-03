@@ -7,9 +7,10 @@ Invoke the `upstream-a-bead` skill and follow it exactly as presented.
 
 If the user supplied a bead-id as the slash-command argument, treat that
 as the chosen bead and start at phase A1 (MemPalace upstream-family
-search). If no bead-id was supplied, run `bd list --label=upstream:work
---limit 0 --status=open` and take the top-priority open bead. Say in one
-line which bead you took and what else was ready, then claim it.
+search). If no bead-id was supplied, run
+`bd list --label=upstream:work --limit 0 --status=open`
+and take the top-priority open bead. Say in one line which bead you took
+and what else was ready, then claim it.
 
 At step M1: lock the contract (symptom + diagnosis + proposed fix) and
 pick the lane (`--issue-only` / `--issue+pr` / intractable) before
