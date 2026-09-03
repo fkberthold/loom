@@ -228,8 +228,33 @@ scan.
 ## The two exits (user-declared, NO gate)
 
 An exploration ends only when the **user declares** an exit. There is
-no soundness gate, no automatic promotion — the agent surfaces the two
-options; the user picks.
+no soundness gate and no automatic promotion. The user picks.
+
+Central still takes a position. Surfacing the two exits flat hands the
+user a stopping decision they have to rebuild from the drawer
+themselves, and that's the one shape loom's ask contract rules out. So
+state the read first, then name the other exit as the live alternative.
+
+Three signals off the STATE HEADER carry the read, and central can
+measure all three:
+
+- `open-threads`: how many sub-questions are still being chased.
+- `current-understanding`: whether it moved this round or held.
+- `tiers-touched`: whether tier 4 ran, on a topic with a literature.
+
+Say the numbers, not an adjective. "Two open threads, understanding
+unchanged for two rounds, tier 4 done" is a read the user can
+overrule. "The exploration looks mature" isn't.
+
+Then recommend. Threads shrinking to none with the understanding
+holding steady points at PROMOTE. Threads still opening, or a topic
+with a literature that tier 4 never touched, points at REST. Say which
+one you'd take and why in a line, then name the other.
+
+Central can't rank how much more of the user's attention the idea
+earns this week, and that's why the exit stays theirs. A recommendation
+isn't a decision. Do not flip `status` on implicit assent, and do not
+auto-promote or auto-rest.
 
 ### REST
 
@@ -274,8 +299,11 @@ recipes).
 >    provenance) into `## Findings`; revises `current-understanding`.
 > 4. **Converge.** A couple more in-thread turns sharpen the shared
 >    understanding; `open-threads` shrinks.
-> 5. **Exit.** The user is satisfied the idea is design-ready and says
->    "promote." Open `/design-a-cycle facility event-sourcing`, wire
+> 5. **Exit.** Central states its read ("open threads down to none,
+>    understanding unchanged for two rounds, tier 4 done"), recommends
+>    PROMOTE, and names REST as the alternative. The user agrees the
+>    idea is design-ready and says "promote."
+>    Open `/design-a-cycle facility event-sourcing`, wire
 >    its decisions `grounded_in` this drawer, set `status=promoted` +
 >    `promoted-to`. (Had the user said "rest", set `status=rested`
 >    instead and stop.)
@@ -321,9 +349,11 @@ recipes).
   `## Findings` + KG triples. Don't add a triple for a thread you're
   still chasing — that's what `has_open_thread` / `open-threads` are
   for.
-- **Exits are USER-declared.** The agent surfaces REST vs PROMOTE; it
-  never auto-promotes or auto-rests. Either exit clears the exploration
-  from `session-startup`'s active scan.
+- **Exits are USER-declared, and the agent still recommends one.** It
+  states its read off the STATE HEADER, recommends REST or PROMOTE,
+  and names the other as the alternative. It never auto-promotes or
+  auto-rests. Either exit clears the exploration from
+  `session-startup`'s active scan.
 - **v1 has no hook backstop.** This is prompt/skill-only
   (nudge-not-block, loom-yb5). The discipline above is convention, not
   enforcement.
