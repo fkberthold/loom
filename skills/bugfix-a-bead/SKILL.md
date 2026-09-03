@@ -237,8 +237,7 @@ Follow `bead-lifecycle-shell` phase C:
 - **C2.** Commit on the branch (sets stage `commit`). Subject + body
   should name symptom, root cause, fix, test counts, family lineage
   if applicable. Co-author trailer.
-- **C3.** `superpowers:finishing-a-development-branch` — pick from
-  the four options (merge / push & PR / keep / discard).
+- **C3.** Merge the branch, then say what merged onto what.
 
 ### Phase D — closeout (delegate to shell)
 

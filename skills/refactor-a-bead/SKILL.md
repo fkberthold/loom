@@ -334,8 +334,7 @@ Follow `bead-lifecycle-shell` phase C:
   was explicitly preserved, and the test count + test-diff summary
   ("47 tests, test diff: 3 import-path renames only"). Co-author
   trailer.
-- **C3.** `superpowers:finishing-a-development-branch` — pick from
-  the four options (merge / push & PR / keep / discard).
+- **C3.** Merge the branch, then say what merged onto what.
 
 ### Phase D — closeout (delegate to shell, with refactor extension)
 

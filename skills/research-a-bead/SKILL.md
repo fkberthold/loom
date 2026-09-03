@@ -318,10 +318,11 @@ Follow `bead-lifecycle-shell` phase C:
   research beads with no source change, the commit is just the
   closed bead in `.beads/issues.jsonl`. The body should name the
   question, the answer, and the slug of the filed drawer.
-- **C3.** `superpowers:finishing-a-development-branch` — for
-  no-code research the only sensible options are merge-to-main
-  (single closed bead) or skip-branch (commit on main if no
-  worktree was created).
+- **C3.** Merge the branch, then say what merged onto what.
+
+A research bead that skipped the worktree has nothing to merge. The
+closed bead is already committed on `main`, so the announcement names
+that commit instead.
 
 ### Phase D — closeout (delegate to shell)
 

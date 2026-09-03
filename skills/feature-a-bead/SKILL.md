@@ -376,8 +376,7 @@ Follow `bead-lifecycle-shell` phase C:
   feature's observable behavior), the design source (drawer slug or
   plan path), test counts, family lineage if applicable. Co-author
   trailer.
-- **C3.** `superpowers:finishing-a-development-branch` — pick from
-  the four options (merge / push & PR / keep / discard).
+- **C3.** Merge the branch, then say what merged onto what.
 
 ### Phase D — closeout (delegate to shell, with feature extension)
 
