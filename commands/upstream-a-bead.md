@@ -7,20 +7,23 @@ Invoke the `upstream-a-bead` skill and follow it exactly as presented.
 
 If the user supplied a bead-id as the slash-command argument, treat that
 as the chosen bead and start at phase A1 (MemPalace upstream-family
-search). If no bead-id was supplied, run `bd list --label=upstream:work --limit 0
---status=open` first and confirm with the user which bead to work
-before claiming.
+search). If no bead-id was supplied, run `bd list --label=upstream:work
+--limit 0 --status=open` and take the top-priority open bead. Say in one
+line which bead you took and what else was ready, then claim it.
 
-At step M1: lock the contract (symptom + diagnosis + proposed fix) AND
-pick the lane (`--issue-only` / `--issue+pr` / intractable) BEFORE
-dispatching the worker. Lane is the load-bearing decision — surface it
-explicitly to the user and get confirmation.
+At step M1: lock the contract (symptom + diagnosis + proposed fix) and
+pick the lane (`--issue-only` / `--issue+pr` / intractable) before
+dispatching the worker. The upstream tree decides the lane: whether it
+has a test harness, whether the change is prose or code, and what its
+CONTRIBUTING.md asks for. Announce the lane you picked and what decided
+it.
 
-At step M6: present the drafted `/tmp/issue-<bead>.md` (and
-`/tmp/pr-<bead>.md` for `--issue+pr`) inline to the user and wait for
-explicit approval before the M7 `gh` calls. The review gate is the
-privacy-redaction guard per loom-45i — never auto-file on worker
-return.
+At step M6: show the user only the strings the M5 scrub flagged as
+candidate-private, with your call on each. Wait for a yes before the M7
+`gh` calls. Which project names are codenames, and which affiliations
+the user wants public, isn't derivable from any tree, so that list is
+the whole ask. A filed issue keeps a public edit history, so a leaked
+string stays leaked.
 
 At phase D3: dispatch `drawer-author` and `kg-relationship-extractor`
 subagents in parallel; review each subagent's output before filing

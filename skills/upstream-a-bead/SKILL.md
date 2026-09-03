@@ -89,14 +89,14 @@ and phase B:
 | Entering step M3 (RED — pin upstream symptom) | `red` |
 | Entering step M4 (GREEN — minimal upstream fix) | `green` |
 | Entering step M5 (draft issue + PR bodies) | `draft` |
-| Entering step M6 (user review gate) | `review` |
+| Entering step M6 (confirm the redaction list) | `review` |
 | Entering step M7 (auto-file + spawn watch-bead) | `file` |
 
 Write each via `~/.claude/scripts/workflow-state set stage=<stage>` at
 the moment the step starts. The status line surfaces these so future
 cold-start sessions can see exactly where work paused. Upstream beads
-frequently pause at M6 (waiting for the user to review the drafted
-artifacts) — that stage marker is the most load-bearing of the seven.
+frequently pause at M6 (waiting for the user to confirm the redaction
+list), so that stage marker is the most load-bearing of the seven.
 
 ## The Sequence
 
@@ -187,12 +187,12 @@ worker does not re-decide it.
 
 #### M1. Lock contract + pick lane (central — pre-dispatch)
 
-The contract is locked BEFORE the worker is dispatched. This step is
-user-interaction-shaped (framing the upstream symptom, picking the
-lane, optionally consulting prior contributions to the same upstream)
-and stays with central. Upstream contributions without an upfront
-contract become unfocused issue bodies that the upstream owner can't
-triage — the contract must be explicit before the worker is briefed.
+The contract is locked BEFORE the worker is dispatched. This step stays
+with central because it frames the upstream symptom and reads the
+upstream tree, not because it needs an answer from the user. Upstream
+contributions without an upfront contract become unfocused issue bodies
+that the upstream owner can't triage, so the contract must be explicit
+before the worker is briefed.
 
 The contract has three components:
 - **Symptom** — what the user observed (verbatim from the loom-side
@@ -203,7 +203,12 @@ The contract has three components:
   the PR will land; for `--issue-only` lane, the shape of the change
   the upstream owner SHOULD make (without committing to write it).
 
-**Lane decision.** Pick exactly one:
+**Lane decision.** The upstream tree decides this, not the user. Three
+things settle it: whether the upstream has a test harness, whether the
+change is prose or code, and what its CONTRIBUTING.md asks for. Read
+those, take the lane that follows, and say in one line which one you
+took and what decided it.
+
 - **`--issue+pr`** — full clone + RED/GREEN + PR draft. Use when the
   fix is small + well-scoped, the upstream accepts external PRs, and
   the loom side has bandwidth to maintain the PR across review
@@ -418,32 +423,49 @@ file, the worker must scrub:
 This is the load-bearing privacy gate per loom-45i — the M6 review
 gate exists primarily to let the user catch redaction misses.
 
-The worker writes the file(s) and surfaces them in the return
-summary with absolute paths so central can present them at M6.
+The worker writes the file(s) and returns two things: the absolute
+paths, and a **redaction table**. The table carries one row per string
+the scrub flagged, giving the string as it appeared, what replaced it,
+and where in the body it sat. Anything the scrub was unsure of goes on
+the table too, with a `keep` call. A wrong `keep` is the failure M6
+exists to catch, so leaving it off the table is what hides it.
 
-#### M6. User review gate (central — post-dispatch)
+M6 asks about that table and nothing else. A worker that returns paths
+alone leaves central nothing to show.
 
-Central writes stage `review` and presents the drafted artifacts
-inline to the user (file contents, not just paths — `Read` the
-files and quote them so the user can review without leaving the
-chat). Ask the user:
-- "Issue body: any privacy redactions to add? Any rewording?"
-- "(if `--issue+pr`) PR body: same questions."
-- "Approve filing?"
+#### M6. Confirm the redaction list (central — post-dispatch)
 
-Do NOT proceed to M7 without an explicit "yes" / "approved" / "file
-it" from the user. The gate is the user-in-the-loop privacy guard;
-silently filing on assumed-approval defeats the gate's purpose.
+Central writes stage `review` and shows the user the M5 redaction
+table, and nothing else. One row per candidate-private string: the
+string as it appeared, what replaced it, and central's call. Then one
+question: "Any row called wrong?"
 
-If the user requests edits, apply them to the `/tmp/` files
-(central can Edit them in place — no re-dispatch needed for
-≤3-line polish; brief a fresh worker only for substantive rework
-per the shell's re-dispatch decision rule). Re-present the edited
-versions and re-ask for approval.
+Central's call is a recommendation, not a menu. Mark every row `redact`
+or `keep`, then say the list reads right and you're ready to file. A
+user who agrees can answer with one word.
 
-If the user requests substantial changes that suggest the M1
-contract was wrong, STOP and re-enter M1 with the corrected
-framing — don't paper over a contract miss with body edits.
+Don't paste the issue and PR bodies. Everything the ask is about is
+already in the table. Making the user re-read the whole body to find a
+few strings is the work the table replaces. Give the `/tmp/` paths for
+anyone who wants the full text.
+
+The table is the whole ask because it's the only part central can't
+settle. The scrub works by pattern, so it catches the shapes it knows.
+Which project names are codenames, which hosts are internal, and which
+affiliations the user doesn't want public aren't written down in any
+tree. A filed issue keeps a public edit history, so a string that gets
+through stays through. This gate survives on that pair: a fact only the
+user holds, and a mistake that doesn't undo.
+
+Do NOT proceed to M7 without a yes. If the user corrects a row, apply
+the correction to the `/tmp/` files, re-show the corrected rows only,
+and re-ask. Central can Edit the files in place for a ≤3-line polish.
+Brief a fresh worker only for substantive rework, per the shell's
+re-dispatch decision rule.
+
+If the correction says the M1 contract was wrong, stop and re-enter M1
+with the corrected framing. Don't paper over a contract miss with body
+edits.
 
 #### M7. Auto-file + spawn watch-bead (central — post-approval)
 
@@ -522,10 +544,11 @@ Follow `bead-lifecycle-shell` phase C:
   used (`--issue-only` or `--issue+pr`), the PR URL (if
   `--issue+pr`), the watch-bead ID, and the design source (drawer
   slug). Co-author trailer.
-- **C3.** `superpowers:finishing-a-development-branch` — pick from
-  the four options. Upstream-work beads typically pick "merge to
-  main" since the loom-side artifact is just the drawer + lineage
-  commit.
+- **C3.** Merge the loom-side branch to `main` with `git merge --no-ff
+  frank/<bead-id>`, then say in one line what merged and onto what.
+  The loom-side artifact is the drawer plus the lineage commit, so
+  there's nothing here to open a loom PR for. The upstream PR was
+  filed at M7 and is tracked by the watch-bead.
 
 ### Phase D — closeout (delegate to shell, with upstream extension)
 
