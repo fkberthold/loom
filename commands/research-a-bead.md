@@ -7,8 +7,9 @@ Invoke the `research-a-bead` skill and follow it exactly as presented.
 
 If the user supplied a bead-id as the slash-command argument, treat that
 as the chosen bead and start at phase A1 (MemPalace family search).
-If no bead-id was supplied, run `bd ready` first and confirm with the
-user which bead to work before claiming.
+If no bead-id was supplied, run `bd ready` first and claim the top
+ready bead. Say in one line which bead you claimed and which recipe
+you're running. If the pick is wrong, the user says so on the next turn.
 
 At phase A1: do the standard family search; if a sibling research
 drawer already answers the question, restate the bead as "extends X"
