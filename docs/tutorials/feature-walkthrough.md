@@ -46,6 +46,13 @@ goes straight to selector pattern, not phased intro" and "ambiguity
 case lists candidates with one-line because, prompts user." Your job
 is to translate the locked design into `commands/working-a-bead.md`.
 
+*One of those six has since moved. The router's tie-break no longer
+prompts: it reads the bead text against the tied recipes' definitions,
+picks one, and says in a line which it took and why (loom-42cw). This
+page is the 2026-05-03 session as it ran, so the prompt shows up in
+the brainstorm, the RED contract and the verification below. Read
+`commands/working-a-bead.md` for what the router does today.*
+
 ### 0. Open terminal, launch Claude Code
 
 ```

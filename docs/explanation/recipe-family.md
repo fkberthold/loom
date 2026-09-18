@@ -330,9 +330,8 @@ design, because they sit outside the family's leaf shape:
 
 The router also leans on the **fan-out detector** at selection time: it
 surfaces which ready beads are wave-compatible (no dependency edge, and
-disjoint `Files:` footprints) so an across-bead parallel wave can be
-proposed, with each bead in the wave then running its own
-`/dispatch-middle`.
+disjoint `Files:` footprints) and dispatches the across-bead wave, with
+each bead in the wave then running its own `/dispatch-middle`.
 
 ## How this connects to the rest of loom
 
