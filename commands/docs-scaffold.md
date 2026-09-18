@@ -1,5 +1,5 @@
 ---
-description: "Scaffold a Diataxis-shaped MkDocs Material docs/ tree into the current loom-managed project by copying templates/diataxis/ with per-file approval. Manual-only — never auto-suggested by session-startup, the activity recipes, or any hook. The user has to ask."
+description: "Scaffold a Diataxis-shaped MkDocs Material docs/ tree into the current loom-managed project by copying templates/diataxis/ with variable substitution, writing only the files the project doesn't already have. Manual-only — never auto-suggested by session-startup, the activity recipes, or any hook. The user has to ask."
 disable-model-invocation: true
 ---
 
@@ -24,9 +24,12 @@ Step 2: walk M1-M6 from the skill — detect target, detect
 primitives, detect existing docs (honoring `docs/.no-diataxis`),
 gather variables, preview the diff, apply with substitutions.
 
-Step 3: at M5 the user approves PER FILE. Skip declined files; never
-overwrite without explicit approval. At M6 emit a summary plus next
-steps (install requirements, `mkdocs serve`, push to enable Pages).
+Step 3: at M5 sort the file list. A file the project doesn't have is
+`[NEW]` and gets written. A file it already has is left alone, whatever
+its contents. There's no per-file question, because a `[NEW]` file
+displaces nothing and an existing file is never overwritten. At M6 emit
+a summary that names the files left alone, plus next steps (install
+requirements, `mkdocs serve`, push to enable Pages).
 
 This is strictly a manual workflow. The docs-scaffold skill is
 `disable-model-invocation: true` and is never auto-suggested by
