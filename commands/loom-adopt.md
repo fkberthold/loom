@@ -1,5 +1,5 @@
 ---
-description: "One-shot 'make this repo fully loom-standard' orchestrator. Loads the loom-adopt skill, which composes the loom adoption primitives — audit-project (workflow infra), scripts-scaffold, docs-scaffold, history-mine, constitution — into a dependency-ordered phase machine with per-phase checkpoint interactivity, graceful degradation over unbuilt primitives, and an idempotent + resumable run model. Manual-only — never auto-suggested by session-startup, the activity recipes, or any hook. The user has to ask."
+description: "One-shot 'make this repo fully loom-standard' orchestrator. Loads the loom-adopt skill, which composes the loom adoption primitives — audit-project (workflow infra), scripts-scaffold, docs-scaffold, history-mine, constitution — into a dependency-ordered phase machine that announces each phase as it runs, degrades gracefully over unbuilt primitives, and is idempotent + resumable. Manual-only — never auto-suggested by session-startup, the activity recipes, or any hook. The user has to ask."
 disable-model-invocation: true
 ---
 
@@ -42,18 +42,27 @@ never errored and never silently dropped — graceful degradation is the
 contract. The skip + reason lands in the closing report's `skipped-why`
 section.
 
-Step 2 — run the per-phase checkpoint loop. For each enumerated phase:
-announce → confirm → run → show → proceed. The confirm beat (`yes / skip
-/ stop`) is a conversational pause: print it, then STOP and wait for the
-user's next message before delegating. This is per-PHASE, not per-file —
-each delegated primitive owns its own internal approval granularity
-(audit per-item, docs per-file, mine cost-gate). Do not add a second nag
-layer. `stop` writes the resume state and ends cleanly.
+Step 2 — run the per-phase loop. For each enumerated phase: announce →
+run → show → proceed. Announce is a one-line banner naming the phase,
+what it will do, and which primitive it delegates to. Show surfaces the
+delegated primitive's result summary verbatim and records the phase
+outcome in the run state.
+
+There is NO confirm beat between phases. Step 1's presence probes have
+already answered it. A phase whose primitive isn't installed skips
+itself, and one whose primitive is installed is a phase the user asked
+for when they typed `/loom-adopt`. What they get instead is the banner,
+which tells them what's happening either way.
+
+The delegated primitives keep their own gates (P1's per-item audit
+queue, P4's cost preview). Dropping the outer beat removes a checkpoint
+on *entering* a phase, not any gate inside one. Do not add a second
+layer on top.
 
 `--dangerously-skip-permissions` is about TOOL permissions
 (Write/Edit/Bash without prompt) and does NOT imply blanket user
-approval — every per-phase gate still requires a user-typed reply
-(loom-xcw).
+approval. P4's cost-preview gate still stops the run until the user
+answers it (loom-xcw).
 
 Step 3 — idempotent + resumable. A re-run re-audits skip-satisfied items
 (P1's AUTOFIX recipes are idempotent no-ops when already applied) and
