@@ -104,13 +104,16 @@ trigger phrase)*
 >
 > **bd stale** shows nothing in flight from prior sessions.
 >
-> **Recommendation:** rotate the credentials yourself first (`ypa` +
-> `ui1`), then we tackle `80v` (remove diagnostic fingerprint logging)
-> as the first real test of the new workflow infrastructure. `80v` is
-> code-shaped, has clear scope, and will exercise the
-> bug-family-researcher subagent + the bd-claim-research hook.
+> **Pick:** `80v` (remove diagnostic fingerprint logging), worked
+> through `bugfix-a-bead`. It's the first real test of the new
+> workflow infrastructure: code-shaped, clear scope, and it exercises
+> the bug-family-researcher subagent plus the bd-claim-research hook.
+> Rotate the credentials yourself first (`ypa` + `ui1`), since those
+> are dashboard work rather than Claude work.
 >
-> Proceed with `80v`?
+> `80v` came off the top of `bd ready`, so I'm not re-asking a
+> priority you already recorded. Say so on your next message if
+> you'd rather take a different one.
 
 *Behind the scenes: the session-startup skill ran `bd stats`, `bd ready
 -n 10`, `bd list --status=in_progress`, `mempalace_status`,
@@ -118,11 +121,6 @@ trigger phrase)*
 `mempalace_diary_read("claude-opus", 3)`, and `bd memories haw`. It
 reconciled bead state vs MemPalace state and didn't find any divergence
 to flag.*
-
-**You:**
-```
-yes, 80v
-```
 
 **[v1.5]** *Status line still reads* `WORKFLOW: full | idle | 0s`
 *— no bead claimed yet, so activity/stage stay idle.*
@@ -528,24 +526,9 @@ RED→GREEN pair is usually worth keeping. The body of the GREEN commit
 already names the symptom, root cause, fix, and family lineage (the
 13p.3.11 deploy-day arc, fix commits 49645df + de50764 + a3483f2).*
 
-### 12. Finish branch
+### 12. Merge the branch
 
-**Claude:** *(invokes `superpowers:finishing-a-development-branch`)*
-
-> Implementation complete, tests pass. Four options:
->
-> 1. Merge locally to main + push
-> 2. Push branch + create PR
-> 3. Keep branch open for further work
-> 4. Discard
->
-> Recommend option 1 — this is a single-bead cleanup, no review
-> needed beyond what's already committed. Proceed?
-
-**You:**
-```
-1
-```
+**Claude:** *(phase C3)*
 
 ```bash
 cd ~/Working/hundred-acre-woods
@@ -557,7 +540,14 @@ python3 -m pytest -q 2>&1 | tail -2
 2167 passed, 16 skipped in 12.01s
 ```
 
-*Clean merge, full suite green on the merged state.*
+> Merged `frank/80v` onto `main`, no-ff, suite green on the merged
+> state. I took the local-merge default, since the bead isn't
+> upstream-shaped.
+
+*No menu here. The project's convention already answers which
+integration path to take, so a prompt would spend an interruption on
+a question the recipe can settle itself (loom-42cw, D8). The one line
+is what keeps a redirect cheap (D9).*
 
 ### 13. Preflight + close + push
 
@@ -590,9 +580,9 @@ git status
 `git show <sha>` for the merge + the original commit, and the prior
 drawers referenced. Both return in 5-15s.*
 
-**Claude:** *(presents drawer-author output)*
+**Claude:** *(reads the drawer-author draft)*
 
-> Drafted decision drawer body for review:
+> Drawer body back from the subagent:
 >
 > ```
 > 80v — REMOVE 13P.3.11 DIAGNOSTIC FINGERPRINT LOGGING
@@ -635,14 +625,10 @@ drawers referenced. Both return in 5-15s.*
 > OPEN: none.
 > ```
 >
-> Approve?
+> Reads right. Central is the reviewer here, not a router, so this
+> gets edited at the margins and filed rather than handed on.
 
-**You:**
-```
-approve
-```
-
-**Claude:** *(presents kg-relationship-extractor output)*
+**Claude:** *(reads the kg-relationship-extractor draft)*
 
 > Proposed KG triples (3 of allowed 5):
 >
@@ -659,12 +645,7 @@ approve
 >    *Why*: future searches for the deploy-day instrumentation
 >    family find this removal.
 >
-> Approve all three?
-
-**You:**
-```
-approve
-```
+> All three go in.
 
 **Claude:**
 
@@ -742,14 +723,26 @@ or, in the rare genuine case, bypass with `BD_CLOSE_FORCE=1 bd close
 old `--force` flag still works, but `BD_CLOSE_FORCE=1` is the headline
 bypass.*
 
-> 80v shipped. Want to clean up the worktree?
+> 80v shipped. Removing the worktree and the branch, per phase C3.
 
 ```bash
 git worktree remove .worktrees/80v
 git branch -d frank/80v
 ```
 
-> Worktree removed. Anything else this session?
+*Section 7 of `/wrap-up` closes the ritual with a report. Sections 1
+through 6 ran without stopping to ask, so the report is where you find
+out what they did, and every line in it is somewhere you can push
+back.*
+
+> - **Closed**: `80v`, named in the invocation. Discovery found
+>   nothing stranded.
+> - **Captured**: new drawer. No near-duplicate to extend.
+> - **Triples**: 3 filed.
+> - **Filed**: no follow-up beads.
+> - **Skipped**: nothing.
+>
+> Worktree and branch removed. Anything else this session?
 
 ### 14. Continue or stop
 
@@ -798,10 +791,10 @@ saves a final checkpoint.*
 
 ### Things you did manually
 
-- Decided which bead to work (recommendation came from
-  session-startup, but the choice is yours).
-- Approved the drawer + KG triples after subagents drafted them.
-- Chose the merge option in `finishing-a-development-branch`.
+- Rotated the credentials, which is dashboard work rather than
+  Claude work.
+- Let the bead pick, the capture and the merge stand. Each one was
+  announced, and any of them takes a line to redirect.
 - (You did NOT bypass the close hook — capture was done, so the
   evidence-aware hook allowed the close on its own.)
 
@@ -869,11 +862,12 @@ There are two axes of parallelism, and they compose:
 - **Across beads** — the fan-out detector (`~/.claude/scripts/loom-fanout-detect`,
   surfaced at selection by session-startup step 6a and the
   `/working-a-bead` router) checks the three beads' `Files:` lines. If
-  no two share a file and none depends on another, it proposes a wave
-  of file-disjoint beads to run in parallel via
+  no two share a file and none depends on another, it dispatches a
+  wave of file-disjoint beads in parallel via
   `superpowers:dispatching-parallel-agents` — one recipe per bug, each
-  in its own worktree. (A bead with no `Files:` line is excluded from
-  the wave: footprint unknown, not provably disjoint.)
+  in its own worktree, and names the wave in one line. (A bead with no
+  `Files:` line is excluded from the wave: footprint unknown, not
+  provably disjoint.)
 - **Within each bead** — each bug in the wave still runs its own
   RED→GREEN middle through `/dispatch-middle` (test-author then
   implementer). So a 3-bug wave can fan out to as many as six
@@ -886,7 +880,7 @@ t92/0qw/bi2 work hit one such collateral fix; it's normal).
 
 ### If the bead was a trivial 1-line fix
 
-Skip steps 2 (worktree) and 12 (finishing-a-development-branch), and
+Skip steps 2 (worktree) and 12 (branch merge), and
 skip `/dispatch-middle` — a genuinely trivial change (≤ ~15 lines, one
 non-test file, no new test) is the inline exception, edited directly on
 main. Record `dispatch=inline:<reason>` in workflow state so the

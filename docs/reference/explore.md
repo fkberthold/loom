@@ -106,6 +106,31 @@ exploration from session-startup's active scan.
   (reusing the existing grounding predicate), and the exploration's
   `status` becomes `promoted` with a `promoted-to` pointer.
 
+### The exits carry a recommendation
+
+The user picks, and central still takes a position. Surfacing the two
+exits flat hands back a stopping decision the user would have to
+rebuild from the drawer, and that's the shape loom's ask contract
+rules out (loom-42cw, D4). So central states its read first, then
+names the other exit as the live alternative.
+
+Three signals off the STATE HEADER carry the read, and central can
+measure all three: `open-threads` (how many sub-questions are still
+being chased), `current-understanding` (whether it moved this round or
+held), and `tiers-touched` (whether tier 4 ran, on a topic with a
+literature). The read reports numbers rather than an adjective. "Two
+open threads, understanding unchanged for two rounds, tier 4 done" is
+something the user can overrule. "The exploration looks mature" isn't.
+
+Threads shrinking to none with the understanding holding steady points
+at PROMOTE. Threads still opening, or a topic with a literature that
+tier 4 never touched, points at REST.
+
+What central can't rank is how much more of the user's attention the
+idea earns this week, which is why the exit stays theirs. A
+recommendation isn't a decision: `status` never flips on implicit
+assent, and nothing auto-promotes or auto-rests.
+
 ## KG predicates
 
 The recommended exploration-predicate vocabulary is a **soft

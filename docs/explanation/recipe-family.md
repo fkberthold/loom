@@ -77,9 +77,8 @@ own *variable middle*. The shell owns:
 - **Phase A.** Search MemPalace family, claim the bead, optionally
   isolate via a worktree.
 - **Phase B.** Verification with a clean shell + diff scope check.
-- **Phase C.** Per-task code review, commit on branch, and
-  finishing-a-development-branch (the four-option merge / push /
-  keep / discard prompt).
+- **Phase C.** Per-task code review, commit on branch, `--no-ff`
+  merge onto `main`, and one line saying what landed.
 - **Phase D.** Preflight, close, push, and capture
   (drawer + KG triples + diary).
 
@@ -198,7 +197,7 @@ threshold is a deliberate override central records as
 separate **fan-out detector** owns *across-bead* parallelism —
 multiple independent ready beads, each worked via its own
 `/dispatch-middle`. The two compose orthogonally: the detector
-proposes a wave of N file-disjoint beads (no dependency edge between
+dispatches a wave of N file-disjoint beads (no dependency edge between
 them, disjoint `Files:` footprints), and each bead in the wave runs
 its own within-bead pipeline.
 

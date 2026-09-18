@@ -204,26 +204,37 @@ Bead IDs are FINE to include — they're meaningless to upstream but
 invaluable for the watch-bead's future lineage. Loom-managed
 project names are NOT.
 
-The worker returns the file paths to central in its summary.
+The worker returns two things to central: the file paths, and a
+**redaction table**. The table carries one row per string the scrub
+flagged, giving the string as it appeared, what replaced it, and
+where in the body it sat. Anything the scrub was unsure of goes on
+the table too, with a `keep` call.
 
-### M6 — user review gate (central)
+### M6 — confirm the redaction list (central)
 
-Central reads the drafted files and quotes them inline so you can
-review without leaving the chat. You'll be asked:
+Central shows you the redaction table and nothing else, then asks one
+question: "Any row called wrong?"
 
-- "Issue body: any privacy redactions to add? Any rewording?"
-- (`--issue+pr` only) "PR body: same questions."
-- "Approve filing?"
+The table arrives with central's call already on it. Every row reads
+`redact` or `keep`, so agreeing costs you one word. The issue and PR
+bodies don't get pasted, because everything the question is about is
+already in the table. The `/tmp/` paths are there for anyone who
+wants the full text.
 
-**The gate is mandatory regardless of workflow mode.** Privacy
-redaction is the gate's load-bearing job; silently filing on
-assumed-approval defeats its purpose.
+**The gate is mandatory regardless of workflow mode.** It survives
+loom's ask contract on the pair that contract wants: a fact only you
+hold, and a mistake that doesn't undo. The scrub works by pattern, so
+it catches the shapes it knows. Which project names are codenames,
+which hosts are internal, and which affiliations you don't want
+public aren't written down in any tree. A filed issue keeps a public
+edit history, so a string that gets through stays through.
 
-If you request `≤3-line` polish, central edits the `/tmp/` files in
-place and re-asks for approval. If you request substantial changes,
-a fresh worker is briefed with the corrected M3-M5 scope. If your
-feedback suggests the M1 contract was wrong, the recipe re-enters
-M1 — don't paper over a contract miss with body edits.
+Central will not go on to M7 without a yes. Correct a row and it
+applies the correction to the `/tmp/` files, re-shows the corrected
+rows, and re-asks. A `≤3-line` polish central edits in place.
+Anything substantial briefs a fresh worker with the corrected M3-M5
+scope. If your feedback says the M1 contract was wrong, the recipe
+re-enters M1. Don't paper over a contract miss with body edits.
 
 ### M7 — auto-file + spawn watch-bead (central)
 
@@ -308,9 +319,10 @@ Drawer: drawer_loom_decisions_<...>
 Co-Authored-By: ..."
 ```
 
-Then run `superpowers:finishing-a-development-branch`. Upstream-work
-beads typically pick **merge to main** since the loom-side artifact
-is just the drawer + lineage commit.
+Then phase C3 merges the branch onto `main` with `--no-ff` and says
+in one line what landed. An upstream-work bead takes the local-merge
+default like any other, since the loom-side artifact is just the
+drawer + lineage commit. The PR already lives upstream.
 
 ### Phase D — close + capture
 

@@ -76,9 +76,8 @@ defaults to dispatch regardless of size. For a qualifying inline fix:
 
 1. Skip phase A2 (worktree creation). Work directly on the active
    branch.
-2. Skip phase C3
-   (`superpowers:finishing-a-development-branch`). Commit on main
-   directly.
+2. Skip phase C3 (the `--no-ff` branch merge). There's no branch to
+   merge, so commit on `main` directly.
 3. Record the exception in the state file:
    ```bash
    ~/.claude/scripts/workflow-state set dispatch=inline:<reason>
