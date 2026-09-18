@@ -1,8 +1,8 @@
 # Scaffold a managed project's docs
 
 To stand up a Diataxis-shaped MkDocs Material docs surface in a
-loom-managed project, run `/docs-scaffold` and approve each file
-the skeleton would write.
+loom-managed project, run `/docs-scaffold`. It writes the files the
+project doesn't have and leaves every file it does have alone.
 
 ## Precondition
 
@@ -28,8 +28,8 @@ the skeleton would write.
    /docs-scaffold --root /path/to/managed-project  # cross-project from anywhere
    ```
 
-2. **Run the slash command.** The skill walks six steps (M1–M6) with
-   prompts at each transition.
+2. **Run the slash command.** The skill walks six steps (M1–M6) and
+   stops to ask at one of them.
 
    ```text
    /docs-scaffold
@@ -39,27 +39,29 @@ the skeleton would write.
    fires when you type the slash command — no recipe, hook, or
    subagent will trigger it for you.
 
-3. **Confirm the variables.** At M4 the skill detects defaults from
-   `git config` and asks you to accept or edit each one:
+3. **Supply the short description.** At M4 the skill reads two of
+   the three variables straight out of `git config` and uses them
+   without asking:
 
-   | Variable | Default source |
+   | Variable | Source |
    |---|---|
    | `{{ project_name }}` | `git remote.origin.url` basename |
    | `{{ repo_url }}` | `git remote.origin.url`, normalized to https |
-   | `{{ short_description }}` | (no default — supply one line) |
+   | `{{ short_description }}` | you (no mechanical source) |
 
-   `short_description` has no default because the landing page reads
-   badly without it. Provide a single sentence describing the
-   project.
+   `short_description` is the one input the repo can't supply, which
+   is why it's the one question. Give a single sentence saying what
+   the project is for. The skill asks for `repo_url` too when the
+   project has no remote, for the same reason.
 
-4. **Review the per-file diff.** At M5 the skill prints every file
-   the scaffold would write, tagged:
+4. **Read the file list.** At M5 the skill prints every file in the
+   skeleton, tagged:
 
-   - `[NEW]` — the file does not exist; will be created.
-   - `[EXISTS — would overwrite]` — the file exists; requires
-     explicit approval to replace.
-   - `[EXISTS — identical]` — the file exists with byte-identical
-     content; no-op.
+   - `[NEW]` — the file does not exist. It gets written.
+   - `[EXISTS — differs]` — the project has its own version. Left
+     alone.
+   - `[EXISTS — identical]` — already byte-identical to the
+     template. No-op.
 
    The full skeleton inventory lives at
    [`templates/diataxis-README.md`](https://github.com/fkberthold/loom/blob/main/templates/diataxis-README.md)
@@ -68,18 +70,22 @@ the skeleton would write.
    how-to, four reference catalog pages, a mental-model explanation,
    and a README pointer).
 
-5. **Approve per file.** The skill prompts once per `[NEW]` /
-   `[EXISTS — would overwrite]` line:
+5. **Let it write.** Every `[NEW]` file lands. Both `[EXISTS]`
+   classes are left where they are.
 
-   ```text
-   File: docs/reference/skills/index.md  [NEW]. Apply? (yes / skip)
-   ```
+   There's no per-file question because there's no per-file decision
+   left. A `[NEW]` file displaces nothing, and an existing file is
+   never overwritten, so neither outcome turns on something you know
+   and the skill doesn't. The approval beat existed to stop anyone
+   losing hand-written docs to a template stub, and not writing over
+   them buys the same property without asking N times for the same
+   answer.
 
-   `yes` queues the write. `skip` drops the file from the apply set.
-   Per-file approval is **not optional**; there is no `--apply-all`
-   flag in v1. (A bulk "yes to all" / "skip all remaining"
-   shortcut is acceptable for ergonomics; do not default to silent
-   acceptance.)
+   If `mkdocs.yml` or `.github/workflows/docs.yml` comes back
+   `[EXISTS — differs]`, the M6 report names it and names the
+   consequence: the tree won't build or publish on the scaffold's
+   terms until your own copy carries the same wiring. Reported, not
+   refused. You may well have your own and be right to.
 
 6. **Mind the primitive-aware drops.** At M2 the skill scans the
    project for `skills/*/SKILL.md`, `commands/*.md`, `agents/*.md`,
@@ -88,19 +94,13 @@ the skeleton would write.
    project does not have. The summary at M6 names every dropped
    page so you can re-run after adding the missing primitives.
 
-7. **Skip the bones at your own risk.** If you decline
-   `mkdocs.yml.template` or `.github/workflows/docs.yml`, the
-   skill warns that the scaffold will not build or deploy without
-   them. The skill does not refuse — your project, your call —
-   but the warning surfaces the consequence.
-
-8. **Splice the README pointer.** The scaffold writes
+7. **Splice the README pointer.** The scaffold writes
    `README.docs-pointer.md` at the project root with a short
    pointer block. Paste it into your project's existing `README.md`
    (or replace its docs section); delete the pointer file
    afterward. The skill does not edit `README.md` for you.
 
-9. **Install dependencies and preview.** From the project root:
+8. **Install dependencies and preview.** From the project root:
 
    ```bash
    pip install -r requirements.txt
@@ -112,19 +112,19 @@ the skeleton would write.
    include-markdown-glob the project's primitives and should show
    real content already.
 
-10. **Push to publish.** A first-time GH Pages publish needs the
-    workflow to run from `main`:
+9. **Push to publish.** A first-time GH Pages publish needs the
+   workflow to run from `main`:
 
-    ```bash
-    git add docs/ mkdocs.yml requirements.txt .github/workflows/docs.yml
-    git commit -m "scaffold Diataxis docs"
-    git push
-    ```
+   ```bash
+   git add docs/ mkdocs.yml requirements.txt .github/workflows/docs.yml
+   git commit -m "scaffold Diataxis docs"
+   git push
+   ```
 
-    Then enable GitHub Pages in the repo settings: **Source =
-    "Deploy from a branch" → `gh-pages`** (one-time setup; the
-    workflow auto-creates the branch on first run). The next push to
-    `main` deploys the site.
+   Then enable GitHub Pages in the repo settings: **Source =
+   "Deploy from a branch" → `gh-pages`** (one-time setup; the
+   workflow auto-creates the branch on first run). The next push to
+   `main` deploys the site.
 
 ## Outcome
 
@@ -138,11 +138,16 @@ but content-empty — the project owns filling them in.
 ## Migrating existing flat docs
 
 Most projects adopt loom *after* accumulating some `docs/` content.
-At M3 the skill detects the existing files and offers `skip` /
-`merge` / `refuse`. `merge` is the typical answer when no template
-file collides with an existing one (see step 4 above) — the
-quadrants and skeleton bones land alongside the legacy files
-without overwriting anything.
+M3 detects the existing files and carries on: the quadrants and
+skeleton bones land alongside the legacy files, and nothing already
+there is touched. The two cases with real stakes have already stopped
+the run by then. An opted-out project refuses at the `.no-diataxis`
+marker, and a generated `docs/` tree refuses because scaffolding into
+one writes files the next build erases.
+
+If you wanted a clean scaffold rather than an additive one, move the
+old tree aside (`mv docs docs.bak`) and re-run. That's one command,
+and it keeps the old tree in your hands.
 
 That leaves the project in a **legitimate half-migrated state**:
 the new `docs/{tutorials,how-to,reference,explanation}/` tree
@@ -224,11 +229,11 @@ non-trivial doc edit to catch drift early.
 ## Idempotent re-runs
 
 A re-run of `/docs-scaffold` against an already-scaffolded project
-is idempotent: M3 detects the four quadrant subdirs and treats the
-run as a refresh of the skeleton bones (`mkdocs.yml`, the workflow,
-requirements, catalog index pages). Existing quadrant content is
-left alone unless you explicitly approve the overwrite in the M5
-diff. Use this to pull in new bones after upgrading loom without
+is idempotent by construction. M3 detects the four quadrant subdirs
+and the run becomes a refresh of the skeleton bones (`mkdocs.yml`,
+the workflow, requirements, catalog index pages). Existing quadrant
+content is left alone, because overwriting isn't on the table at
+all. Use this to pull in new bones after upgrading loom without
 losing your project-owned voice.
 
 ## Related

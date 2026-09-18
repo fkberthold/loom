@@ -46,27 +46,30 @@ follow these steps.
      so a cold start can resume the design, not just the bead queue.
      Resume it the same way an in-progress bead outranks ready work.
      See [Open a design cycle](./open-a-design-cycle.md).
-   - **6a — parallel-wave proposal.** When two or more ready beads
-     are independent (no dependency edge and disjoint `Files:`
-     lines), the skill proposes dispatching a parallel worker wave
-     as the **default** before falling back to a serial single-bead
-     pick. Answer `y` to dispatch, `edit` to prune or add beads, or
-     `serial` to take one bead at a time.
+   - **6a — parallel wave.** Independent ready beads (no dependency
+     edge, disjoint `Files:` lines) get dispatched as a parallel
+     worker wave rather than popped one at a time. The skill names
+     the wave and what it rests on in one line. Both inputs come
+     from the tracker, so there's no fact here you hold that it
+     can't reach. Prune the wave or go serial on your next message.
 
-3. **Confirm the bead pick.** The skill surfaces a candidate bead
-   plus a one-line "because" rationale. Approve, override, or ask for
-   the next candidate before any claim happens. If a parallel wave
-   (step 6a) or an active design cycle (step 1d) was proposed,
-   confirm that route instead — central never fans out workers or
-   advances a cycle without your go-ahead.
+3. **Redirect the pick if it's wrong.** The skill names the bead, the
+   process skill, and the next action, then claims it and starts. It
+   doesn't wait for a yes. The pick came off the top of `bd ready`,
+   and that's a priority you already recorded, so asking again
+   answers nothing (loom-42cw, D8). A parallel wave (step 6a) and an
+   active design cycle (step 1d) work the same way. Each one says
+   what it took, and that line is what leaves you room to redirect
+   (D9). A claim you don't want costs one `bd update` to undo.
 
 ## Outcome
 
 You are oriented: ready queue understood, in-progress beads checked
 for staleness, MemPalace state visible, any active design cycle
-surfaced, and a candidate bead (or parallel wave) chosen but not yet
-claimed. Hand off to [Claim a bead](./claim-a-bead.md), or — for an
-above-bead design — to [Open a design cycle](./open-a-design-cycle.md).
+surfaced, and a bead claimed with its recipe under way. A single bead
+hands off to [Claim a bead](./claim-a-bead.md) for the rest of phase
+A. An above-bead design hands off to
+[Open a design cycle](./open-a-design-cycle.md).
 
 ## Related
 

@@ -46,6 +46,13 @@ goes straight to selector pattern, not phased intro" and "ambiguity
 case lists candidates with one-line because, prompts user." Your job
 is to translate the locked design into `commands/working-a-bead.md`.
 
+*One of those six has since moved. The router's tie-break no longer
+prompts: it reads the bead text against the tied recipes' definitions,
+picks one, and says in a line which it took and why (loom-42cw). This
+page is the 2026-05-03 session as it ran, so the prompt shows up in
+the brainstorm, the RED contract and the verification below. Read
+`commands/working-a-bead.md` for what the router does today.*
+
 ### 0. Open terminal, launch Claude Code
 
 ```
@@ -92,23 +99,19 @@ let's pick up where we left off
 >
 > **In-progress:** none.
 >
-> **Recommendation:** ship `loom-1ab`. The design is locked in the
-> "RECIPE SHAPES — ACTIVITY MATRIX" drawer (HAW decisions,
-> 2026-05-02); this is execution against locked design, so brainstorm
-> light. Bead is feature-shaped (new behavior) — `feature-a-bead`
-> recipe applies.
+> **Pick:** `loom-1ab`, via `feature-a-bead`. The design is locked in
+> the "RECIPE SHAPES — ACTIVITY MATRIX" drawer (HAW decisions,
+> 2026-05-02), so this is execution against locked design and the
+> brainstorm stays light. The bead is feature-shaped (new behavior),
+> which is what picks the recipe.
 >
-> Proceed with `loom-1ab` via `feature-a-bead`?
+> It came off the top of `bd ready` in `light` mode. Say so on your
+> next message if you'd rather take something else.
 
 *Behind the scenes: light mode skipped the `mempalace_status` and
 `mempalace_kg_stats` calls but still ran the diary read + recent
 decision drawer scan. The reconciliation step matched: `bd ready`
 agrees with the latest `loom/decisions` drawer.*
-
-**You:**
-```
-yes
-```
 
 ### 2. Engage the recipe
 
@@ -539,26 +542,9 @@ than squashing.*
 **[v1.5]** *Stage update:* `~/.claude/scripts/workflow-state set
 stage=commit`.
 
-### 12. Finish branch
+### 12. Merge the branch
 
-**Claude:** *(invokes `superpowers:finishing-a-development-branch`)*
-
-> Implementation complete, contract verified at the dispatch-table
-> level. Four options:
->
-> 1. Merge locally to main + push
-> 2. Push branch + create PR
-> 3. Keep branch open for further work
-> 4. Discard
->
-> Recommend option 1 — single-file feature, the change is contained
-> within `commands/working-a-bead.md`, no reviewer needed beyond
-> what's already verified. Proceed?
-
-**You:**
-```
-1
-```
+**Claude:** *(phase C3)*
 
 ```bash
 cd ~/repos/loom
@@ -570,7 +556,13 @@ ls commands/working-a-bead.md
 commands/working-a-bead.md
 ```
 
-*Clean merge. The file exists on `main`.*
+> Merged `frank/loom-1ab` onto `main`, no-ff, one file changed. I took
+> the local-merge default, since the bead isn't upstream-shaped.
+
+*Clean merge. The file exists on `main`. The shell doesn't offer a
+menu here: the project's convention already settles the integration
+path, so a prompt would buy nothing (loom-42cw, D8). The one line is
+what keeps a redirect cheap (D9).*
 
 ### 13. Preflight + close + push
 
@@ -609,12 +601,8 @@ subagents in parallel.*
 > - `/working-a-bead-router → dispatches-to → bugfix-a-bead, feature-a-bead, refactor-a-bead, research-a-bead, cleanup-a-bead, docs-a-bead`
 > - `loom-1ab → succeeds → working-a-bead-v1`
 >
-> Approve?
-
-**You:**
-```
-yes
-```
+> Both read right. Central reviews the drafts and files them; it
+> doesn't hand the review on.
 
 ```bash
 # duplicate-check before drawer write
@@ -693,14 +681,12 @@ stage=close`.
 
 ### Things you did manually
 
-- Decided which bead to work (recommendation came from
-  session-startup, but the choice is yours).
 - Pivoted from `/working-a-bead` to `/feature-a-bead` when the
   router itself was the bead being built (bootstrap awareness).
 - Made the dispatch-vs-inline call at M2 (here: dispatch — the bead is
   over the inline threshold and the contract is a new test surface).
-- Approved the drawer + KG triples after subagents drafted them.
-- Chose the merge option in `finishing-a-development-branch`.
+- Let the bead pick, the capture and the merge stand. Each one was
+  announced, and any of them takes a line to redirect.
 
 ### Things the recipe enforced
 
