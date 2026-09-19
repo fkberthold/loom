@@ -26,6 +26,7 @@ filesystem at build time via `mkdocs-include-markdown`.
 | `dispatch-middle` | `/dispatch-middle <bead>`, or auto at a recipe's RED→GREEN middle when the bead is non-trivial |
 | `explore` | `/explore <idea>`; above-bead SUB-design primitive — front-door to `/design-a-cycle` (the ladder is explore → design → build). NOT a bead and NOT a design cycle (no soundness gate, no epic) |
 | `design-a-cycle` | `/design-a-cycle <topic>`; above-bead orchestrator (NOT an activity recipe — iterates, spawns research-a-beads + an epic) |
+| `create-beads` | Indirect. The design-to-beads handoff `design-a-cycle` reaches once its decisions lock, or invoked directly when a design is ready to become beads |
 | `docs-scaffold` | `/docs-scaffold` (manual-only; never auto-suggested) |
 | `loom-mine-history` | `/loom-mine-history` (manual-only; two-pass cost gate) |
 | `loom-adopt` | `/loom-adopt` (manual-only); one-shot orchestrator that composes the adoption primitives (audit-project, scripts/docs scaffold, history-mine, constitution) into a resumable phase machine |
