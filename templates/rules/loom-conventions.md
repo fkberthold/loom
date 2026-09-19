@@ -424,6 +424,40 @@ carries on either way.
 
 ---
 
+## Where a brainstorm's design lands
+
+`superpowers:brainstorming` ends by writing a spec to
+`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and handing off to
+`writing-plans`. **In a project with a bead tracker, the design lands as
+beads instead.** The skill concedes this itself, in the line right under
+the path it names: "User preferences for spec location override this
+default." This is that preference, stated once so every session has it.
+
+It has three exits, because the skill has three paths and each one ends
+somewhere different.
+
+- **Architectural** ends at an epic plus child beads, not a spec file and
+  not `writing-plans`.
+- **Bounded** files one bead, then implements against it.
+- **Spike** files nothing. The output is the answer.
+
+Carry the design itself into the beads: the locked decisions into the
+descriptions, and a `RED:` line wherever a decision has a testable
+altitude. A spec file nobody tracks is the artifact this rule exists to
+avoid, so don't write one and then file a bead pointing at it.
+
+### The option cap wins over the skill's count
+
+The skill says "Propose 2-3 approaches" in five places. **The cap is
+two.** A third option is a diagnosis, per the ask contract above.
+
+This one needs saying rather than gating. The option-cap hook counts the
+`AskUserQuestion` tool and exits on everything else, and the skill asks
+for options "conversationally". Three approaches in prose pass every
+check in the repo and still break the rule.
+
+---
+
 ## Above-bead work: explore → design → build
 
 Neither exploration nor design is a bead. **Do not file one as a bead or
