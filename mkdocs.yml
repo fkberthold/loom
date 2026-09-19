@@ -111,6 +111,7 @@ nav:
           - bead-lifecycle-shell: reference/skills/bead-lifecycle-shell.md
           - bugfix-a-bead: reference/skills/bugfix-a-bead.md
           - cleanup-a-bead: reference/skills/cleanup-a-bead.md
+          - create-beads: reference/skills/create-beads.md
           - design-a-cycle: reference/design-a-cycle.md
           - dispatch-middle: reference/dispatch-middle.md
           - docs-a-bead: reference/skills/docs-a-bead.md
