@@ -164,6 +164,45 @@ first.
 
 ---
 
+## Context depth is a quality variable, so spend it deliberately
+
+A long context doesn't hold quality flat. Measured across one 2,953-turn
+session, the rate at which the agent retracted its own stated claims rose
+with context depth: 0.5% below 400K tokens, 0.9% from 400K to 600K, and
+1.8% above 600K. The median context at a retraction was 618K against a
+session median of 466K. That sample is 30 retractions, so read the shape
+rather than the ratios.
+
+The failure has one shape. Deep in a compacted context, a recalled fact
+and a read fact feel identical, so the agent states what it remembers
+with the confidence it earned by reading. Every convention about citing
+evidence exists to catch that, and every one of them gets weaker in the
+band where it's most needed.
+
+### Compact early, on purpose
+
+**Take a deliberate compaction near 250K rather than drifting to 800K.**
+A summary written at 250K comes from a context the model can still read.
+One written at 800K comes from a model already in the degraded band, and
+it seeds the next segment with worse material. Late compactions compound
+downward.
+
+### Dispatch is the context lever, not a tax on it
+
+Exploration is what should happen in a worker and come back as a summary.
+In the session above, the agent's own shell calls cost roughly 353,000
+tokens while thirteen dispatched workers returned 3,601 between them. If
+central is deep in its context, the answer is usually to dispatch more of
+its own reading, not to trim it.
+
+That only works when the brief grounds the worker. A worker starts with
+almost all of its context spent on generic material and almost none on
+the task, so a brief that points at a file instead of quoting the passage
+makes the worker rebuild the grounding at full price. Central already
+holds those passages and pays nothing to quote them.
+
+---
+
 ## Bead conventions
 
 ### Declare `Files:` in every bead description
