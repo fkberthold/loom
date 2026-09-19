@@ -115,7 +115,7 @@ For pure exploratory work with no concrete bead yet:
 1. Use `superpowers:brainstorming` (or `beadpowers:brainstorming`
    if the output will be beads).
 2. Iterate through dialogue until a concrete bead emerges.
-3. File the bead via `beadpowers:create-beads`, then engage the
+3. File the bead via `create-beads`, then engage the
    matching recipe via [Claim a bead](./claim-a-bead.md).
 
 ## Outcome

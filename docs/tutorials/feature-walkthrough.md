@@ -738,7 +738,7 @@ CLAUDE_WORKFLOW_OFF=1 claude
 ### If the feature were multi-task
 
 M2 fires non-trivially. Run `superpowers:writing-plans` to draft a
-plan, then `beadpowers:create-beads` to spawn child beads. Each child
+plan, then `create-beads` to spawn child beads. Each child
 gets its own `/working-a-bead` invocation (which routes by *that*
 child's shape — could be feature, refactor, etc.). The parent bead
 becomes a coordinator; close it last with the `--reason="all

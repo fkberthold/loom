@@ -38,7 +38,7 @@ Pick the path that matches the scope before you start:
 3. **Iterate through dialogue.** Refine the design, options,
    constraints, and unknowns until a concrete bead emerges.
 
-4. **File the bead.** Run `beadpowers:create-beads` to write the
+4. **File the bead.** Run `create-beads` to write the
    bead (or epic + child beads) to the tracker.
 
 5. **Engage the matching recipe.** Type

@@ -36,7 +36,7 @@ diagnosed, so it is optional by construction. The cycle loops until
 Tier-0 is green before any handoff.
 
 At **handoff**, once Tier-0 is green, the cycle runs
-`beadpowers:create-beads` against the locked decisions to spawn the
+`create-beads` against the locked decisions to spawn the
 implementation epic + its child beads. The handoff is enriched: each
 bead carries a `Files:` line (the loom-asr fan-out convention), and each
 bead spawned from a Tier-1 decision ALSO carries a `RED:` line holding

@@ -213,7 +213,7 @@ hard hook.
 
 #### Handoff — create-beads spawns the implementation epic
 
-Once Tier-0 is green, hand off: run `beadpowers:create-beads` against
+Once Tier-0 is green, hand off: run `create-beads` against
 the locked decisions to spawn the implementation **epic** + its child
 beads. The handoff is enriched beyond the plain create-beads shape:
 

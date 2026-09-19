@@ -222,7 +222,7 @@ against.
 
 **It produces the contracts the recipes consume.** When a design cycle
 locks a decision, it precipitates that decision into structure — and
-at handoff, `beadpowers:create-beads` spawns the implementation epic's
+at handoff, `create-beads` spawns the implementation epic's
 child beads carrying those contracts. The leaf recipes then work those
 beads. The design cycle is upstream; the family is downstream.
 

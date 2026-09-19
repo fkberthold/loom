@@ -151,7 +151,7 @@ It's the opt-out, not a third option to weigh.
 | Design work, new feature, "build X" | `superpowers:brainstorming` or `beadpowers:brainstorming` |
 | Implementation with tests required | `superpowers:test-driven-development` |
 | Bug, test failure, unexpected behavior | `superpowers:systematic-debugging` |
-| Filing many beads from a finished design | `beadpowers:create-beads` |
+| Filing many beads from a finished design | `create-beads` |
 | Independent parallel work streams | `superpowers:dispatching-parallel-agents` |
 | Implementation that warrants isolation | `superpowers:using-git-worktrees` |
 | Plan execution with review checkpoints | `superpowers:executing-plans` |

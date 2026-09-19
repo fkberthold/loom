@@ -351,7 +351,7 @@ posture), not a hard hook.*
 ## 5. Handoff — spawn the implementation epic
 
 *Once Tier-0 is green, the orchestrator hands off: it runs
-`beadpowers:create-beads` against the locked decisions to spawn the
+`create-beads` against the locked decisions to spawn the
 implementation **epic** plus its child beads. The handoff is enriched
 beyond the plain create-beads shape.*
 
@@ -360,7 +360,7 @@ beyond the plain create-beads shape.*
 hand off
 ```
 
-**Claude:** *(Handoff — `beadpowers:create-beads`)*
+**Claude:** *(Handoff — `create-beads`)*
 
 > Tier-0 green. Spawning the implementation epic from the locked
 > decisions.
@@ -498,7 +498,7 @@ not itself one.
 | The scaffolded design-doc shape is wrong | `templates/design-doc/DESIGN-DOC.md.template` |
 | Within-bead test→code split is wrong | `~/.claude/skills/dispatch-middle/SKILL.md` |
 | The leaf recipe that works a spawned bead | `~/.claude/skills/<shape>-a-bead/SKILL.md` |
-| Bead-creation / `Files:`+`RED:` convention | `beadpowers:create-beads` + project `CLAUDE.md` |
+| Bead-creation / `Files:`+`RED:` convention | `create-beads` + project `CLAUDE.md` |
 | A locked decision worth re-capturing | `mempalace_add_drawer` / `mempalace_kg_add` |
 
 The [where-to-update-what guide](../how-to/where-to-update-what.md)
